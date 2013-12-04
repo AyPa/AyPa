@@ -346,7 +346,7 @@ OCR1AL=0x40; // 40000
 
 //  TCCR1B |= (1 << WGM12);
 //  TCCR1B |= (1 << CS10);
-  TIMSK1 |= (1 << OCIE1A);
+ // TIMSK1 |= (1 << OCIE1A);//no need for interrupt just using for profiling code
   
 sei();
 
@@ -418,6 +418,7 @@ char buf[128];
 uint16_t t1,t2,tt1,tt2,ttt1,ttt2;
 // the loop routine runs over and over again forever:
 void loop() {
+word t,n;
 
   pinMode(9,OUTPUT);
   //pinMode(10,OUTPUT);
@@ -455,15 +456,13 @@ LcdSet(0,0);for(byte i=0;i<84;i++){SendChar(0);} // clear ram manually
 cli();
 TCNT1=0;
 sa("Marinochka!!!a1234567890+-*~=============="); //ascii
-int t=TCNT1;
+t=TCNT1;
 sei();
 
 //.for(int i=0;i<strlen(buf2);i++){sprintf(buf,"%d %d %c %d %d]",i,buf2[i],buf2[i],Rus[(buf2[i]-32)*5],Rus[(buf2[i]-32)*5+1]);sa(buf);}
 //sprintf( buf+strlen(buf), ",%s:%04i", sensorCode, sensorValue );
-sprintf(buf,"TCNT1=%d",t);
-sa(buf);
+sprintf(buf,"TCNT1=%d",t);sa(buf);
 
-  delay(15000);
 
 
 //for(byte i=0;i<84;i++){SendChar(i);}
@@ -477,8 +476,6 @@ sa(buf);
 //SendStr("MARINOCHKA!!!a1234567890");
   //delay(7000);
 
- digitalWrite(RST,LOW);
-// digitalWrite(RST,HIGH);
  
 
 //lcd
@@ -491,8 +488,71 @@ sa(buf);
   SetADCinputChannel(0,500);
   word i;mRawADC(i,2);
   //digitalWrite(A5,HIGH);
-  
 
+//A0 playground
+//-------------------------------------------
+
+//A0=102 of 1023
+
+//n=digitalRead(A0);// 1
+//n=PINC&1; // 1
+//byte c=DDRC;//1E 0
+//n=digitalRead(A0);// 1
+
+DDRC|=(1<<0);//pinMode(A0,OUTPUT);
+PORTC&=~(1<<0);//digitalWrite(A0,LOW);
+//n=PINC&1; // 0
+
+//NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;
+//NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;
+
+//A0=96 of 1023
+//A0=44..48 of 1023 with //digitalWrite(A0,LOW);
+//A0=63..64 of 1023 with PORTC&=~(1<<0);
+
+
+delayMicroseconds(50);// time for capacitor to discharge A0=12;
+//delayMicroseconds(30);// time for capacitor to discharge A0=28;
+//delayMicroseconds(20);// time for capacitor to discharge A0=39 of 1023;
+
+
+
+
+
+//cli();TCNT1=0;
+byte c=DDRC;//1F 1
+DDRC&=~(1<<0);//pinMode(A0,INPUT);//(9clocks vs 1)// clear bit A0 in DDRC
+byte d=DDRC;//1E 0
+//t=TCNT1;sei();
+
+// here the capacitor is charging
+
+// A0=143 of 1023
+
+//cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();
+
+//delayMicroseconds(10);// time for capacitor to discharge
+
+//i=PINC;//0
+//n=0;while(digitalRead(A0)==LOW){if(++n==3000){break;}}//n=114
+//n=0;while((PINC&&1)==LOW){NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;if(++n==32000){break;}}//n=419 with ~1us delay (8x0.125)
+//n=0;while((PINC&&1)==LOW){NOP;NOP;NOP;NOP;if(++n==32000){break;}}//n=541 with ~0.5us delay (4x0.125)
+//n=0;while((PINC&&1)==LOW){if(++n==32000){break;}}//n=755..778 with 2/8 us delay (2x0.125) 0.1microfarad +20k pullup +220r to A0
+n=0;while((PINC&&1)==LOW){if(++n==32000){break;}}//n=3805..3839 with 2/8 us delay (2x0.125) 0.1microfarad +100k pullup +220r to A0
+
+//n=digitalRead(A0);
+i=PINC;//1
+
+//A0=519 of 1023
+
+//cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();
+
+//sa("Marinochka!!!a1234567890+-*~=============="); //ascii
+sprintf(buf,"     TCNT1=%d i=%d",t,i);sa(buf);
+LcdSet(0,5);
+sprintf(buf,"n=%d c=%d d=%d",n,c,d);sa(buf);
+
+  delay(15000);
 
 
 //  lcd.clear();
@@ -625,6 +685,9 @@ lcd.print("]");*/
 //digitalWrite(A5,LOW);
 //  pinMode(A5, OUTPUT); //LCD led backlight
 //-------------------------------------------------------------------------------------------------[ power saving wait state ]
+ digitalWrite(RST,LOW);
+// digitalWrite(RST,HIGH);
+
 SPI.end();
 
 ADCSRA=0;// switch off ADC
@@ -632,6 +695,7 @@ ACSR = (1<<ACD); // switch off analog comparator
 //digitalWrite(10,LOW);// lcd 
 digitalWrite(9,LOW);// acs712 module 
 //digitalWrite(A5,LOW);// LCD display backlight off
+pinMode(A0,INPUT);
 pinMode(A1,INPUT);pinMode(A2,INPUT);pinMode(A3,INPUT);pinMode(A4,INPUT);pinMode(2,INPUT);pinMode(3,INPUT);pinMode(4,INPUT);
 pinMode(9,INPUT);pinMode(10,INPUT);pinMode(6,INPUT);pinMode(7,INPUT);pinMode(8,INPUT);
 
