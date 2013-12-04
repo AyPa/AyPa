@@ -8,7 +8,7 @@
 #include "AyPa_fonts.h"
   
 
-// nokia 5110 pins
+// nokia 5110 pins layout 
 
 #define RST 6
 #define CE 7
