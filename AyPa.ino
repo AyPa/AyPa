@@ -65,16 +65,19 @@ void LcdSet(byte x,byte y)
   LcdWriteCmd(0b01000000|y);//set Y (0..5)
 }
 
+// clocks delay with 42 chars in string (Atmega328 with internal 8MHz oscillator)
 // 7774 clocks original
 // 7637
 // 6624
 // 1100
 // 1057
 // 952
-void sa(char *st)
+// 946 
+// 799
+void sa(char *st) // send ASCII string to display at current position
 {
-  byte i=0;
-  byte ch;
+  byte i=0,c;
+  int ch;
   
   do{
 //    LcdWriteData(0);//space  (start with it - while it is sending can calc address)
@@ -84,6 +87,8 @@ void sa(char *st)
 SPDR = 0;// start transfer with space (while it is sending can calc address)
 //calcs
     ch=(st[i++]-32)*5;
+    c=Rus[ch++];//preload next char
+    
 
 while(!(SPSR&(1<<SPIF)));
 
@@ -93,35 +98,41 @@ while(!(SPSR&(1<<SPIF)));
 //  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
 //  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
 //    LcdWriteData(Rus[ch]);
-SPDR = Rus[ch++];
+SPDR = c;//Rus[ch++];
+    c=Rus[ch++];
 while(!(SPSR&(1<<SPIF)));
 //  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
 //----------------------------------------------------  
 //  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
 //  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
 //    LcdWriteData(Rus[ch+1]);
-SPDR = Rus[ch++];
+SPDR = c;
+    c=Rus[ch++];
 while(!(SPSR&(1<<SPIF)));
 //  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
 //----------------------------------------------------  
 //  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
 //  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
 //    LcdWriteData(Rus[ch+2]);
-SPDR = Rus[ch++];
+SPDR = c;
+    c=Rus[ch++];
 while(!(SPSR&(1<<SPIF)));
+
 //  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
 //----------------------------------------------------  
 //  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
 //  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
 //    LcdWriteData(Rus[ch+3]);
-SPDR = Rus[ch++];
+SPDR = c;
+    c=Rus[ch++];
 while(!(SPSR&(1<<SPIF)));
+
 //  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
 //----------------------------------------------------  
 //  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
 //  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
 //    LcdWriteData(Rus[ch+4]);
-SPDR = Rus[ch];
+SPDR = c;
 while(!(SPSR&(1<<SPIF)));
   PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
 //----------------------------------------------------  
@@ -157,7 +168,7 @@ LcdWriteData(Rus[ch*5+3]);
 LcdWriteData(Rus[ch*5+4]);
 }
 
-void LcdWriteCmd(byte cmd)
+void InitSPI(void)
 {
 //SPI.setDataMode(SPI_MODE0);//default
 //SPI.setBitOrder(MSBFIRST);// maybe
@@ -166,6 +177,11 @@ SPSR = (1 << SPI2X);//2
 //SPSR = (0 << SPI2X); //4
 //SPCR = (1 << MSTR) | (1 << SPE) |(1<<SPR0);      // enable, master, msb first
 SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
+}
+
+
+void LcdWriteCmd(byte cmd)
+{
 
   digitalWrite(DC,LOW);
   digitalWrite(CE,LOW);
@@ -396,6 +412,8 @@ sei();
 word sc[16];
 word mn=5555,mx=5000;
 
+char buf2[]="Aa2";
+
 char buf[128];
 uint16_t t1,t2,tt1,tt2,ttt1,ttt2;
 // the loop routine runs over and over again forever:
@@ -409,6 +427,7 @@ void loop() {
  //   digitalWrite(10,HIGH);// lcd
 
   SPI.begin();
+  InitSPI();
 
  pinMode(RST,OUTPUT);
  pinMode(CE,OUTPUT);
@@ -435,15 +454,16 @@ LcdSet(0,0);for(byte i=0;i<84;i++){SendChar(0);} // clear ram manually
 
 cli();
 TCNT1=0;
-sa("MARINOCHKA!!!a1234567890+-*~=============="); //ascii
+sa("Marinochka!!!a1234567890+-*~=============="); //ascii
 int t=TCNT1;
 sei();
 
+//.for(int i=0;i<strlen(buf2);i++){sprintf(buf,"%d %d %c %d %d]",i,buf2[i],buf2[i],Rus[(buf2[i]-32)*5],Rus[(buf2[i]-32)*5+1]);sa(buf);}
 //sprintf( buf+strlen(buf), ",%s:%04i", sensorCode, sensorValue );
 sprintf(buf,"TCNT1=%d",t);
 sa(buf);
 
-  delay(7000);
+  delay(15000);
 
 
 //for(byte i=0;i<84;i++){SendChar(i);}
@@ -551,13 +571,14 @@ wdt_reset();
   
 //  digitalWrite(led, LOW);    // turn the LED off by making the voltage LOW
  // lcd.setCursor(0,3); lcd.print("LOW!");
+/*
 cli();
 t1=TCNT1;
 //for(int j=0;j<16;j++){sc[j]=analogRead(0);}
 for(int j=0;j<16;j++){mRawADC(sc[j],2);}
 t2=TCNT1;
 sei();
-
+*/
 //lcd.setCursor(0,0);
 long z=0;
 
@@ -599,7 +620,7 @@ lcd.print(r2);
 
 lcd.print("]");*/
 
-for(long i=0;i<3000000;i++){NOP;}//~2100ms delay
+//for(long i=0;i<3000000;i++){NOP;}//~2100ms delay
 //  pinMode(A5, INPUT); //LCD led backlight
 //digitalWrite(A5,LOW);
 //  pinMode(A5, OUTPUT); //LCD led backlight
