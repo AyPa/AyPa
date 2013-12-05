@@ -1,7 +1,9 @@
+#include <avr/io.h>
 #include <avr/wdt.h>
 #include <avr/interrupt.h>
 #include <avr/power.h>
 #include <avr/sleep.h>
+#include <avr/pgmspace.h>
 
 #include <DS1302.h>
 #include <SPI.h>
@@ -75,49 +77,49 @@ void sw(word v)
   PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
   
   SPDR = 0;// start transfer with space  
-  ch=v/10000;v-=ch*10000;ch*=3;c=Dig[ch++];
+  ch=v/10000;v-=ch*10000;ch*=3; c = pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch++];
+  SPDR = c; c = pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch++];
+  SPDR = c; c = pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = 0;// start transfer with space
-  ch=v/1000;v-=ch*1000;ch*=3;c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch];
+  SPDR = c; c = pgm_read_byte(&(Dig[ch++]));//c=Dig[ch];
   while(!(SPSR&(1<<SPIF)));
   SPDR = 0;// start transfer with space
-  ch=v/100;v-=ch*100;ch*=3;c=Dig[ch++];
+  ch=v/1000;v-=ch*1000;ch*=3; c = pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch++];
+  SPDR = c; c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch++];
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = 0;// start transfer with space
-  ch=v/10;v-=ch*10;ch*=3;c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch];
+  SPDR = c;c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
   SPDR = 0;// start transfer with space
-  ch=v*3;c=Dig[ch++];
+  ch=v/100;v-=ch*100;ch*=3;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch++];
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch++];
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch];
+  SPDR = c;c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = 0;// start transfer with space
+  ch=v/10;v-=ch*10;ch*=3;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = 0;// start transfer with space
+  ch=v*3;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
 
   PORTD|=(1<<CE);// digitalWrite(CE,HIGH);      
@@ -134,22 +136,22 @@ void sh(byte v)
 
 //do{
   SPDR = 0;// start transfer with space
-  ch=(v>>4)*3;c=Dig[ch++];
+  ch=(v>>4)*3;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch++];
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch++];
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch];
+  SPDR = c;c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
   SPDR = 0;// start transfer with space
-  ch=(v&0xF)*3;c=Dig[ch++];
+  ch=(v&0xF)*3;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch++];
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch++];
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch];
+  SPDR = c;c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
 //}while(i!=0xff);
 
@@ -168,13 +170,13 @@ void sb(byte v)
 
 do{
   SPDR = 0;// start transfer with space
-  ch=0;if(v&(1<<i--))ch=3;c=Dig[ch++];
+  ch=0;if(v&(1<<i--))ch=3;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch++];
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch++];
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
-  SPDR = c;c=Dig[ch];
+  SPDR = c;c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
 }while(i!=0xff);
 
@@ -206,7 +208,8 @@ SPDR = 0;// start transfer with space (while it is sending can calc address)
 //calcs
     c=st[i++];if (c>127){c=st[i++];}// 16bit code
     ch=(c-32)*5;
-    c=Rus[ch++];//preload next char
+//    c=Rus[ch++];//preload next char
+    c=pgm_read_byte(&(Rus[ch++]));
     
 while(!(SPSR&(1<<SPIF)));
 
@@ -217,7 +220,9 @@ while(!(SPSR&(1<<SPIF)));
 //  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
 //    LcdWriteData(Rus[ch]);
 SPDR = c;//Rus[ch++];
-    c=Rus[ch++];
+//    c=Rus[ch++];
+    c=pgm_read_byte(&(Rus[ch++]));
+
 while(!(SPSR&(1<<SPIF)));
 //  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
 //----------------------------------------------------  
@@ -225,7 +230,8 @@ while(!(SPSR&(1<<SPIF)));
 //  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
 //    LcdWriteData(Rus[ch+1]);
 SPDR = c;
-    c=Rus[ch++];
+//    c=Rus[ch++];
+    c=pgm_read_byte(&(Rus[ch++]));
 while(!(SPSR&(1<<SPIF)));
 //  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
 //----------------------------------------------------  
@@ -233,7 +239,8 @@ while(!(SPSR&(1<<SPIF)));
 //  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
 //    LcdWriteData(Rus[ch+2]);
 SPDR = c;
-    c=Rus[ch++];
+    c=pgm_read_byte(&(Rus[ch++]));
+//    c=Rus[ch++];
 while(!(SPSR&(1<<SPIF)));
 
 //  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
@@ -242,7 +249,8 @@ while(!(SPSR&(1<<SPIF)));
 //  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
 //    LcdWriteData(Rus[ch+3]);
 SPDR = c;
-    c=Rus[ch++];
+    c=pgm_read_byte(&(Rus[ch++]));
+//    c=Rus[ch++];
 while(!(SPSR&(1<<SPIF)));
 
 //  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
@@ -428,8 +436,35 @@ void SetADCinputChannel(uint8_t input,uint16_t us)
 #define mRawADC(v,p) ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|p;do{}while(bit_is_set(ADCSRA,ADSC));v=ADCW; 
 
 
+
+/*
+typedef struct { 
+  char c1; 
+  char c2; 
+  uint8_t b1; 
+  uint8_t b2; 
+} sager_type; 
+
+static sager_type forecast[] PROGMEM = 
+{ 
+   {'C', 'U', '8', '8'}, 
+   {'C', 'U', '8', '8'}, 
+   {'C', 'U', '8', '8'}, 
+   {'C', 'U', '8', '8'}, 
+   {'W', 'U', '8', '8'}, 
+   {'A', 'U', '8', '8'}, 
+   {'A', 'U', '8', '8'} 
+}; 
+
+sager_type ram_struct; */
+
+
 // the setup routine runs once when you press reset:
 void setup() {                
+
+//  memcpy_P(&ram_struct, &forecast[4], sizeof(ram_struct)); 
+
+
   // initialize the digital pin as an output.
 //  pinMode(led, OUTPUT);  
 //  digitalWrite(A5,HIGH); pullup resistor
@@ -442,7 +477,7 @@ void setup() {
  // pinMode(A5, OUTPUT); //LCD led backlight
 //  digitalWrite(A5,HIGH);
 
-
+//memcpy_P(&Dig, &Dig, sizeof(Dig)); 
 
   //watchdogSetup();
 
