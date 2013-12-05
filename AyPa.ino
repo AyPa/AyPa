@@ -65,6 +65,64 @@ void LcdSet(byte x,byte y)
   LcdWriteCmd(0b01000000|y);//set Y (0..5)
 }
 
+// 164 clocks
+// integer word representation
+void sw(word v)
+{
+  byte c,ch;
+  
+  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
+  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
+  
+  SPDR = 0;// start transfer with space  
+  ch=v/10000;v-=ch*10000;ch*=3;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = 0;// start transfer with space
+  ch=v/1000;v-=ch*1000;ch*=3;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = 0;// start transfer with space
+  ch=v/100;v-=ch*100;ch*=3;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = 0;// start transfer with space
+  ch=v/10;v-=ch*10;ch*=3;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = 0;// start transfer with space
+  ch=v*3;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch];
+  while(!(SPSR&(1<<SPIF)));
+
+  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);      
+}
+
 // 27 clocks
 //hex byte representation
 void sh(byte v)
@@ -529,14 +587,11 @@ sprintf(buf,"TCNT1=%d",t);sa(buf);
 
 cli();TCNT1=0;
 //sb(n);
-sh(0x01);
-sh(0x23);
-sh(0x45);
-sh(0x67);
-sh(0x89);
-sh(0xAB);
-sh(0xCD);
-sh(0xEF);
+//sh(0x01);
+//sh(0xED);
+//sw(65535);
+sw(t);
+
 t=TCNT1;sei();
 sprintf(buf,"TCNT1=%d",t);sa(buf);
 
