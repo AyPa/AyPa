@@ -66,7 +66,7 @@ void LcdSet(byte x,byte y)
 }
 
 // 164 clocks
-// integer word representation
+// integer word representation 
 void sw(word v)
 {
   byte c,ch;
