@@ -67,6 +67,47 @@ void LcdSet(byte x,byte y)
   LcdWriteCmd(0b01000000|y);//set Y (0..5)
 }
 
+
+// 89 clocks
+// integer 3 digits representation 
+void s3(word v)
+{
+  byte c,ch;
+  
+  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
+  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
+  
+  SPDR = 0;// start transfer with space  
+  ch=v/100;v-=ch*100;ch*=3;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = 0;// start transfer with space
+  ch=v/10;v-=ch*10;ch*=3;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = 0;// start transfer with space
+  ch=v*3;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+
+  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);      
+}
+
 // 164 clocks
 // integer word representation 
 void sw(word v)
@@ -457,6 +498,16 @@ static sager_type forecast[] PROGMEM =
 }; 
 
 sager_type ram_struct; */
+byte pin2_interrupt_flag=0;
+byte timv=0;
+
+void pin2_isr()
+{
+  timv=TCNT2;
+  sleep_disable();
+  detachInterrupt(0);
+  pin2_interrupt_flag = 1;
+}
 
 
 // the setup routine runs once when you press reset:
@@ -482,7 +533,7 @@ void setup() {
   //watchdogSetup();
 
 
-//setup timer 1
+//setup timer1
 cli();
 TCCR1A=0x00;
 TCCR1B=(1 << WGM12)|(0<<CS22)|(0<<CS21)|(1<<CS20); // /no prescaler;
@@ -501,36 +552,45 @@ OCR1AL=0xFF;
 //  TCCR1B |= (1 << WGM12);
 //  TCCR1B |= (1 << CS10);
  // TIMSK1 |= (1 << OCIE1A);//no need for interrupt just using for profiling code
-  
 sei();
 
+// setup timer2 
+//  cli();
+  //TCCR2A=(1<<WGM21); // ctc mode
+//  TCCR2B=(0<<CS22)|(0<<CS21)|(1<<CS20); // /no prescaler
+//  TCCR2B=(0<<CS22)|(1<<CS21)|(0<<CS20); // /8
+//  TCCR2B=(1<<CS22)|(1<<CS21)|(1<<CS20); // 1024
+  //TCNT2 = 0; // clear counter
+//  OCR2A=255; // clear timer on compare
+ // TIMSK2 |= (1<<OCIE2A); // no need that frequent interrupt at all
+//  sei();
+cli();
+   TIMSK2 &= ~(_BV(OCIE2A) | _BV(OCIE2B) | _BV(TOIE2)); // disable interrupts 
+    ASSR = _BV(AS2);     // select clock source -8MHz crystal connected on xtal1, xtal2 
 
+  TCCR2B=(0<<CS22)|(0<<CS21)|(1<<CS20); // /no prescaler
+//  TCCR2B=(0<<CS22)|(1<<CS21)|(0<<CS20); // /8
+//  TCCR2B=(1<<CS22)|(1<<CS21)|(1<<CS20); // 1024
 
-/*
-	//======define charset
-	uint8_t bell[8] = {0x4,0xe,0xe,0xe,0x1f,0x0,0x4};
-	uint8_t clock[8] = {0x0,0xe,0x15,0x17,0x11,0xe,0x0};
-	uint8_t heart[8] = {0x0,0xa,0x1f,0x1f,0xe,0x4,0x0};
-	uint8_t duck[8] = {0x0,0xc,0x1d,0xf,0xf,0x6,0x0};
-	uint8_t check[8] = {0x0,0x1,0x3,0x16,0x1c,0x8,0x0};
-	uint8_t cross[8] = {0x0,0x1b,0xe,0x4,0xe,0x1b,0x0};
-	uint8_t retarrow[8] = { 0x1,0x1,0x5,0x9,0x1f,0x8,0x4};
-	uint8_t box[8] = { 0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f};
-		
-	lcd.createChar(0, bell);
-	lcd.createChar(1, box);
-	lcd.createChar(2, clock);
-	lcd.createChar(3, heart);
-	lcd.createChar(4, duck);
-	lcd.createChar(5, check);
-	lcd.createChar(6, cross);
-	lcd.createChar(7, retarrow);
+//  TCCR2B = _BV(CS22) | _BV(CS20); 
+/* Setup timer2 prescaler to step 
+                 * down by a factor of 128; with 
+                 * the crystal running at 32Khz, 
+                 * dividing it by 128 will make 
+                 * timer2 run at 256hz; so timer2 
+                 * overflows every 1 second. */ 
 
-	lcd.setCursor(0,1);for (int j=0; j<8; j++) {lcd.write(j);}
-	delay(2000);*/
+ TCNT2 = 0; // clear counter
+ OCR2A=255; // clear timer on compare
+
+    // clear the Timer/Counter2 Interrupt Flags 
+    TIFR2 = _BV(TOV2); 
+
+    // enable counter2 overflow flag 
+//    TIMSK2 = _BV(TOIE2); 
+sei();
 
 //  Serial.begin(9600);
-//  Serial.print(",dsndvmdjkvhj");
 
 //pinMode(7,OUTPUT);
 //pinMode(7,INPUT);
@@ -570,16 +630,30 @@ char buf2[]="Aa2";
 
 char buf[128];
 uint16_t t1,t2,tt1,tt2,ttt1,ttt2;
+
 // the loop routine runs over and over again forever:
 void loop() {
 word t,n;
 
+
+cli();
+   TIMSK2 &= ~(_BV(OCIE2A) | _BV(OCIE2B) | _BV(TOIE2)); // disable interrupts 
+    ASSR = _BV(AS2);     // select clock source -8MHz crystal connected on xtal1, xtal2 
+  TCCR2B=(0<<CS22)|(0<<CS21)|(1<<CS20); // /no prescaler
+//  TCCR2B=(0<<CS22)|(1<<CS21)|(0<<CS20); // /8
+//  TCCR2B=(1<<CS22)|(1<<CS21)|(1<<CS20); // 1024
+ TCNT2 = 0; // clear counter
+ OCR2A=255; // clear timer on compare
+    TIFR2 = _BV(TOV2); 
+sei();
+
+  pinMode(2,INPUT);digitalWrite(2,HIGH);//delay(1000);digitalWrite(2,LOW);
+
   pinMode(9,OUTPUT);
-  //pinMode(10,OUTPUT);
+  pinMode(10,OUTPUT);
   
     digitalWrite(9,HIGH);// acs712 module + lcd
-  //  delay(1000);
- //   digitalWrite(10,HIGH);// lcd
+    digitalWrite(10,HIGH);// 5v mosfet control
 
   SPI.begin();
   InitSPI();
@@ -609,26 +683,27 @@ LcdSet(0,0);for(byte i=0;i<84;i++){SendChar(0);} // clear ram manually
 
 cli();
 TCNT1=0;
-sa("Тестовая АуРа!1234567890+-*~=============="); 
+sa("Тестовая АуРа!"); 
+//sa("Тестовая АуРа!1234567890+-*~=============="); 
 //sa("Marinochka!!!a1234567890+-*~=============="); 
 //sa("Мариночка!!!!Мариночка!!!!!Мариночка!!!!!");
-//sa("МариночкайцукеМариночкайцукеМариночкайцуке"); 
 t=TCNT1;
 sei();
 
 //.for(int i=0;i<strlen(buf2);i++){sprintf(buf,"%d %d %c %d %d]",i,buf2[i],buf2[i],Rus[(buf2[i]-32)*5],Rus[(buf2[i]-32)*5+1]);sa(buf);}
 //sprintf( buf+strlen(buf), ",%s:%04i", sensorCode, sensorValue );
-sprintf(buf,"TCNT1=%d",t);sa(buf);
+sprintf(buf,"CNT1=%d pin2 flag=%d %d ",t,pin2_interrupt_flag,timv);sa(buf);
 
 cli();TCNT1=0;
 //sb(n);
 //sh(0x01);
 //sh(0xED);
 //sw(65535);
-sw(t);
+//sw(t);
+s3(t);
 
 t=TCNT1;sei();
-sprintf(buf,"TCNT1=%d",t);sa(buf);
+sprintf(buf,"CNT1=%d",t);sa(buf);
 
 
 
@@ -653,6 +728,7 @@ sprintf(buf,"TCNT1=%d",t);sa(buf);
  // lcd.begin(20,4);  lcd.setCursor(0,0); //lcd.print("Marinochka lapochka!"); delay(1000);
 
   SetADCinputChannel(0,500);
+//  SetADCinputChannel(5,500);
   word i;mRawADC(i,2);
   //digitalWrite(A5,HIGH);
 
@@ -773,10 +849,55 @@ t=TCNT1;sei();
 
 //sa("Marinochka!!!a1234567890+-*~=============="); //ascii
 sprintf(buf,"     TCNT1=%d i=%d",t,i);sa(buf);
-LcdSet(0,5);
+LcdSet(0,4);
+
+TCNT2=0;
+//delay(2);
+delayMicroseconds(1000);//4 ticks on 8mhz
+c=TCNT2;
+
 sprintf(buf,"n%d c%d d%d",n,c,d);sa(buf);
 
-  delay(15000);
+
+LcdSet(0,5);
+/*
+cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();
+//sprintf(buf,"b%d",i);sa(buf);
+
+pinMode(A5,OUTPUT);
+digitalWrite(A5,HIGH);// charge capacitor
+delay(1);
+int i1,i2,i3,i4,i5,i6;
+cli();mRawADC(i1,2);sei();
+//i4=digitalRead(A5);
+
+TCNT1=0;
+//PORTC&=~(1<<5);//digitalWrite(A5,LOW);
+digitalWrite(A5,LOW);
+pinMode(A5,INPUT);
+//DDRC&=~(1<<5);//pinMode(A5,INPUT);//(9clocks vs 1)// clear bit A5 in DDRC
+
+i3=digitalRead(A5);
+n=0;while((PINC&0b00100000)==HIGH){if(++n==32000){break;}}//n=
+
+cli();mRawADC(i2,2);sei();
+//cli();mRawADC(i3,2);sei();
+//cli();mRawADC(i4,2);sei();
+//cli();mRawADC(i5,2);sei();
+//cli();mRawADC(i6,2);sei();
+
+t=TCNT1;
+i3=n;
+
+//TCNT1=0;
+sprintf(buf,"%d %d %d %d %d %d ",i1,i2,i3,i4,i5,i6);
+//t=TCNT1;
+sa(buf);
+sprintf(buf,"t=%d",t);sa(buf);
+*/
+
+
+  delay(5000);
 
 
 //  lcd.clear();
@@ -923,21 +1044,23 @@ pinMode(A0,INPUT);
 pinMode(A1,INPUT);pinMode(A2,INPUT);pinMode(A3,INPUT);pinMode(A4,INPUT);pinMode(2,INPUT);pinMode(3,INPUT);pinMode(4,INPUT);
 pinMode(9,INPUT);pinMode(10,INPUT);pinMode(6,INPUT);pinMode(7,INPUT);pinMode(8,INPUT);
 
+digitalWrite(2,LOW);//pinMode(2,INPUT);
 
 
 
+/*
 cli();  // disable all interrupts
 wdt_reset(); // reset the WDT timer
 MCUSR &= ~(1<<WDRF);  // because the data sheet said to
-/*
-WDTCSR configuration:
-WDIE = 1 :Interrupt Enable
-WDE = 1  :Reset Enable - I won't be using this on the 2560
-WDP3 = 0 :For 1000ms Time-out
-WDP2 = 1 :bit pattern is 
-WDP1 = 1 :0110  change this for a different
-WDP0 = 0 :timeout period.
-*/
+
+//WDTCSR configuration:
+//WDIE = 1 :Interrupt Enable
+//WDE = 1  :Reset Enable - I won't be using this on the 2560
+//WDP3 = 0 :For 1000ms Time-out
+//WDP2 = 1 :bit pattern is 
+//WDP1 = 1 :0110  change this for a different
+//WDP0 = 0 :timeout period.
+
 // Enter Watchdog Configuration mode:
 WDTCSR = (1<<WDCE) | (1<<WDE);
 // Set Watchdog settings: interrupte enable, 0110 for timer
@@ -948,17 +1071,46 @@ WDTCSR = (1<<WDCE) | (1<<WDE);
 //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (0<<WDP0);//240ms
 //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (1<<WDP0);//480ms
 //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);//960ms
-WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);//2s
+//WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);//2s
 //WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
-//WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
+WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
 sei();
+*/
 
 //set_sleep_mode (SLEEP_MODE_IDLE);// 29.6ma - don't work
 //set_sleep_mode (SLEEP_MODE_ADC);// 6.3ma clock is off
 //set_sleep_mode (SLEEP_MODE_PWR_SAVE);// 3.7ma
 //set_sleep_mode (SLEEP_MODE_STANDBY);// 2.7ma 
-set_sleep_mode (SLEEP_MODE_PWR_DOWN);// 0.76ma
+//set_sleep_mode (SLEEP_MODE_PWR_DOWN);// 0.76ma
 
+
+pin2_interrupt_flag=0;
+sleep_enable();
+attachInterrupt(0, pin2_isr, LOW);
+TCNT2=0;
+set_sleep_mode(SLEEP_MODE_ADC);
+//set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+//set_sleep_mode (SLEEP_MODE_PWR_SAVE);// timer2 but it is not in async mode yet
+//cli();
+//sleep_bod_disable();
+//sei();
+sleep_cpu();
+/* wake up here */
+sleep_disable();
+
+
+/*
+attachInterrupt(0, pin2_isr, LOW);
+set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+cli();
+sleep_enable();
+sleep_bod_disable();
+sei();
+sleep_cpu();
+// wake up here 
+sleep_disable();
+*/
+/*power_adc_disable(),power_spi_disable(),power_timer0_disable(), power_timer1_disable(),power_timer2_disable(),power_twi_disable()*/
 /*SLEEP_MODE_IDLE: 15 mA
 SLEEP_MODE_ADC: 6.5 mA
 SLEEP_MODE_PWR_SAVE: 1.62 mA
@@ -983,14 +1135,11 @@ Bit 0 - PRADC: Power Reduction ADC
 
 //PRR = 0xFF; // not working
 
-  sleep_enable();
-    // turn off brown-out enable in software
- // MCUCR = bit (BODS) | bit (BODSE);  // turn on brown-out enable select
- // MCUCR = bit (BODS);        // this must be done within 4 clock cycles of above
-  sleep_cpu(); 
+//  sleep_enable();
+  //sleep_cpu(); 
   
   
-  sleep_disable();//wakeup
+//  sleep_disable();//wakeup
 
 //for(long i=0;i<6000000;i++){NOP;}//~4200ms delay
 
