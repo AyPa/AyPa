@@ -74,22 +74,24 @@ void LcdSet(byte x,byte y)
 // 952
 // 946 
 // 799
+// 784..811 all ascii / all 16bit unicode  STRANGE... this must be ofsetted by SPI transfer. maybe volatile asm provide this better
 void sa(char *st) // send ASCII string to display at current position
 {
   byte i=0,c;
-  int ch;
+  word ch;
+  
+  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
+  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
   
   do{
 //    LcdWriteData(0);//space  (start with it - while it is sending can calc address)
-  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
-  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
 
 SPDR = 0;// start transfer with space (while it is sending can calc address)
 //calcs
-    ch=(st[i++]-32)*5;
+    c=st[i++];if (c>127){c=st[i++];}// 16bit code
+    ch=(c-32)*5;
     c=Rus[ch++];//preload next char
     
-
 while(!(SPSR&(1<<SPIF)));
 
 //  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
@@ -134,10 +136,12 @@ while(!(SPSR&(1<<SPIF)));
 //    LcdWriteData(Rus[ch+4]);
 SPDR = c;
 while(!(SPSR&(1<<SPIF)));
-  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
 //----------------------------------------------------  
+//if(st[i]==0){break;}
+//  }while (1);
+}while (st[i]!=0);//same same
 
-  }while (st[i]!=0);
+  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
   
 }
 
@@ -337,12 +341,12 @@ TCNT1H=0x00;
 TCNT1L=0x00;
 ICR1H=0x00;
 ICR1L=0x00;
-OCR1AH=0x9C;
-OCR1AL=0x40; // 40000
+//OCR1AH=0x9C;
+//OCR1AL=0x40; // 40000
 //OCR1AH=0x4E;
 //OCR1AL=0x20; // 20000
-//OCR1AH=0xFF;
-//OCR1AL=0xFF;
+OCR1AH=0xFF;
+OCR1AL=0xFF;
 
 //  TCCR1B |= (1 << WGM12);
 //  TCCR1B |= (1 << CS10);
@@ -455,7 +459,9 @@ LcdSet(0,0);for(byte i=0;i<84;i++){SendChar(0);} // clear ram manually
 
 cli();
 TCNT1=0;
-sa("Marinochka!!!a1234567890+-*~=============="); //ascii
+//sa("Marinochka!!!a1234567890+-*~=============="); 
+//sa("Мариночка!!!!Мариночка!!!!!Мариночка!!!!!");
+sa("МариночкайцукеМариночкайцукеМариночкайцуке"); 
 t=TCNT1;
 sei();
 
@@ -491,6 +497,18 @@ sprintf(buf,"TCNT1=%d",t);sa(buf);
 
 //A0 playground
 //-------------------------------------------
+
+// stage1
+//--------------------------
+//     +Vcc
+//      |
+//     ||| 20-100K
+//      |
+// ---------zzzz220R----A0
+//      |
+//     ===
+//      |
+//      G
 
 //A0=102 of 1023
 
@@ -535,22 +553,67 @@ byte d=DDRC;//1E 0
 
 //i=PINC;//0
 //n=0;while(digitalRead(A0)==LOW){if(++n==3000){break;}}//n=114
-//n=0;while((PINC&&1)==LOW){NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;if(++n==32000){break;}}//n=419 with ~1us delay (8x0.125)
-//n=0;while((PINC&&1)==LOW){NOP;NOP;NOP;NOP;if(++n==32000){break;}}//n=541 with ~0.5us delay (4x0.125)
-//n=0;while((PINC&&1)==LOW){if(++n==32000){break;}}//n=755..778 with 2/8 us delay (2x0.125) 0.1microfarad +20k pullup +220r to A0
-n=0;while((PINC&&1)==LOW){if(++n==32000){break;}}//n=3805..3839 with 2/8 us delay (2x0.125) 0.1microfarad +100k pullup +220r to A0
+//n=0;while((PINC&1)==LOW){NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;if(++n==32000){break;}}//n=419 with ~1us delay (8x0.125)
+//n=0;while((PINC&1)==LOW){NOP;NOP;NOP;NOP;if(++n==32000){break;}}//n=541 with ~0.5us delay (4x0.125)
+//n=0;while((PINC&1)==LOW){if(++n==32000){break;}}//n=755..778 with 2/8 us delay (2x0.125) 0.1microfarad +20k pullup +220r to A0
+cli();TCNT1=0;
+n=0;while((PINC&1)==LOW){NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP; NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP; NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;if(++n==32000){break;}}//n=419 with ~1us delay (8x0.125)
+//n=0;while((PINC&1)==LOW){if(++n==32000){break;}}//n=4502..4746 with 2/8 us delay (2x0.125) 0.1microfarad +100k pullup +220r to A0
+t=TCNT1;sei();
 
 //n=digitalRead(A0);
-i=PINC;//1
+//i=PINC;//1
 
 //A0=519 of 1023
 
 //cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();
 
+// stage2 - capacitor is discharging to ground very fast. maybe connect it to closed mosfet instead of ground???
+// nope. different current circuits. don't mix them
+//--------------------------
+// ---------zzzz220R----A0
+//     +|
+//     ===
+//      |
+//      G
+
+// charge the capacitor by output logic HIGH to pin
+//cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei(); //A0=67 of 1023 here
+
+//DDRC|=(1<<PINC0);//pinMode(A0,OUTPUT);
+//PORTC|=(1<<PINC0);//digitalWrite(A0,HIGH);
+//PORTC|=(1<<PINC0);// in asm this is supposedly right to avoid logic 1 during transitions? need extended check though
+//DDRC|=(1<<PINC0);
+
+//n=PINC;
+//n=PIND2;//2
+
+//delayMicroseconds(100);// time for capacitor to charge (1022)
+//delayMicroseconds(50);// time for capacitor to charge (1012)
+//delayMicroseconds(10);// time for capacitor to charge (960)
+//delayMicroseconds(5);// time for capacitor to charge (944)
+
+//cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();//924
+// now disconnect pin
+
+//n=PINC&1;
+
+//PORTC&=~(1<<PINC0);//digitalWrite(A0,LOW);// more rapid discharge if just write low
+//DDRC&=~(1<<PINC0);//pinMode(A0,INPUT);// probably this will be during sleeping 17..22
+
+//n=PINC&1;
+
+//cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();//82
+
+//cli();TCNT1=0;
+//n=0;while((PINC&1)==HIGH){if(++n==32000){break;}}//n=3805..4374 with 2/8 us delay (2x0.125) 0.1microfarad +100k pullup +220r to A0
+//t=TCNT1;sei();
+
+
 //sa("Marinochka!!!a1234567890+-*~=============="); //ascii
 sprintf(buf,"     TCNT1=%d i=%d",t,i);sa(buf);
 LcdSet(0,5);
-sprintf(buf,"n=%d c=%d d=%d",n,c,d);sa(buf);
+sprintf(buf,"n%d c%d d%d",n,c,d);sa(buf);
 
   delay(15000);
 
