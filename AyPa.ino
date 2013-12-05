@@ -65,6 +65,64 @@ void LcdSet(byte x,byte y)
   LcdWriteCmd(0b01000000|y);//set Y (0..5)
 }
 
+// 27 clocks
+//hex byte representation
+void sh(byte v)
+{
+  byte c,ch;
+  
+  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
+  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
+
+//do{
+  SPDR = 0;// start transfer with space
+  ch=(v>>4)*3;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = 0;// start transfer with space
+  ch=(v&0xF)*3;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch];
+  while(!(SPSR&(1<<SPIF)));
+//}while(i!=0xff);
+
+  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);      
+}
+
+
+//114-115 clocks
+//binary byte representation
+void sb(byte v)
+{
+  byte c,ch,i=7;
+  
+  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
+  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
+
+do{
+  SPDR = 0;// start transfer with space
+  ch=0;if(v&(1<<i--))ch=3;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;c=Dig[ch];
+  while(!(SPSR&(1<<SPIF)));
+}while(i!=0xff);
+
+  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);      
+}
+
 // clocks delay with 42 chars in string (Atmega328 with internal 8MHz oscillator)
 // 7774 clocks original
 // 7637
@@ -141,8 +199,7 @@ while(!(SPSR&(1<<SPIF)));
 //  }while (1);
 }while (st[i]!=0);//same same
 
-  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
-  
+  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);    
 }
 
 void SendStr(char *st)
@@ -459,14 +516,28 @@ LcdSet(0,0);for(byte i=0;i<84;i++){SendChar(0);} // clear ram manually
 
 cli();
 TCNT1=0;
+sa("Тестовая АуРа!1234567890+-*~=============="); 
 //sa("Marinochka!!!a1234567890+-*~=============="); 
 //sa("Мариночка!!!!Мариночка!!!!!Мариночка!!!!!");
-sa("МариночкайцукеМариночкайцукеМариночкайцуке"); 
+//sa("МариночкайцукеМариночкайцукеМариночкайцуке"); 
 t=TCNT1;
 sei();
 
 //.for(int i=0;i<strlen(buf2);i++){sprintf(buf,"%d %d %c %d %d]",i,buf2[i],buf2[i],Rus[(buf2[i]-32)*5],Rus[(buf2[i]-32)*5+1]);sa(buf);}
 //sprintf( buf+strlen(buf), ",%s:%04i", sensorCode, sensorValue );
+sprintf(buf,"TCNT1=%d",t);sa(buf);
+
+cli();TCNT1=0;
+//sb(n);
+sh(0x01);
+sh(0x23);
+sh(0x45);
+sh(0x67);
+sh(0x89);
+sh(0xAB);
+sh(0xCD);
+sh(0xEF);
+t=TCNT1;sei();
 sprintf(buf,"TCNT1=%d",t);sa(buf);
 
 
