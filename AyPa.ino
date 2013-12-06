@@ -733,7 +733,7 @@ void setup() {
    */
 }
 
-
+/*
 ISR(TIMER1_OVF_vect)
 {
   //Toggle pin PD0 every second
@@ -746,14 +746,22 @@ ISR(TIMER2_OVF_vect)
   //Toggle pin PD0 every second
   //    PIND=(1<<PD0);
   t2ovf++;
+}*/
+
+int freeRam(void)
+{
+  extern unsigned int __heap_start;
+  extern void *__brkval;
+  int free_memory,stack_here;
+  if (__brkval == 0) { free_memory = (int) &stack_here - (int) &__heap_start;}
+  else{free_memory = (int) &stack_here - (int) __brkval;}
+  return (free_memory);
 }
 
 word sc[16];
 word mn=5555,mx=5000;
 
-char buf2[]="Aa2";
-
-char buf[128];
+char buf[64]; // carefully with long vars. 2k ram only
 uint16_t t1,t2,tt1,tt2,ttt1,ttt2;
 
 // the loop routine runs over and over again forever:
@@ -805,9 +813,13 @@ void loop() {
 
   //.for(int i=0;i<strlen(buf2);i++){sprintf(buf,"%d %d %c %d %d]",i,buf2[i],buf2[i],Rus[(buf2[i]-32)*5],Rus[(buf2[i]-32)*5+1]);sa(buf);}
   //sprintf( buf+strlen(buf), ",%s:%04i", sensorCode, sensorValue );
-  sprintf(buf,"CNT1=%d pin2 flag=%d ",t,pin2_interrupt_flag);
+  sprintf(buf," CNT1=%d pin2 flag=%d ",t,pin2_interrupt_flag);
   sw(t1111);
+  sa(" ");
+  sw(freeRam());
   sa(buf);
+
+
 
   cli();
   TCNT1=0;
@@ -820,7 +832,7 @@ void loop() {
 
   t=TCNT1;
   sei();
-  sprintf(buf,"CNT1=%d",t);
+  sprintf(buf," CNT1=%d",t);
   sa(buf);
 
 
@@ -839,10 +851,10 @@ void loop() {
 
 
   //lcd
-  pinMode(A0,INPUT);
-  pinMode(6,OUTPUT);
-  pinMode(7,OUTPUT);
-  pinMode(8,OUTPUT);//rtc
+//  pinMode(A0,INPUT);
+//  pinMode(6,OUTPUT);
+  //pinMode(7,OUTPUT);
+//  pinMode(8,OUTPUT);//rtc
 
   //pinMode(A1,OUTPUT);
  // pinMode(A2,OUTPUT);
@@ -1001,7 +1013,7 @@ void loop() {
   sa(buf);
 */
 
-  LcdSet(0,5);
+//  LcdSet(0,5);
   /*
 cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();
    //sprintf(buf,"b%d",i);sa(buf);
@@ -1038,7 +1050,8 @@ cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();
    sprintf(buf,"t=%d",t);sa(buf);
    */
 
-
+  //sw(freeRam());
+  
   delay(100);
 
 
