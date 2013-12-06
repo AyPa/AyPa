@@ -21,8 +21,8 @@
 
 
 //LiquidCrystalFast lcd(2,3,4,A1,A2,A3,A4);//4bit mode
-//DS1302 rtc(6,7,8);//ce data clk
-//DS1302_RAM ramBuffer;
+DS1302 rtc(3,8,4);//ce data clk
+DS1302_RAM ramBuffer;
 
 
 /*
@@ -722,13 +722,13 @@ void setup() {
   // when it is not needed
 
   /*
-  pinMode(6,OUTPUT);pinMode(7,OUTPUT);pinMode(8,OUTPUT);
+  pinMode(4,OUTPUT);pinMode(3,OUTPUT);pinMode(8,OUTPUT);
    
    rtc.halt(false);
    rtc.writeProtect(false);
-   rtc.setDOW(SATURDAY);        // Set Day-of-Week to FRIDAY
-   rtc.setTime(15, 04, 0);     // Set the time to 12:00:00 (24hr format)
-   rtc.setDate(30, 11, 2013);   // Set the date to August 6th, 2010
+   rtc.setDOW(FRIDAY);        // Set Day-of-Week to FRIDAY
+   rtc.setTime(10, 35, 0);     // Set the time to 12:00:00 (24hr format)
+   rtc.setDate(06, 12, 2013);   // Set the date to August 6th, 2010
    //  rtc.writeProtect(true);
    */
 }
@@ -772,6 +772,10 @@ void loop() {
 
   pinMode(9,OUTPUT);
   pinMode(10,OUTPUT);
+  pinMode(3,OUTPUT);//rtc CE
+  pinMode(4,OUTPUT);//rtc CLK
+  pinMode(8,OUTPUT);//rtc IO
+  
 
   digitalWrite(9,HIGH);// acs712 module + lcd
   digitalWrite(10,HIGH);// 5v mosfet control
@@ -893,8 +897,8 @@ void loop() {
   //byte c=DDRC;//1E 0
   //n=digitalRead(A0);// 1
 
-  DDRC|=(1<<0);//pinMode(A0,OUTPUT);
-  PORTC&=~(1<<0);//digitalWrite(A0,LOW);
+  //DDRC|=(1<<0);//pinMode(A0,OUTPUT);
+  //PORTC&=~(1<<0);//digitalWrite(A0,LOW);
   //n=PINC&1; // 0
 
     //NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;
@@ -905,7 +909,7 @@ void loop() {
   //A0=63..64 of 1023 with PORTC&=~(1<<0);
 
 
-  delayMicroseconds(50);// time for capacitor to discharge A0=12;
+ // delayMicroseconds(50);// time for capacitor to discharge A0=12;
   //delayMicroseconds(30);// time for capacitor to discharge A0=28;
   //delayMicroseconds(20);// time for capacitor to discharge A0=39 of 1023;
 
@@ -914,9 +918,9 @@ void loop() {
 
 
   //cli();TCNT1=0;
-  byte c=DDRC;//1F 1
-  DDRC&=~(1<<0);//pinMode(A0,INPUT);//(9clocks vs 1)// clear bit A0 in DDRC
-  byte d=DDRC;//1E 0
+ // byte c=DDRC;//1F 1
+ // DDRC&=~(1<<0);//pinMode(A0,INPUT);//(9clocks vs 1)// clear bit A0 in DDRC
+ // byte d=DDRC;//1E 0
   //t=TCNT1;sei();
 
   // here the capacitor is charging
@@ -1050,92 +1054,64 @@ cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();
    sprintf(buf,"t=%d",t);sa(buf);
    */
 
-  //sw(freeRam());
   
-  delay(100);
 
 
   //  lcd.clear();
 
   //rtc
 
-  // for (int i=0; i<31; i++)ramBuffer.cell[i]=i;
+  //for (int i=0; i<31; i++)ramBuffer.cell[i]=i;
 
   //  comment("Writing buffer to RAM...");
-  // rtc.writeBuffer(ramBuffer);
+  //rtc.writeBuffer(ramBuffer);
   // bufferDump();
 
   //    comment("Setting byte 15 (0x0F) to value 160 (0xA0)...");
   // rtc.poke(15,160);
-
-  // ramBuffer=rtc.readBuffer();
+  //cli();TCNT1=0;
+//rtc.writeBuffer(ramBuffer);//7896us
+ // ramBuffer=rtc.readBuffer();//8075us
+// c=rtc.peek(11);//520us
+// rtc.poke(15,255);//517us
+//t=TCNT1;sei();
   // bufferDump();
 
   //  comment("Reading address 18 (0x12). This should return 18, 0x12.");
   // r1 = rtc.peek(18);
   // r2 = rtc.peek(15);
+/*
+cli();TCNT1=0;
+Time tim= rtc.getTime();//2292us
+t=TCNT1;sei();
 
-
+sprintf(buf,"  [  %d %d-%d-%d %d:%d:%d]",tim.dow,tim.date,tim.mon,tim.year,tim.hour,tim.min,tim.sec);sa(buf);
+*/
+//for(byte i=10;i<31;i++)
+//{
+//rtc.poke(i,i);
+ // sh(rtc.peek(i));}
+//  sh(rtc.peek(15));
+//  sh(rtc.peek(19));
+ 
   // Send Day-of-Week
-  /*  lcd.print(rtc.getDOWStr());
-   lcd.print(" ");
+//    lcd.print(rtc.getDOWStr());
+  // lcd.print(" ");
    
    // Send date
-   lcd.print(rtc.getDateStr());
-   lcd.print(" -- ");
+  // lcd.print(rtc.getDateStr());
+   //lcd.print(" -- ");
    
    // Send time
-   lcd.println(rtc.getTimeStr());
+//   lcd.println(rtc.getTimeStr());
    
    // Wait one second before repeating :)
-   delay (3000);
-   */
+  // delay (3000);
 
-  // Serial.print("Hi! ");delay(100);
-
-  // digitalWrite(led, HIGH);   // turn the LED on (HIGH is the voltage level)
-  // lcd.setCursor(0,2); lcd.print("HIGH!");
-
-
-  for(byte i=0;i<12;i++){
-    ttt1=millis();
-    cli();
-    tt1=ticks;
-    t1=TCNT1;
-    sei();//atomic read
-    /*
-  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;
-     wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;
-     wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;
-     wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;
-     wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;
-     wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;
-     wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;
-     wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;
-     wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;
-     wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;  wait1us;*/
-    //t1=TCNT1;delayMicroseconds(1);t2=TCNT1;
-    //lcd.print(t2-t1);
-
-    //delayMicroseconds(100);
-    //wait1us;
-    //   delay(100);
-
-    //  delay(1000);
-    cli();
-    t2=TCNT1;
-    tt2=ticks;
-    sei();
-    ttt2=millis();
-    //  delay(1000);
-    //  lcd.print(" ");lcd.print(ttt2-ttt1);lcd.print(" ");lcd.print(tt2-tt1);lcd.print(" ");lcd.print(t2-t1-4); 
-    wdt_reset();
-    //  lcd.clear();
-  }
-  //delay(10000);               // wait for a second
-
-  //  digitalWrite(led, LOW);    // turn the LED off by making the voltage LOW
-  // lcd.setCursor(0,3); lcd.print("LOW!");
+  delay(100);
+  
+  
+  
   /*
 cli();
    t1=TCNT1;
@@ -1145,7 +1121,7 @@ cli();
    sei();
    */
   //lcd.setCursor(0,0);
-  long z=0;
+ // long z=0;
 
   //for(int j=0;j<16;j++){z+=sc[j]*10;
   //lcd.print(" ");lcd.print(sc[j]);}
@@ -1163,27 +1139,7 @@ cli();
    //WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
    sei();
    delay(24);*/
-  /*
-lcd.setCursor(0,0);
-   // lcd.print(" d");lcd.print(days);lcd.print("h");lcd.print(hours);lcd.print(":");lcd.print(minutes);lcd.print(":");lcd.print(seconds);
-   
-   lcd.print("[");
-   //lcd.print(z);lcd.print(" ");
-   z=z>>4;// /16
-   if(z<mn){mn=z;}if(z>mx){mx=z;}
-   lcd.print(z);
-   lcd.print(" ");
-   lcd.print(mn);
-   lcd.print(" ");
-   lcd.print(mx);
-   lcd.print(" ");
-   lcd.print(t2-t1);
-   lcd.print(" r1 ");
-   lcd.print(r1);
-   lcd.print(" ");
-   lcd.print(r2);
-   
-   lcd.print("]");*/
+ 
 
 
 
