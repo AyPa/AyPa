@@ -12,25 +12,22 @@
 
 // nokia 5110 pins layout 
 
-#define RST 6
-#define CE 7
+#define RST 3
+#define CE 4
 #define DC 5
 #define DIN 11
 #define CLK 13
 
 // rtc 1302 pins
 
-//#define CErtc 3
-#define CErtc 7 //CE of DS1302 and of Nokia3110 are compliment each other nicely!
-//#define CErtc 8 //CE of DS1302 and of Nokia3110 are compliment each other nicely!
-//#define CLKrtc 13
-//#define IOrtc 11
-#define CLKrtc 4
-#define IOrtc 3
+
+#define CErtc 4 //CE of DS1302 and of Nokia3110 are compliment each other nicely!
+#define CLKrtc 7
+#define IOrtc 6
 
 
 //7216 bytes
-DS1302 rtc(7,3,4);//ce data clk
+DS1302 rtc(4,6,7);//ce data clk
 //DS1302_RAM ramBuffer;
 
 
@@ -764,21 +761,21 @@ void setup() {
   //  ACSR = (1<<ACI)|(1<<ACBG)|(1<<ACIE)|(1<<ACIS1)|(0<<ACIS0); //bandgap instead of AIN0 int on falling edge 
   //  ACSR = (1<<ACBG)|(1<<ACIE)|(0<<ACIS1)|(0<<ACIS0); //bandgap instead of AIN0 int on toggle
   //  ACSR = (1<<ACBG); //bandgap instead of AIN0 int on toggle
-  DIDR1 = (1<<AIN0D); // it will be bandgap on AIN0  
+//  DIDR1 = (1<<AIN0D); // it will be bandgap on AIN0  (debug rtc)
   sei();
 
 
   //TIMSK0 &= ~_BV(TOIE0); // disable timer0 overflow interrupt
   // when it is not needed
 
-  
-  //pinMode(4,OUTPUT);pinMode(3,OUTPUT);pinMode(8,OUTPUT);
-   /*
+  /*
+  pinMode(4,OUTPUT);pinMode(6,OUTPUT);pinMode(7,OUTPUT);
+   
    rtc.halt(false);
    rtc.writeProtect(false);
-   rtc.setDOW(FRIDAY);        // Set Day-of-Week to FRIDAY
-   rtc.setTime(18, 20, 0);     // Set the time to 12:00:00 (24hr format)
-   rtc.setDate(06, 12, 2013);   // Set the date to August 6th, 2010
+   rtc.setDOW(SUNDAY);        // Set Day-of-Week to FRIDAY
+   rtc.setTime(0, 30, 0);     // Set the time to 12:00:00 (24hr format)
+   rtc.setDate(8, 12, 2013);   // Set the date to August 6th, 2010
    //  rtc.writeProtect(true);
    */
 }
@@ -909,9 +906,10 @@ PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH); //D7
 //write byte addr
  DDRD|=(1<<IOrtc);//(9clocks vs 1)//set bit IOrtc in DDRC//pinMode(IOrtc,OUTPUT);
 
-//shiftOut(IOrtc,CLKrtc,LSBFIRST,addr);//253us
-shiftOut7(addr);
-shiftOut7(val);
+shiftOut(IOrtc,CLKrtc,LSBFIRST,addr);//253us
+//shiftOut7(addr);
+shiftOut(IOrtc,CLKrtc,LSBFIRST,val);//253us
+//shiftOut7(val);
  DDRD&=~(1<<IOrtc);//(9clocks vs 1)// clear bit IOrtc in DDRC//pinMode(IOrtc,INPUT);
 
 
@@ -930,74 +928,151 @@ PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);//D7
 
 byte rtcpeek(byte addr)
 {
-//byte val=0,imm;
+byte val=0;
+
+//addr=14;
 //byte addr=14*2+193;// addr-0..31
 addr=addr+addr+193;
-PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); //4
-PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH); //D7
-
+//NOP;
+PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
+PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH);
+//NOP;
 //write byte addr
- DDRD|=(1<<IOrtc);//(9clocks vs 1)//set bit IOrtc in DDRC//pinMode(IOrtc,OUTPUT);
+DDRD|=(1<<IOrtc);//(9clocks vs 1)//set bit IOrtc in DDRC//pinMode(IOrtc,OUTPUT);
 
-//shiftOut(IOrtc,CLKrtc,LSBFIRST,addr);//253us
-shiftOut7(addr);//19us
+//shiftOut(IOrtc,CLKrtc,LSBFIRST,addr);
+shiftOut7(addr);
 
 //read byte result
  DDRD&=~(1<<IOrtc);//(9clocks vs 1)// clear bit IOrtc in DDRC//pinMode(IOrtc,INPUT);
 
+  NOP;
+/*
+for(int i=0;i<8;++i)
+{
+//  val|=(digitalRead(IOrtc)<<i);
+
+byte v=0;//PIND&(1<<IOrtc);
+if(PIND&(1<<IOrtc))v=(1<<i);val|=v;
+//if(PORTD&(1<<IOrtc))val|=(1<<i)
+  //val|=((PORTD&(1<<IOrtc))<<i);
+//  digitalWrite(CLKrtc,HIGH);
+ PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
+ //delayMicroseconds(1);
+//  digitalWrite(CLKrtc,LOW);
+PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
+}*/
+
+NOP;
+
+if(PIND&(1<<IOrtc))val|=(1<<0);
+PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
+PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
+NOP;NOP;NOP;NOP;
+if(PIND&(1<<IOrtc))val|=(1<<1);
+PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
+PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
+NOP;NOP;NOP;NOP;
+if(PIND&(1<<IOrtc))val|=(1<<2);
+PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
+PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
+NOP;NOP;NOP;NOP;
+if(PIND&(1<<IOrtc))val|=(1<<3);
+PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
+PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
+NOP;NOP;NOP;NOP;
+if(PIND&(1<<IOrtc))val|=(1<<4);
+PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
+PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
+NOP;NOP;NOP;NOP;
+if(PIND&(1<<IOrtc))val|=(1<<5);
+PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
+PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
+NOP;NOP;NOP;NOP;
+if(PIND&(1<<IOrtc))val|=(1<<6);
+PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
+PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
+NOP;NOP;NOP;NOP;
+if(PIND&(1<<IOrtc))val|=(1<<7);
+PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
+PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
+
+
+/*
 // sbic - skip if bit in io register cleared
-asm volatile(
+__asm__ __volatile__(
 "clr r24\n\t"
 
-"sbi 0x0b,4\n\t"
-"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
+"sbi 0x0b,7\n\t"
+"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+"sbic 9,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
 "ori r24,0x01\n\t"
-"cbi 0x0b,4\n\t"
+"cbi 0x0b,7\n\t"
 
-"sbi 0x0b,4\n\t"
-"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
+"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+
+"sbi 0x0b,7\n\t"
+"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+"sbic 9,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
 "ori r24,0x02\n\t"
 "cbi 0x0b,4\n\t"
 
-"sbi 0x0b,4\n\t"
-"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
+"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+
+"sbi 0x0b,7\n\t"
+"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+"sbic 9,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
 "ori r24,0x04\n\t"
-"cbi 0x0b,4\n\t"
+"cbi 0x0b,7\n\t"
 
-"sbi 0x0b,4\n\t"
-"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
+"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+
+"sbi 0x0b,7\n\t"
+"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+"sbic 9,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
 "ori r24,0x08\n\t"
-"cbi 0x0b,4\n\t"
+"cbi 0x0b,7\n\t"
 
-"sbi 0x0b,4\n\t"
-"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
+"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+
+"sbi 0x0b,7\n\t"
+"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+"sbic 9,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
 "ori r24,0x10\n\t"
-"cbi 0x0b,4\n\t"
+"cbi 0x0b,7\n\t"
 
-"sbi 0x0b,4\n\t"
-"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
+"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+
+"sbi 0x0b,7\n\t"
+"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+"sbic 9,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
 "ori r24,0x20\n\t"
-"cbi 0x0b,4\n\t"
+"cbi 0x0b,7\n\t"
 
-"sbi 0x0b,4\n\t"
-"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
+"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+
+"sbi 0x0b,7\n\t"
+"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+"sbic 9,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
 "ori r24,0x40\n\t"
-"cbi 0x0b,4\n\t"
+"cbi 0x0b,7\n\t"
 
-"sbi 0x0b,4\n\t"
-"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
+"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+
+"sbi 0x0b,7\n\t"
+"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+"sbic 9,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
 "ori r24,0x80\n\t"
-"cbi 0x0b,4\n\t"
+"cbi 0x0b,7\n\t"
 
+//"clr r24\n\t"
+//"sts vvv,r24\n\t"
 //"mov r24,r25\n\t" //result in r24
 );
 //:[c1] "=r" (val));
-
-
-//#define r2(v) __asm__ __volatile__ ("ldi r30,0xb2\n\t"  "ldi r31,0x0\n\t"  "ld r24,Z \n\t"  "sts [c1],r24\n\t"  : [c1] "=r" (v)); //read TCNT2
-
-PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);//D7
-//return val;
+*/
+PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);
+return val;
 }
 
 int freeRam(void)
@@ -1022,11 +1097,24 @@ void loop() {
 
   //pinMode(2,INPUT);
 
+//PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH); //D7
+
+//write byte addr
+//XTAL pins are useable!
+// DDRB|=(1<<IOrtc);//(9clocks vs 1)//set bit IOrtc in DDRC//pinMode(IOrtc,OUTPUT);
+ //DDRB|=(1<<CLKrtc);//(9clocks vs 1)//set bit IOrtc in DDRC//pinMode(IOrtc,OUTPUT);
+
+//PORTB|=(1<<IOrtc);//digitalWrite(CErtc,HIGH); 
+//PORTB|=(1<<CLKrtc);//digitalWrite(CErtc,HIGH); 
+//PORTB&=~(1<<IOrtc);//digitalWrite(CErtc,LOW); 
+//PORTB&=~(1<<CLKrtc);//digitalWrite(CErtc,LOW); 
+
+
   pinMode(9,OUTPUT);
   pinMode(10,OUTPUT);
-  pinMode(3,OUTPUT);//rtc CE
-  pinMode(4,OUTPUT);//rtc CLK
-  pinMode(8,OUTPUT);//rtc IO
+  pinMode(4,OUTPUT);//rtc CE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! important
+  pinMode(7,OUTPUT);//rtc CLK
+  pinMode(6,OUTPUT);//rtc IO
   
 
   digitalWrite(9,HIGH);// acs712 module + lcd
@@ -1345,6 +1433,7 @@ s2(tim.sec);
 
 
 rtcpoke(15,0x0A);
+//rtc.poke(15,0xE1);
 
 cli();TCNT1=0;
 
@@ -1367,7 +1456,7 @@ t=TCNT1;sei();
 //rtc.poke(i,i);
 sa(">");
   sh(val);
-  sh(rtc.peek(15));
+  //sh(rtc.peek(15));
   sa("     ");
   s3(t);
 //  s3(val);
