@@ -18,10 +18,18 @@
 #define DIN 11
 #define CLK 13
 
+// rtc 1302 pins
+
+//#define CErtc 3
+#define CErtc 7 //CE of DS1302 and of Nokia3110 are compliment each other nicely!
+//#define CLKrtc 13
+//#define IOrtc 11
+#define CLKrtc 4
+#define IOrtc 3
 
 
-//LiquidCrystalFast lcd(2,3,4,A1,A2,A3,A4);//4bit mode
-DS1302 rtc(3,8,4);//ce data clk
+//7216 bytes
+DS1302 rtc(7,3,4);//ce data clk
 DS1302_RAM ramBuffer;
 
 
@@ -92,6 +100,47 @@ void s3(word v)
   SPDR = c;
   c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
   while(!(SPSR&(1<<SPIF)));
+  SPDR = 0;// start transfer with space
+  ch=v/10;
+  v-=ch*10;
+  ch*=3;
+  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;
+  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;
+  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;
+  c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = 0;// start transfer with space
+  ch=v*3;
+  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;
+  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;
+  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+  SPDR = c;
+  c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
+  while(!(SPSR&(1<<SPIF)));
+
+  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);      
+}
+
+//51 us
+// integer 2 digits representation 
+void s2(word v)
+{
+  byte c,ch;
+
+  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
+  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
+
   SPDR = 0;// start transfer with space
   ch=v/10;
   v-=ch*10;
@@ -721,13 +770,13 @@ void setup() {
   //TIMSK0 &= ~_BV(TOIE0); // disable timer0 overflow interrupt
   // when it is not needed
 
-  /*
-  pinMode(4,OUTPUT);pinMode(3,OUTPUT);pinMode(8,OUTPUT);
-   
+  
+  //pinMode(4,OUTPUT);pinMode(3,OUTPUT);pinMode(8,OUTPUT);
+   /*
    rtc.halt(false);
    rtc.writeProtect(false);
    rtc.setDOW(FRIDAY);        // Set Day-of-Week to FRIDAY
-   rtc.setTime(10, 35, 0);     // Set the time to 12:00:00 (24hr format)
+   rtc.setTime(18, 20, 0);     // Set the time to 12:00:00 (24hr format)
    rtc.setDate(06, 12, 2013);   // Set the date to August 6th, 2010
    //  rtc.writeProtect(true);
    */
@@ -747,6 +796,94 @@ ISR(TIMER2_OVF_vect)
   //    PIND=(1<<PD0);
   t2ovf++;
 }*/
+
+
+/*
+
+void shiftOut5(byte val,byte vl2)
+{
+  byte imm;
+  
+    imm=PORTLMASK|0b10000000; if(val&(1<<(7)))imm|=0b01000000;if(vl2&(1<<(7)))imm|=0b00010000;PORTL=imm;
+      PORTL = 0b00000000|PORTLMASK;
+    imm=PORTLMASK|0b10000000;if(val&(1<<(6)))imm|=0b01000000;if(vl2&(1<<(6)))imm|=0b00010000;PORTL=imm;
+      PORTL = 0b00000000|PORTLMASK;
+    imm=PORTLMASK|0b10000000;if(val&(1<<(5)))imm|=0b01000000;if(vl2&(1<<(5)))imm|=0b00010000;PORTL=imm;
+      PORTL = 0b00000000|PORTLMASK;
+    imm=PORTLMASK|0b10000000;if(val&(1<<(4)))imm|=0b01000000;if(vl2&(1<<(4)))imm|=0b00010000;PORTL=imm;
+      PORTL = 0b00000000|PORTLMASK;
+    imm=PORTLMASK|0b10000000;if(val&(1<<(3)))imm|=0b01000000;if(vl2&(1<<(3)))imm|=0b00010000;PORTL=imm;
+      PORTL = 0b00000000|PORTLMASK;
+    imm=PORTLMASK|0b10000000;if(val&(1<<(2)))imm|=0b01000000;if(vl2&(1<<(2)))imm|=0b00010000;PORTL=imm;
+      PORTL = 0b00000000|PORTLMASK;
+    imm=PORTLMASK|0b10000000;if(val&(1<<(1)))imm|=0b01000000;if(vl2&(1<<(1)))imm|=0b00010000;PORTL=imm;
+      PORTL = 0b00000000|PORTLMASK;
+    imm=PORTLMASK|0b10000000;if(val&(1<<(0)))imm|=0b01000000;if(vl2&(1<<(0)))imm|=0b00010000;PORTL=imm;
+      PORTL = PORTLMASK|0b00100000; // set master latch HIGH
+      PORTL = PORTLMASK|0b00001000; // set secondary latch HIGH (allow ~50ns propagation delay)
+}
+*/
+
+/*
+
+void shiftOut6(byte val,byte vl2)
+{
+  byte imm;
+  byte PORTDMASK=PORTD&0b00000111;
+  
+    imm=PORTDMASK|0b10000000; if(val&(1<<(7)))imm|=0b01000000;if(vl2&(1<<(7)))imm|=0b00010000;PORTD=imm;
+      PORTD = 0b00000000|PORTDMASK;
+    imm=PORTDMASK|0b10000000;if(val&(1<<(6)))imm|=0b01000000;if(vl2&(1<<(6)))imm|=0b00010000;PORTD=imm;
+      PORTD = 0b00000000|PORTDMASK;
+    imm=PORTDMASK|0b10000000;if(val&(1<<(5)))imm|=0b01000000;if(vl2&(1<<(5)))imm|=0b00010000;PORTD=imm;
+      PORTD = 0b00000000|PORTDMASK;
+    imm=PORTDMASK|0b10000000;if(val&(1<<(4)))imm|=0b01000000;if(vl2&(1<<(4)))imm|=0b00010000;PORTD=imm;
+      PORTD = 0b00000000|PORTDMASK;
+    imm=PORTDMASK|0b10000000;if(val&(1<<(3)))imm|=0b01000000;if(vl2&(1<<(3)))imm|=0b00010000;PORTD=imm;
+      PORTD = 0b00000000|PORTDMASK;
+    imm=PORTDMASK|0b10000000;if(val&(1<<(2)))imm|=0b01000000;if(vl2&(1<<(2)))imm|=0b00010000;PORTD=imm;
+      PORTD = 0b00000000|PORTDMASK;
+    imm=PORTDMASK|0b10000000;if(val&(1<<(1)))imm|=0b01000000;if(vl2&(1<<(1)))imm|=0b00010000;PORTD=imm;
+      PORTD = 0b00000000|PORTDMASK;
+    imm=PORTDMASK|0b10000000;if(val&(1<<(0)))imm|=0b01000000;if(vl2&(1<<(0)))imm|=0b00010000;PORTD=imm;
+      PORTD = PORTDMASK|0b00000000; // no latches but set CLK to LOW
+//      PORTL = PORTLMASK|0b00000000; // set secondary latch HIGH (allow ~50ns propagation delay)
+}*/
+
+
+
+//500
+//373
+byte rtcpeek(byte addr)
+{
+byte val=0;
+//byte addr=14*2+193;// addr-0..31
+addr=addr+addr+193;
+PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); //4
+PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH); //D7
+
+//digitalWrite(CLKrtc,HIGH);
+//digitalWrite(CErtc,LOW);
+
+//write byte addr
+pinMode(IOrtc,OUTPUT);
+shiftOut(IOrtc,CLKrtc,LSBFIRST,addr);
+
+//read byte result
+pinMode(IOrtc,INPUT);
+//byte val=0;
+for(byte i=0;i<8;i++)
+{
+  val|=(digitalRead(IOrtc)<<i);
+PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
+//  delayMicroseconds(1);
+PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
+}
+
+ // pinMode(DIN,OUTPUT);
+PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);//D7
+return val;
+}
 
 int freeRam(void)
 {
@@ -806,18 +943,16 @@ void loop() {
 
   LcdClear();
 
-  cli();
-  TCNT1=0;
+//  cli();TCNT1=0;
  sa("Тестовая АуРа!"); 
   //sa("Тестовая АуРа!1234567890+-*~=============="); 
   //sa("Marinochka!!!a1234567890+-*~=============="); 
   //sa("Мариночка!!!!Мариночка!!!!!Мариночка!!!!!");
-  t=TCNT1;
-  sei();
+//  t=TCNT1;  sei();
 
   //.for(int i=0;i<strlen(buf2);i++){sprintf(buf,"%d %d %c %d %d]",i,buf2[i],buf2[i],Rus[(buf2[i]-32)*5],Rus[(buf2[i]-32)*5+1]);sa(buf);}
   //sprintf( buf+strlen(buf), ",%s:%04i", sensorCode, sensorValue );
-  sprintf(buf," CNT1=%d pin2 flag=%d ",t,pin2_interrupt_flag);
+  sprintf(buf," INT0=%d ",pin2_interrupt_flag);
   sw(t1111);
   sa(" ");
   sw(freeRam());
@@ -825,19 +960,17 @@ void loop() {
 
 
 
-  cli();
-  TCNT1=0;
+//  cli();TCNT1=0;
   //sb(n);
   //sh(0x01);
   //sh(0xED);
   //sw(65535);
   //sw(t);
-  s3(t);
+//  s3(t);
+//  s2(t);
 
-  t=TCNT1;
-  sei();
-  sprintf(buf," CNT1=%d",t);
-  sa(buf);
+  //t=TCNT1;  sei();
+//  sprintf(buf," CNT1=%d",t); sa(buf);
 
 
 
@@ -1080,17 +1213,47 @@ cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();
   //  comment("Reading address 18 (0x12). This should return 18, 0x12.");
   // r1 = rtc.peek(18);
   // r2 = rtc.peek(15);
-/*
-cli();TCNT1=0;
-Time tim= rtc.getTime();//2292us
-t=TCNT1;sei();
 
-sprintf(buf,"  [  %d %d-%d-%d %d:%d:%d]",tim.dow,tim.date,tim.mon,tim.year,tim.hour,tim.min,tim.sec);sa(buf);
+//cli();TCNT1=0;
+Time tim= rtc.getTime();//2292us
+//t=TCNT1;sei();
+
+
+//sprintf(buf,"  [  %d %d-%d-%d %d:%d:%d]",tim.dow,tim.date,tim.mon,tim.year,tim.hour,tim.min,tim.sec);sa(buf);
+s2(tim.hour);
+sa(":");
+s2(tim.min);
+sa(":");
+s2(tim.sec);
+
+//Time tim= rtc.getTime();//2292us
+
+/*
 */
+
+//digitalWrite(CE,LOW);//detach lcd
+
+cli();TCNT1=0;
+
+//peek:
+//515us
+// using PB6&PB7 bits
+
+byte val=rtcpeek(14);
+
+
+t=TCNT1;sei();
+//digitalWrite(CE,LOW);
+
+
 //for(byte i=10;i<31;i++)
 //{
 //rtc.poke(i,i);
- // sh(rtc.peek(i));}
+sa(">");
+  sh(val);
+ // sh(rtc.peek(15));
+  sa(" ");
+  s3(t);
 //  sh(rtc.peek(15));
 //  sh(rtc.peek(19));
  
