@@ -22,6 +22,7 @@
 
 //#define CErtc 3
 #define CErtc 7 //CE of DS1302 and of Nokia3110 are compliment each other nicely!
+//#define CErtc 8 //CE of DS1302 and of Nokia3110 are compliment each other nicely!
 //#define CLKrtc 13
 //#define IOrtc 11
 #define CLKrtc 4
@@ -30,7 +31,7 @@
 
 //7216 bytes
 DS1302 rtc(7,3,4);//ce data clk
-DS1302_RAM ramBuffer;
+//DS1302_RAM ramBuffer;
 
 
 /*
@@ -851,6 +852,72 @@ void shiftOut6(byte val,byte vl2)
 }*/
 
 
+//CLKrtc IOrtc
+void shiftOut7(byte val)
+{
+//PORTD&=~(1<<CLKrtc);//clk low (already)
+
+PORTD&=~(1<<IOrtc);//clear data bit
+if (val&(1<<(0)))PORTD|=(1<<IOrtc);// set it if needed
+PORTD|=(1<<CLKrtc);// tick clk
+
+PORTD&=~(1<<CLKrtc);//clk low
+PORTD&=~(1<<IOrtc);//clear data bit
+if (val&(1<<(1)))PORTD|=(1<<IOrtc);// set it if needed
+PORTD|=(1<<CLKrtc);// tick clk
+
+PORTD&=~(1<<CLKrtc);//clk low
+PORTD&=~(1<<IOrtc);//clear data bit
+if (val&(1<<(2)))PORTD|=(1<<IOrtc);// set it if needed
+PORTD|=(1<<CLKrtc);// tick clk
+
+PORTD&=~(1<<CLKrtc);//clk low
+PORTD&=~(1<<IOrtc);//clear data bit
+if (val&(1<<(3)))PORTD|=(1<<IOrtc);// set it if needed
+PORTD|=(1<<CLKrtc);// tick clk
+
+PORTD&=~(1<<CLKrtc);//clk low
+PORTD&=~(1<<IOrtc);//clear data bit
+if (val&(1<<(4)))PORTD|=(1<<IOrtc);// set it if needed
+PORTD|=(1<<CLKrtc);// tick clk
+
+PORTD&=~(1<<CLKrtc);//clk low
+PORTD&=~(1<<IOrtc);//clear data bit
+if (val&(1<<(5)))PORTD|=(1<<IOrtc);// set it if needed
+PORTD|=(1<<CLKrtc);// tick clk
+
+PORTD&=~(1<<CLKrtc);//clk low
+PORTD&=~(1<<IOrtc);//clear data bit
+if (val&(1<<(6)))PORTD|=(1<<IOrtc);// set it if needed
+PORTD|=(1<<CLKrtc);// tick clk
+
+PORTD&=~(1<<CLKrtc);//clk low
+PORTD&=~(1<<IOrtc);//clear data bit
+if (val&(1<<(7)))PORTD|=(1<<IOrtc);// set it if needed
+PORTD|=(1<<CLKrtc);// tick clk
+
+PORTD&=~(1<<CLKrtc);//clk low (needed)
+}
+
+//23us
+void rtcpoke(byte addr,byte val)
+{
+addr=addr+addr+192;
+PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); //4
+PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH); //D7
+
+//write byte addr
+ DDRD|=(1<<IOrtc);//(9clocks vs 1)//set bit IOrtc in DDRC//pinMode(IOrtc,OUTPUT);
+
+//shiftOut(IOrtc,CLKrtc,LSBFIRST,addr);//253us
+shiftOut7(addr);
+shiftOut7(val);
+ DDRD&=~(1<<IOrtc);//(9clocks vs 1)// clear bit IOrtc in DDRC//pinMode(IOrtc,INPUT);
+
+
+
+PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);//D7  
+}
 
 //500
 //373
@@ -858,6 +925,8 @@ void shiftOut6(byte val,byte vl2)
 //277
 //272
 //271
+//252
+//19us after switch to ShiftOut7
 
 byte rtcpeek(byte addr)
 {
@@ -867,34 +936,14 @@ addr=addr+addr+193;
 PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); //4
 PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH); //D7
 
-//digitalWrite(CLKrtc,HIGH);
-//digitalWrite(CErtc,LOW);
-
 //write byte addr
-pinMode(IOrtc,OUTPUT);
-shiftOut(IOrtc,CLKrtc,LSBFIRST,addr);
+ DDRD|=(1<<IOrtc);//(9clocks vs 1)//set bit IOrtc in DDRC//pinMode(IOrtc,OUTPUT);
+
+//shiftOut(IOrtc,CLKrtc,LSBFIRST,addr);//253us
+shiftOut7(addr);//19us
 
 //read byte result
-pinMode(IOrtc,INPUT);
-//byte val=0;
-//byte i=0;
-//for(byte i=0;i<8;i++)
-/*
-do
-{
-  imm=PIND;
-PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
-//  delayMicroseconds(1);
-// val|=(((imm&(1<<IOrtc))>>IOrtc)<<i); // val|=(digitalRead(IOrtc)<<i);
-// >>3 implemented as cycle!!!
-// this useful code acts as delay!!!
-val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
-//NOP;NOP;NOP;NOP;//without these nops(600us+125us instruction itself) we have corrupted data
-PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
-if(++i==8){break;}
-}while(1);
-*/
-// loop unrolled:
+ DDRD&=~(1<<IOrtc);//(9clocks vs 1)// clear bit IOrtc in DDRC//pinMode(IOrtc,INPUT);
 
 // sbic - skip if bit in io register cleared
 asm volatile(
@@ -941,52 +990,12 @@ asm volatile(
 "cbi 0x0b,4\n\t"
 
 //"mov r24,r25\n\t" //result in r24
-
 );
 //:[c1] "=r" (val));
 
 
 //#define r2(v) __asm__ __volatile__ ("ldi r30,0xb2\n\t"  "ldi r31,0x0\n\t"  "ld r24,Z \n\t"  "sts [c1],r24\n\t"  : [c1] "=r" (v)); //read TCNT2
-/*
 
-  imm=PIND;PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
-val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
-PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
-NOP;
-  imm=PIND;PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
-val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
-PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
-NOP;
-  imm=PIND;PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
-val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
-PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
-NOP;
-  imm=PIND;PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
-val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
-PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
-NOP;
-  imm=PIND;PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
-val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
-PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
-NOP;
-  imm=PIND;PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
-val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
-PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
-NOP;
-  imm=PIND;PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
-val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
-PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
-NOP;
-  imm=PIND;PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
-val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
-PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
-NOP;
-*/
-
-
-//pinMode(IOrtc,OUTPUT);
-
- // pinMode(DIN,OUTPUT);
 PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);//D7
 //return val;
 }
@@ -1334,23 +1343,23 @@ s2(tim.sec);
 
 //Time tim= rtc.getTime();//2292us
 
-/*
-*/
 
-//digitalWrite(CE,LOW);//detach lcd
+rtcpoke(15,0x0A);
 
 cli();TCNT1=0;
+
+
 
 //peek:
 //515us
 // use PB6&PB7 bits
 
 byte val=rtcpeek(15);
-//byte val=0;
-
 
 t=TCNT1;sei();
 //digitalWrite(CE,LOW);
+
+
 
 
 //for(byte i=10;i<31;i++)
@@ -1359,29 +1368,17 @@ t=TCNT1;sei();
 sa(">");
   sh(val);
   sh(rtc.peek(15));
-  sa(" ");
+  sa("     ");
   s3(t);
+//  s3(val);
 //  sh(rtc.peek(15));
 //  sh(rtc.peek(19));
  
-  // Send Day-of-Week
-//    lcd.print(rtc.getDOWStr());
-  // lcd.print(" ");
-   
-   // Send date
-  // lcd.print(rtc.getDateStr());
-   //lcd.print(" -- ");
-   
-   // Send time
-//   lcd.println(rtc.getTimeStr());
-   
-   // Wait one second before repeating :)
-  // delay (3000);
 
-  delay(100);
   
   
-  
+  delay (400);
+
   /*
 cli();
    t1=TCNT1;
@@ -1431,7 +1428,7 @@ cli();
 
   ADCSRA=0;// switch off ADC
   ACSR = (1<<ACD); // switch off analog comparator
-  //digitalWrite(10,LOW);// lcd 
+  digitalWrite(10,LOW);// lcd 
   digitalWrite(9,LOW);// acs712 module 
   //digitalWrite(A5,LOW);// LCD display backlight off
   pinMode(A0,INPUT);
@@ -1509,10 +1506,9 @@ cli();
   //sei();
   sei();
   sleep_cpu();
-  /* wake up here */
+  // wake up here
   sleep_disable();
-  //timv=ticks;
- // timl=TCNT1;
+
 
 
   /*
