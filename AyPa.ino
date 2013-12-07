@@ -854,9 +854,14 @@ void shiftOut6(byte val,byte vl2)
 
 //500
 //373
+//322
+//277
+//272
+//271
+
 byte rtcpeek(byte addr)
 {
-byte val=0;
+//byte val=0,imm;
 //byte addr=14*2+193;// addr-0..31
 addr=addr+addr+193;
 PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); //4
@@ -872,17 +877,118 @@ shiftOut(IOrtc,CLKrtc,LSBFIRST,addr);
 //read byte result
 pinMode(IOrtc,INPUT);
 //byte val=0;
-for(byte i=0;i<8;i++)
+//byte i=0;
+//for(byte i=0;i<8;i++)
+/*
+do
 {
-  val|=(digitalRead(IOrtc)<<i);
+  imm=PIND;
 PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
 //  delayMicroseconds(1);
+// val|=(((imm&(1<<IOrtc))>>IOrtc)<<i); // val|=(digitalRead(IOrtc)<<i);
+// >>3 implemented as cycle!!!
+// this useful code acts as delay!!!
+val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
+//NOP;NOP;NOP;NOP;//without these nops(600us+125us instruction itself) we have corrupted data
 PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
-}
+if(++i==8){break;}
+}while(1);
+*/
+// loop unrolled:
+
+// sbic - skip if bit in io register cleared
+asm volatile(
+"clr r24\n\t"
+
+"sbi 0x0b,4\n\t"
+"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
+"ori r24,0x01\n\t"
+"cbi 0x0b,4\n\t"
+
+"sbi 0x0b,4\n\t"
+"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
+"ori r24,0x02\n\t"
+"cbi 0x0b,4\n\t"
+
+"sbi 0x0b,4\n\t"
+"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
+"ori r24,0x04\n\t"
+"cbi 0x0b,4\n\t"
+
+"sbi 0x0b,4\n\t"
+"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
+"ori r24,0x08\n\t"
+"cbi 0x0b,4\n\t"
+
+"sbi 0x0b,4\n\t"
+"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
+"ori r24,0x10\n\t"
+"cbi 0x0b,4\n\t"
+
+"sbi 0x0b,4\n\t"
+"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
+"ori r24,0x20\n\t"
+"cbi 0x0b,4\n\t"
+
+"sbi 0x0b,4\n\t"
+"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
+"ori r24,0x40\n\t"
+"cbi 0x0b,4\n\t"
+
+"sbi 0x0b,4\n\t"
+"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
+"ori r24,0x80\n\t"
+"cbi 0x0b,4\n\t"
+
+//"mov r24,r25\n\t" //result in r24
+
+);
+//:[c1] "=r" (val));
+
+
+//#define r2(v) __asm__ __volatile__ ("ldi r30,0xb2\n\t"  "ldi r31,0x0\n\t"  "ld r24,Z \n\t"  "sts [c1],r24\n\t"  : [c1] "=r" (v)); //read TCNT2
+/*
+
+  imm=PIND;PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
+val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
+PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
+NOP;
+  imm=PIND;PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
+val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
+PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
+NOP;
+  imm=PIND;PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
+val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
+PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
+NOP;
+  imm=PIND;PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
+val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
+PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
+NOP;
+  imm=PIND;PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
+val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
+PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
+NOP;
+  imm=PIND;PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
+val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
+PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
+NOP;
+  imm=PIND;PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
+val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
+PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
+NOP;
+  imm=PIND;PORTD|=(1<<CLKrtc);//  digitalWrite(CLKrtc,HIGH);
+val>>=1;if((imm&(1<<IOrtc))){val|=0x80;}
+PORTD&=~(1<<CLKrtc);//  digitalWrite(CLKrtc,LOW);
+NOP;
+*/
+
+
+//pinMode(IOrtc,OUTPUT);
 
  // pinMode(DIN,OUTPUT);
 PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);//D7
-return val;
+//return val;
 }
 
 int freeRam(void)
@@ -1237,9 +1343,10 @@ cli();TCNT1=0;
 
 //peek:
 //515us
-// using PB6&PB7 bits
+// use PB6&PB7 bits
 
-byte val=rtcpeek(14);
+byte val=rtcpeek(15);
+//byte val=0;
 
 
 t=TCNT1;sei();
@@ -1251,7 +1358,7 @@ t=TCNT1;sei();
 //rtc.poke(i,i);
 sa(">");
   sh(val);
- // sh(rtc.peek(15));
+  sh(rtc.peek(15));
   sa(" ");
   s3(t);
 //  sh(rtc.peek(15));
