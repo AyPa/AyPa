@@ -5,8 +5,8 @@
 #include <avr/sleep.h>
 #include <avr/pgmspace.h>
 
-#include <DS1302.h>
-#include <SPI.h>
+//#include <DS1302.h>
+#include <SPI.h> // < next candidate for removal after ds1302
 #include "AyPa_fonts.h"
 #include "AyPa_rtc.h"
 
@@ -40,7 +40,7 @@ int freeRam(void)
 
 
 //7216 bytes
-DS1302 rtc(4,6,7);//ce data clk
+//DS1302 rtc(4,6,7);//ce data clk
 //DS1302_RAM ramBuffer;
 
 
@@ -783,6 +783,12 @@ void setup() {
 
   
   //pinMode(4,OUTPUT);pinMode(6,OUTPUT);pinMode(7,OUTPUT);
+
+//rtcwriteprotect(false);//20us
+  
+  //rtcgettime(8);
+  //buf[2]++;
+  //rtcsettime(8);
   
   //don't work
 //rtcwriteprotect(false);//20us
@@ -814,57 +820,6 @@ ISR(TIMER2_OVF_vect)
 }*/
 
 
-/*
-
-void shiftOut5(byte val,byte vl2)
-{
-  byte imm;
-  
-    imm=PORTLMASK|0b10000000; if(val&(1<<(7)))imm|=0b01000000;if(vl2&(1<<(7)))imm|=0b00010000;PORTL=imm;
-      PORTL = 0b00000000|PORTLMASK;
-    imm=PORTLMASK|0b10000000;if(val&(1<<(6)))imm|=0b01000000;if(vl2&(1<<(6)))imm|=0b00010000;PORTL=imm;
-      PORTL = 0b00000000|PORTLMASK;
-    imm=PORTLMASK|0b10000000;if(val&(1<<(5)))imm|=0b01000000;if(vl2&(1<<(5)))imm|=0b00010000;PORTL=imm;
-      PORTL = 0b00000000|PORTLMASK;
-    imm=PORTLMASK|0b10000000;if(val&(1<<(4)))imm|=0b01000000;if(vl2&(1<<(4)))imm|=0b00010000;PORTL=imm;
-      PORTL = 0b00000000|PORTLMASK;
-    imm=PORTLMASK|0b10000000;if(val&(1<<(3)))imm|=0b01000000;if(vl2&(1<<(3)))imm|=0b00010000;PORTL=imm;
-      PORTL = 0b00000000|PORTLMASK;
-    imm=PORTLMASK|0b10000000;if(val&(1<<(2)))imm|=0b01000000;if(vl2&(1<<(2)))imm|=0b00010000;PORTL=imm;
-      PORTL = 0b00000000|PORTLMASK;
-    imm=PORTLMASK|0b10000000;if(val&(1<<(1)))imm|=0b01000000;if(vl2&(1<<(1)))imm|=0b00010000;PORTL=imm;
-      PORTL = 0b00000000|PORTLMASK;
-    imm=PORTLMASK|0b10000000;if(val&(1<<(0)))imm|=0b01000000;if(vl2&(1<<(0)))imm|=0b00010000;PORTL=imm;
-      PORTL = PORTLMASK|0b00100000; // set master latch HIGH
-      PORTL = PORTLMASK|0b00001000; // set secondary latch HIGH (allow ~50ns propagation delay)
-}
-*/
-
-/*
-
-void shiftOut6(byte val,byte vl2)
-{
-  byte imm;
-  byte PORTDMASK=PORTD&0b00000111;
-  
-    imm=PORTDMASK|0b10000000; if(val&(1<<(7)))imm|=0b01000000;if(vl2&(1<<(7)))imm|=0b00010000;PORTD=imm;
-      PORTD = 0b00000000|PORTDMASK;
-    imm=PORTDMASK|0b10000000;if(val&(1<<(6)))imm|=0b01000000;if(vl2&(1<<(6)))imm|=0b00010000;PORTD=imm;
-      PORTD = 0b00000000|PORTDMASK;
-    imm=PORTDMASK|0b10000000;if(val&(1<<(5)))imm|=0b01000000;if(vl2&(1<<(5)))imm|=0b00010000;PORTD=imm;
-      PORTD = 0b00000000|PORTDMASK;
-    imm=PORTDMASK|0b10000000;if(val&(1<<(4)))imm|=0b01000000;if(vl2&(1<<(4)))imm|=0b00010000;PORTD=imm;
-      PORTD = 0b00000000|PORTDMASK;
-    imm=PORTDMASK|0b10000000;if(val&(1<<(3)))imm|=0b01000000;if(vl2&(1<<(3)))imm|=0b00010000;PORTD=imm;
-      PORTD = 0b00000000|PORTDMASK;
-    imm=PORTDMASK|0b10000000;if(val&(1<<(2)))imm|=0b01000000;if(vl2&(1<<(2)))imm|=0b00010000;PORTD=imm;
-      PORTD = 0b00000000|PORTDMASK;
-    imm=PORTDMASK|0b10000000;if(val&(1<<(1)))imm|=0b01000000;if(vl2&(1<<(1)))imm|=0b00010000;PORTD=imm;
-      PORTD = 0b00000000|PORTDMASK;
-    imm=PORTDMASK|0b10000000;if(val&(1<<(0)))imm|=0b01000000;if(vl2&(1<<(0)))imm|=0b00010000;PORTD=imm;
-      PORTD = PORTDMASK|0b00000000; // no latches but set CLK to LOW
-//      PORTL = PORTLMASK|0b00000000; // set secondary latch HIGH (allow ~50ns propagation delay)
-}*/
 
 
 word sc[16];
@@ -1199,16 +1154,16 @@ cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();
   // r2 = rtc.peek(15);
 
 //cli();TCNT1=0;
-Time tim= rtc.getTime();//2292us
+//Time tim= rtc.getTime();//2292us
 //t=TCNT1;sei();
 
 
 //sprintf(buf,"  [  %d %d-%d-%d %d:%d:%d]",tim.dow,tim.date,tim.mon,tim.year,tim.hour,tim.min,tim.sec);sa(buf);
-s2(tim.hour);
-sa(":");
-s2(tim.min);
-sa(":");
-s2(tim.sec);
+//s2(tim.hour);
+//sa(":");
+//s2(tim.min);
+//sa(":");
+//s2(tim.sec);
 
 
 //Time tim= rtc.getTime();//2292us
@@ -1216,7 +1171,6 @@ s2(tim.sec);
 //start working with rtcclock. CErtc high
 //PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH);
 
-rtcgettime(8);
 
 byte val=0;
 cli();TCNT1=0;
@@ -1224,6 +1178,7 @@ cli();TCNT1=0;
 // use PB6&PB7 bits
 
 //rtcwriteprotect(true);//20us(cannot pair with false)
+rtcgettime(7);//rtcgettime(8); 7 is enough
 
 
 t=TCNT1;sei();
@@ -1233,6 +1188,7 @@ t=TCNT1;sei();
 //PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH);
 //rtc.poke(15,0x1C);//returns 1E
 rtcpoke(15,0x1C);//returns 1E
+rtcpoke(15,0xcc);
 
 val=rtcpeek(15);
 
@@ -1244,19 +1200,22 @@ val=rtcpeek(15);
 //for(byte i=10;i<31;i++)
 //{
 //rtc.poke(i,i);
-sa(">");
 sa(" {");
-sh(buf[0]);
-sh(buf[1]);
 sh(buf[2]);
+sh(buf[1]);
+sh(buf[0]);
+sa(" ");
 sh(buf[3]);
+sa("-");
 sh(buf[4]);
-sh(buf[5]);
+sa("-");
+sh(0x20);
 sh(buf[6]);
-sh(buf[7]);
-sa("} ");
-
+sa("_");
+sh(buf[5]);
+sa(" ");
   sh(val);
+  s3(val);
   //sh(rtc.peek(15));
   sa("     ");
   s3(t);
