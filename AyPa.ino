@@ -933,51 +933,16 @@ r24:r23:r22:r21:r20:r19:r18.
 byte ShiftIn(void)
 {
 byte val=0;
-  //PORTD&=~(1<<CLKrtc);//clk low (already)
-/*
-PORTD|=(1<<CLKrtc);// tick clk
-
-val=0;imm=PIND&(1<<IOrtc);
-//if(PIND&(1<<IOrtc))val=(1<<0);
-if(imm)val=(1<<0);
-//val=(PIND&(1<<IOrtc));
-
-PORTD&=~(1<<CLKrtc);//clk low
-
-PORTD|=(1<<CLKrtc);// tick clk
-if(PIND&(1<<IOrtc))val|=(1<<1);
-PORTD&=~(1<<CLKrtc);//clk low
-
-PORTD|=(1<<CLKrtc);// tick clk
-if(PIND&(1<<IOrtc))val|=(1<<2);
-PORTD&=~(1<<CLKrtc);//clk low
-
-PORTD|=(1<<CLKrtc);// tick clk
-if(PIND&(1<<IOrtc))val|=(1<<3);
-PORTD&=~(1<<CLKrtc);//clk low
-
-PORTD|=(1<<CLKrtc);// tick clk
-if(PIND&(1<<IOrtc))val|=(1<<4);
-PORTD&=~(1<<CLKrtc);//clk low
-
-PORTD|=(1<<CLKrtc);// tick clk
-if(PIND&(1<<IOrtc))val|=(1<<5);
-PORTD&=~(1<<CLKrtc);//clk low
-
-PORTD|=(1<<CLKrtc);// tick clk
-if(PIND&(1<<IOrtc))val|=(1<<6);
-PORTD&=~(1<<CLKrtc);//clk low
-
-PORTD|=(1<<CLKrtc);// tick clk
-if(PIND&(1<<IOrtc))val|=(1<<7);
-
-PORTD&=~(1<<CLKrtc);//clk low (needed)
-return val;
-
-*/
+  
 // sbic - skip if bit in io register cleared
 __asm__ __volatile__(
 "clr r24\n\t"
+
+//"ldi r25,2\n\t""1:\n\t""dec r25\n\t""brne 1b\n\t"
+
+//PORTD|=(1<<CLKrtc);// tick clk
+//if(PIND&(1<<IOrtc))val|=(1<<5);
+//PORTD&=~(1<<CLKrtc);//clk low
 
 "sbi 0x0b,7\n\t"
 "sbic 0x09,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
@@ -998,6 +963,7 @@ __asm__ __volatile__(
 "sbic 0x09,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
 "ori r24,0x08\n\t"
 "cbi 0x0b,7\n\t"
+
 
 "sbi 0x0b,7\n\t"
 "sbic 0x09,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
@@ -1049,6 +1015,16 @@ ShiftOut(val);\
  DDRD&=~(1<<IOrtc);\
 PORTD&=~(1<<CErtc);\
 
+/*Question: When I do the following:
+asm volatile("sbi 0x15,0x07;");
+everything is OK! But when I do the same but replacing the address of the port by its label, like:
+asm volatile("sbi PORTB,0x07;");
+I get a compilation error: "Error: constant value required".
+asm volatile("sbi PORTB,0x07;");
+Answer: PORTB is a precompiler definition included in the processor specific file included in io-avr.h.
+As you may know, the precompiler will not touch strings and PORTB is passed to the assembler. One
+way to avoid this problem is:
+asm volatile("sbi %0, 0x07" : "I" ((unsigned short)(PORTB)):);*/
 
 //500
 //373
@@ -1074,6 +1050,22 @@ PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);// acts as reset otherwise next com
 return val;
 }
 
+char buf[64]; // carefully with long vars. 2k ram only
+
+/*
+void rtcgettime(byte n)
+{
+PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
+PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH);
+DDRD|=(1<<IOrtc);//(9clocks vs 1)//set bit IOrtc in DDRC//pinMode(IOrtc,OUTPUT);
+ShiftOut(191);
+DDRD&=~(1<<IOrtc);//(9clocks vs 1)// clear bit IOrtc in DDRC//pinMode(IOrtc,INPUT);
+for(byte i=0;i<n;i++){buf[i]=ShiftIn();}
+PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);// acts as reset otherwise next command is broken  
+}*/
+
+#define rtcgettime(n){PORTD&=~(1<<CLKrtc);PORTD|=(1<<CErtc);DDRD|=(1<<IOrtc);ShiftOut(191);DDRD&=~(1<<IOrtc);for(byte i=0;i<n;i++){buf[i]=ShiftIn();}PORTD&=~(1<<CErtc);}
+
 int freeRam(void)
 {
   extern unsigned int __heap_start;
@@ -1087,7 +1079,6 @@ int freeRam(void)
 word sc[16];
 word mn=5555,mx=5000;
 
-char buf[64]; // carefully with long vars. 2k ram only
 uint16_t t1,t2,tt1,tt2,ttt1,ttt2;
 
 // the loop routine runs over and over again forever:
@@ -1428,6 +1419,7 @@ s2(tim.min);
 sa(":");
 s2(tim.sec);
 
+
 //Time tim= rtc.getTime();//2292us
 
 //start working with rtcclock. CErtc high
@@ -1439,11 +1431,8 @@ byte val=0;
 cli();TCNT1=0;
 
 // use PB6&PB7 bits
-for(int z=0;z<256;z++)
-{
-//rtcpoke(15,0x7A);
-rtcpoke(15,z);if(rtcpeek(15)!=z){sh(z);}
-}
+
+rtcgettime(8);
 
 
 t=TCNT1;sei();
@@ -1451,8 +1440,10 @@ t=TCNT1;sei();
 //PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);
 
 //PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH);
+rtcpoke(15,0x7A);
 
 val=rtcpeek(15);
+
 
 
 //PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);
@@ -1462,10 +1453,23 @@ val=rtcpeek(15);
 //{
 //rtc.poke(i,i);
 sa(">");
+sa(" {");
+sh(buf[0]);
+sh(buf[1]);
+sh(buf[2]);
+sh(buf[3]);
+sh(buf[4]);
+sh(buf[5]);
+sh(buf[6]);
+sh(buf[7]);
+sa("} ");
+
   sh(val);
   //sh(rtc.peek(15));
   sa("     ");
   s3(t);
+
+
 //  s3(val);
 //  sh(rtc.peek(15));
 //  sh(rtc.peek(19));
