@@ -1025,25 +1025,30 @@ return val;
 }
 
 //23us
-void rtcpoke(byte addr,byte val)
+/*
+void rtcpoke(byte addr,byte val)//7574
 {
 addr=addr+addr+192;
 PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); //4
 PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH); //D7
-
-//write byte addr
  DDRD|=(1<<IOrtc);//(9clocks vs 1)//set bit IOrtc in DDRC//pinMode(IOrtc,OUTPUT);
-
-//shiftOut(IOrtc,CLKrtc,LSBFIRST,addr);//253us
-ShiftOut(addr);
-//shiftOut(IOrtc,CLKrtc,LSBFIRST,val);//253us
-ShiftOut(val);
+ShiftOut(addr);//shiftOut(IOrtc,CLKrtc,LSBFIRST,addr);//253us
+ShiftOut(val);//shiftOut(IOrtc,CLKrtc,LSBFIRST,val);//253us
  DDRD&=~(1<<IOrtc);//(9clocks vs 1)// clear bit IOrtc in DDRC//pinMode(IOrtc,INPUT);
-
-
-
 PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);//D7  
-}
+}*/
+
+//21us as a macro (20 bytes)//7556(18 bytes less than function if called once)
+
+#define rtcpoke(addr,val)\
+PORTD&=~(1<<CLKrtc);\
+PORTD|=(1<<CErtc);\
+ DDRD|=(1<<IOrtc);\
+ShiftOut(addr+addr+192);\
+ShiftOut(val);\
+ DDRD&=~(1<<IOrtc);\
+PORTD&=~(1<<CErtc);\
+
 
 //500
 //373
@@ -1052,158 +1057,20 @@ PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);//D7
 //272
 //271
 //252
-//19us after switch to ShiftOut7
+//19us after switch to ShiftOut
 
 byte rtcpeek(byte addr)
 {
 byte val;
 
-//addr=14;
-//byte addr=14*2+193;// addr-0..31
 addr=addr+addr+193;
-//NOP;
 PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
 PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH);
-//NOP;
-//write byte addr
 DDRD|=(1<<IOrtc);//(9clocks vs 1)//set bit IOrtc in DDRC//pinMode(IOrtc,OUTPUT);
-
-//shiftOut(IOrtc,CLKrtc,LSBFIRST,addr);
-ShiftOut(addr);
-
-//read byte result
- DDRD&=~(1<<IOrtc);//(9clocks vs 1)// clear bit IOrtc in DDRC//pinMode(IOrtc,INPUT);
-
-//  NOP;
-/*
-for(int i=0;i<8;++i)
-{
-//  val|=(digitalRead(IOrtc)<<i);
-
-byte v=0;//PIND&(1<<IOrtc);
-if(PIND&(1<<IOrtc))v=(1<<i);val|=v;
-//if(PORTD&(1<<IOrtc))val|=(1<<i)
-  //val|=((PORTD&(1<<IOrtc))<<i);
-//  digitalWrite(CLKrtc,HIGH);
- PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
- //delayMicroseconds(1);
-//  digitalWrite(CLKrtc,LOW);
-PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
-}*/
-
+ShiftOut(addr);//shiftOut(IOrtc,CLKrtc,LSBFIRST,addr);
+DDRD&=~(1<<IOrtc);//(9clocks vs 1)// clear bit IOrtc in DDRC//pinMode(IOrtc,INPUT);
 val=ShiftIn();
-
-
-/*
-NOP;
-
-if(PIND&(1<<IOrtc))val|=(1<<0);
-PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
-PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
-NOP;NOP;NOP;NOP;
-if(PIND&(1<<IOrtc))val|=(1<<1);
-PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
-PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
-NOP;NOP;NOP;NOP;
-if(PIND&(1<<IOrtc))val|=(1<<2);
-PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
-PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
-NOP;NOP;NOP;NOP;
-if(PIND&(1<<IOrtc))val|=(1<<3);
-PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
-PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
-NOP;NOP;NOP;NOP;
-if(PIND&(1<<IOrtc))val|=(1<<4);
-PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
-PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
-NOP;NOP;NOP;NOP;
-if(PIND&(1<<IOrtc))val|=(1<<5);
-PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
-PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
-NOP;NOP;NOP;NOP;
-if(PIND&(1<<IOrtc))val|=(1<<6);
-PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
-PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
-NOP;NOP;NOP;NOP;
-if(PIND&(1<<IOrtc))val|=(1<<7);
-PORTD|=(1<<CLKrtc);//digitalWrite(CLKrtc,HIGH); 
-PORTD&=~(1<<CLKrtc);//digitalWrite(CLKrtc,LOW); 
-*/
-
-/*
-// sbic - skip if bit in io register cleared
-__asm__ __volatile__(
-"clr r24\n\t"
-
-"sbi 0x0b,7\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"sbic 9,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
-"ori r24,0x01\n\t"
-"cbi 0x0b,7\n\t"
-
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-
-"sbi 0x0b,7\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"sbic 9,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
-"ori r24,0x02\n\t"
-"cbi 0x0b,4\n\t"
-
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-
-"sbi 0x0b,7\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"sbic 9,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
-"ori r24,0x04\n\t"
-"cbi 0x0b,7\n\t"
-
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-
-"sbi 0x0b,7\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"sbic 9,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
-"ori r24,0x08\n\t"
-"cbi 0x0b,7\n\t"
-
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-
-"sbi 0x0b,7\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"sbic 9,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
-"ori r24,0x10\n\t"
-"cbi 0x0b,7\n\t"
-
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-
-"sbi 0x0b,7\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"sbic 9,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
-"ori r24,0x20\n\t"
-"cbi 0x0b,7\n\t"
-
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-
-"sbi 0x0b,7\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"sbic 9,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
-"ori r24,0x40\n\t"
-"cbi 0x0b,7\n\t"
-
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-
-"sbi 0x0b,7\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"sbic 9,6\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
-"ori r24,0x80\n\t"
-"cbi 0x0b,7\n\t"
-
-//"clr r24\n\t"
-//"sts vvv,r24\n\t"
-//"mov r24,r25\n\t" //result in r24
-);
-//:[c1] "=r" (val));
-*/
-PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);
+PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);// acts as reset otherwise next command is broken
 return val;
 }
 
@@ -1563,25 +1430,33 @@ s2(tim.sec);
 
 //Time tim= rtc.getTime();//2292us
 
+//start working with rtcclock. CErtc high
+//PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH);
 
-rtcpoke(15,0x0A);
+
 //rtc.poke(15,0xE1);
-
+byte val=0;
 cli();TCNT1=0;
 
-
-
-//peek:
-//515us
 // use PB6&PB7 bits
+for(int z=0;z<256;z++)
+{
+//rtcpoke(15,0x7A);
+rtcpoke(15,z);if(rtcpeek(15)!=z){sh(z);}
+}
 
-byte val=rtcpeek(15);
 
 t=TCNT1;sei();
 //digitalWrite(CE,LOW);
+//PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);
+
+//PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH);
+
+val=rtcpeek(15);
 
 
-
+//PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);
+//stop working with rtcclock. CErtc low
 
 //for(byte i=10;i<31;i++)
 //{
