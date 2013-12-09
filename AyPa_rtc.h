@@ -219,7 +219,7 @@ PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);// acts as reset otherwise next com
 }*/
 
 #define rtcgettime(n){PORTD&=~(1<<CLKrtc);PORTD|=(1<<CErtc);DDRD|=(1<<IOrtc);ShiftOut(191);DDRD&=~(1<<IOrtc);for(byte i=0;i<n;i++){buf[i]=ShiftIn();}PORTD&=~(1<<CErtc);}
-#define rtcsettime(n){PORTD&=~(1<<CLKrtc);PORTD|=(1<<CErtc);DDRD|=(1<<IOrtc);ShiftOut(192);for(byte i=0;i<n;i++){ShiftOut(buf[i]);};DDRD&=~(1<<IOrtc);PORTD&=~(1<<CErtc);}
+//#define rtcsettime(n){PORTD&=~(1<<CLKrtc);PORTD|=(1<<CErtc);DDRD|=(1<<IOrtc);ShiftOut(192);for(byte i=0;i<n;i++){ShiftOut(buf[i]);};DDRD&=~(1<<IOrtc);PORTD&=~(1<<CErtc);}
 
 /*
    rtc.halt(false);
@@ -229,14 +229,9 @@ PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);// acts as reset otherwise next com
    rtc.setDate(8, 12, 2013);   // Set the date to August 6th, 2010
 */
 
-#define rtcwriteregister(r,v){PORTD&=~(1<<CLKrtc);PORTD|=(1<<CErtc);DDRD|=(1<<IOrtc);ShiftOut(r);ShiftOut(v);DDRD&=~(1<<IOrtc);}
+#define rtcwriteregister(r,v){PORTD&=~(1<<CLKrtc);PORTD|=(1<<CErtc);DDRD|=(1<<IOrtc);ShiftOut(r);ShiftOut(v);DDRD&=~(1<<IOrtc);PORTD&=~(1<<CErtc);}
 #define rtcwriteprotect(t){rtcwriteregister(0x8E,(t<<7))}//reg_wp=0x8E
 #define rtcsetDOW(v){rtcwriteregister(0x8A,v)}//reg_dow=0x8A
-// reg_sec 0
-// reg_min 1
-// reg_hour 2
-// reg_day 3
-// reg_mon 4
-// reg_year 6
-
+#define rtcsettime(h,m,s){rtcwriteregister(0x84,h) rtcwriteregister(0x82,m) rtcwriteregister(0x80,s)}
+#define rtcsetdate(d,m,y){rtcwriteregister(0x86,d) rtcwriteregister(0x88,m) rtcwriteregister(0x8C,y)}
 

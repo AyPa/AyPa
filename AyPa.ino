@@ -652,7 +652,7 @@ long timl=0;
 long t2ovf=0;
 long t1ovf=0;
 
-word t1111;
+word volatile t1111; // vars updated in ISR should be declared as volatile and accessed with cli()/sei() ie atomic
 
 void pin2_isr()
 {
@@ -782,26 +782,13 @@ void setup() {
   // when it is not needed
 
   
-  //pinMode(4,OUTPUT);pinMode(6,OUTPUT);pinMode(7,OUTPUT);
-
+  //set date/time
+//  pinMode(4,OUTPUT);pinMode(6,OUTPUT);pinMode(7,OUTPUT);
 //rtcwriteprotect(false);//20us
-  
-  //rtcgettime(8);
-  //buf[2]++;
-  //rtcsettime(8);
-  
-  //don't work
-//rtcwriteprotect(false);//20us
-//rtcsetDOW(3);
-
-  /* 
-   rtc.halt(false);
-   rtc.writeProtect(false);
-   rtc.setDOW(SUNDAY);        // Set Day-of-Week to FRIDAY
-   rtc.setTime(0, 30, 0);     // Set the time to 12:00:00 (24hr format)
-   rtc.setDate(8, 12, 2013);   // Set the date to August 6th, 2010
-   //  rtc.writeProtect(true);
-   */
+//   rtcsettime(0x15,0x59,0x35);
+  // rtcsetdate(0x09,0x12,0x13);
+   //rtcsetDOW(1);
+   
 }
 
 /*
@@ -892,7 +879,9 @@ void loop() {
   //.for(int i=0;i<strlen(buf2);i++){sprintf(buf,"%d %d %c %d %d]",i,buf2[i],buf2[i],Rus[(buf2[i]-32)*5],Rus[(buf2[i]-32)*5+1]);sa(buf);}
   //sprintf( buf+strlen(buf), ",%s:%04i", sensorCode, sensorValue );
   sprintf(buf," INT0=%d ",pin2_interrupt_flag);
+  cli();
   sw(t1111);
+  sei();
   sa(" ");
   sw(freeRam());
   sa(buf);
@@ -1188,7 +1177,7 @@ t=TCNT1;sei();
 //PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH);
 //rtc.poke(15,0x1C);//returns 1E
 rtcpoke(15,0x1C);//returns 1E
-rtcpoke(15,0xcc);
+//rtcpoke(15,0xcc);
 
 val=rtcpeek(15);
 
@@ -1200,18 +1189,15 @@ val=rtcpeek(15);
 //for(byte i=10;i<31;i++)
 //{
 //rtc.poke(i,i);
-sa(" {");
+sa(" >");
 sh(buf[2]);
 sh(buf[1]);
 sh(buf[0]);
 sa(" ");
 sh(buf[3]);
-sa("-");
 sh(buf[4]);
-sa("-");
 sh(0x20);
 sh(buf[6]);
-sa("_");
 sh(buf[5]);
 sa(" ");
   sh(val);
