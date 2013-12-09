@@ -1,3 +1,4 @@
+//#define __AVR_ATmega328P__ 
 #include <avr/io.h>
 #include <avr/wdt.h>
 #include <avr/interrupt.h>
@@ -26,7 +27,7 @@ int freeRam(void)
 // nokia 5110 pins layout 
 
 #define RST 3
-#define CE 4
+#define CE 4 // don't go along with CErtc but works on PIN4!
 #define DC 5
 #define DIN 11
 #define CLK 13
@@ -806,7 +807,14 @@ ISR(TIMER2_OVF_vect)
   t2ovf++;
 }*/
 
-
+#define loop_until_bit_is_clear(port, bitn)\
+__asm__ __volatile__ ("nop\n\t""nop\n\t"\
+"L_%=: " "sbic %0, %1" "\n\t"\
+"rjmp L_%="\
+: /* no outputs */\
+: "I" ((uint8_t)(port)),\
+"I" ((uint8_t)(bitn))\
+)
 
 
 word sc[16];
@@ -835,7 +843,8 @@ void loop() {
 
   pinMode(9,OUTPUT);
   pinMode(10,OUTPUT);
-  pinMode(4,OUTPUT);//rtc CE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! important
+//  pinMode(4,OUTPUT);//rtc CE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! important
+  pinMode(8,OUTPUT);//rtc CE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! important
   pinMode(7,OUTPUT);//rtc CLK
   pinMode(6,OUTPUT);//rtc IO
   
@@ -1203,8 +1212,17 @@ sa(" ");
   sh(val);
   s3(val);
   //sh(rtc.peek(15));
-  sa("     ");
+  sa(" ");
   s3(t);
+//loop_until_bit_is_clear(PORTD,7);
+  /*
+  __asm__ __volatile__("nop\n\t"
+  "in r24,%1\n\t" 
+  "sts [val],r24\n\t"
+  :[val]"=&w"(val)
+  :[PORT]"I"(_SFR_I08(PORTD)):);
+  */
+//  sa(PORTD);
 
 
 //  s3(val);

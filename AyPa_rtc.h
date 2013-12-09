@@ -1,7 +1,8 @@
 
+
 #define CErtc 4 //CE of DS1302 and of Nokia3110 are compliment each other nicely!
-#define CLKrtc 7
-#define IOrtc 6
+#define CLKrtc 13//7
+#define IOrtc 11 //6
 
 //CLKrtc IOrtc
 void ShiftOut(byte val)
