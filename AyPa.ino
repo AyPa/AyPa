@@ -6,11 +6,11 @@
 #include <avr/sleep.h>
 #include <avr/pgmspace.h>
 
-//#include <DS1302.h>
-#include <SPI.h> // < next candidate for removal after ds1302
+#include <DS1302.h>// cannot sit on SPI pins (leaves pin in input state)
+#include <SPI.h> // < declaration ShiftOut etc problem
+#include "AyPa_m.h"
 #include "AyPa_fonts.h"
 #include "AyPa_rtc.h"
-
 
 int freeRam(void)
 {
@@ -41,8 +41,7 @@ int freeRam(void)
 
 
 //7216 bytes
-//DS1302 rtc(4,6,7);//ce data clk
-//DS1302_RAM ramBuffer;
+DS1302 rtc(A4,A2,A3);//ce data clk
 
 
 /*
@@ -782,10 +781,11 @@ void setup() {
   //TIMSK0 &= ~_BV(TOIE0); // disable timer0 overflow interrupt
   // when it is not needed
 
-  
+  //delay(2000);
   //set date/time
-//  pinMode(4,OUTPUT);pinMode(6,OUTPUT);pinMode(7,OUTPUT);
 //rtcwriteprotect(false);//20us
+//rtc.writeProtect(false);
+//rtc.setTime(22,49,0);
 //   rtcsettime(0x15,0x59,0x35);
   // rtcsetdate(0x09,0x12,0x13);
    //rtcsetDOW(1);
@@ -841,19 +841,34 @@ void loop() {
 //PORTB&=~(1<<CLKrtc);//digitalWrite(CErtc,LOW); 
 
 
-  pinMode(9,OUTPUT);
-  pinMode(10,OUTPUT);
-//  pinMode(4,OUTPUT);//rtc CE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! important
-  pinMode(8,OUTPUT);//rtc CE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! important
-  pinMode(7,OUTPUT);//rtc CLK
-  pinMode(6,OUTPUT);//rtc IO
+
+    Pin2Output(DDRB,2);  //pinMode(10,OUTPUT);
+    Pin2Output(DDRB,1);//  pinMode(9,OUTPUT);
+
+//  pinMode(A4,OUTPUT);//rtc CE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! important
+//  pinMode(A3,OUTPUT);//rtc CLK
+//  pinMode(A2,OUTPUT);//rtc IO
+  Pin2Output(DDRC,2);
+  Pin2Output(DDRC,3);
+  Pin2Output(DDRC,4);
   
 
   digitalWrite(9,HIGH);// acs712 module + lcd
   digitalWrite(10,HIGH);// 5v mosfet control
 
-  SPI.begin();
-  InitSPI();
+  //SPI.begin();//  InitSPI();
+  
+  Pin2HIGH(PORTB,2); //set SS high
+  Pin2Output(DDRB,2); //SS pin
+
+  //SPSR = (0 << SPI2X); //4
+  //SPCR = (1 << MSTR) | (1 << SPE) |(1<<SPR0);      // enable, master, msb first
+  SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first (lcd)
+//  SPCR = (1 << MSTR) | (1 << SPE) | (1<<DORD);      // enable, master, lsb first (rtc)
+  SPSR = (1 << SPI2X);// 1/2clk
+  Pin2Output(DDRB,3); //MOSI pin
+  Pin2Output(DDRB,5); //SCK pin
+
 
   pinMode(RST,OUTPUT);
   pinMode(CE,OUTPUT);
@@ -1150,22 +1165,28 @@ cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();
   //  comment("Reading address 18 (0x12). This should return 18, 0x12.");
   // r1 = rtc.peek(18);
   // r2 = rtc.peek(15);
-
+/*
 //cli();TCNT1=0;
 //Time tim= rtc.getTime();//2292us
 //t=TCNT1;sei();
 
 
 //sprintf(buf,"  [  %d %d-%d-%d %d:%d:%d]",tim.dow,tim.date,tim.mon,tim.year,tim.hour,tim.min,tim.sec);sa(buf);
-//s2(tim.hour);
-//sa(":");
-//s2(tim.min);
-//sa(":");
-//s2(tim.sec);
+s2(tim.hour);
+sa(":");
+s2(tim.min);
+sa(":");
+s2(tim.sec);
+*/
 
+Time tim= rtc.getTime();//2292us
 
-//Time tim= rtc.getTime();//2292us
+Pin2Output(DDRC,2);
+  Pin2Output(DDRC,3);
+  Pin2Output(DDRC,4);
 
+//Pin2Output(DDRB,3);
+//Pin2Output(DDRB,5); //this SCK/CLK pin DS1302 library has switched to INPUT mode
 //start working with rtcclock. CErtc high
 //PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH);
 
@@ -1198,6 +1219,9 @@ val=rtcpeek(15);
 //for(byte i=10;i<31;i++)
 //{
 //rtc.poke(i,i);
+s2(tim.hour);
+s2(tim.min);
+s2(tim.sec);
 sa(" >");
 sh(buf[2]);
 sh(buf[1]);
@@ -1263,12 +1287,7 @@ cli();
    delay(24);*/
  
 
-
-
-//TCNT1=0;
- // cli();pinMode(2,OUTPUT);digitalWrite(2,HIGH);delayMicroseconds(65);digitalWrite(2,LOW);pinMode(2,INPUT);sei();// controlled charging(~99us)
-//t=TCNT1;
-//sw(t);delay(700);
+//delay(2000);
 
 
   //for(long i=0;i<3000000;i++){NOP;}//~2100ms delay
@@ -1279,14 +1298,14 @@ cli();
   digitalWrite(RST,LOW);
   // digitalWrite(RST,HIGH);
 
-  SPI.end();
+  SPCR&=~(1<<SPE); //  SPI.end();
 
   ADCSRA=0;// switch off ADC
   ACSR = (1<<ACD); // switch off analog comparator
   digitalWrite(10,LOW);// lcd 
   digitalWrite(9,LOW);// acs712 module 
   //digitalWrite(A5,LOW);// LCD display backlight off
-  pinMode(A0,INPUT);
+/*  pinMode(A0,INPUT);
   pinMode(A1,INPUT);
   pinMode(A2,INPUT);
   pinMode(A3,INPUT);
@@ -1299,7 +1318,7 @@ cli();
   pinMode(6,INPUT);
   pinMode(7,INPUT);
   pinMode(8,INPUT);
-
+*/
   //digitalWrite(2,LOW);//pinMode(2,INPUT);
 
 
@@ -1339,12 +1358,14 @@ cli();  // disable all interrupts
   //set_sleep_mode (SLEEP_MODE_STANDBY);// 2.7ma 
   //set_sleep_mode (SLEEP_MODE_PWR_DOWN);// 0.76ma
 
+
   pinMode(2,OUTPUT);digitalWrite(2,HIGH);delayMicroseconds(65);digitalWrite(2,LOW);pinMode(2,INPUT);// controlled charging(~100us)
 
 //                                       -----51K----
 // D2(INT0)---------220R---|----+||-----|--------G   ~100us charging at 5V gives 1.7ms sleeping time (with 100K 3.2ms 680K 19ms 1M 32ms    without R 35.8ms)
 //                                            0.1uF
 //
+
 
 cli();
   pin2_interrupt_flag=0;
