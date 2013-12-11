@@ -531,44 +531,22 @@ unsigned long resetTime = 0;
 #define doggieTickle() resetTime = millis();  // This macro will reset the timer
 void(* resetFunc) (void) = 0; //declare reset function @ address 0
 
-void watchdogSetup()
-{
-  cli();  // disable all interrupts
-  wdt_reset(); // reset the WDT timer
-  MCUSR &= ~(1<<WDRF);  // because the data sheet said to
-  /*
-WDTCSR configuration:
-   WDIE = 1 :Interrupt Enable
-   WDE = 1  :Reset Enable - I won't be using this on the 2560
-   WDP3 = 0 :For 1000ms Time-out
-   WDP2 = 1 :bit pattern is 
-   WDP1 = 1 :0110  change this for a different
-   WDP0 = 0 :timeout period.
-   */
-  // Enter Watchdog Configuration mode:
-  WDTCSR = (1<<WDCE) | (1<<WDE);
-  // Set Watchdog settings: interrupte enable, 0110 for timer
-  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms
-  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//30ms
-  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (0<<WDP0);//60ms
-  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (1<<WDP0);//120ms
-  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (0<<WDP0);//240ms
-  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (1<<WDP0);//480ms
-  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);//960ms
-  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);//2s
-  //WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
-  WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
-  sei();
-  //Serial.println("finished watchdog setup");  // just here for testing
-}
+#define SetupWD(timeout){cli();wdt_reset();MCUSR&=~(1<<WDRF);WDTCSR=(1<<WDCE)|(1<<WDE);WDTCSR=(1<<WDIE)|timeout;WDhappen;sei();}
 
 //byte odd=0;
-long r1=0,r2;
+//long r1=0,r2;
+
+volatile byte WDhappen;
+volatile word  t1111; // vars updated in ISR should be declared as volatile and accessed with cli()/sei() ie atomic
+
 
 ISR(WDT_vect) // Watchdog timer interrupt.
 { 
   //resetFunc();  //reboot
-  r2=TCNT1;
+//  r2=TCNT1;
+  t1111=TCNT1;
+  WDhappen=1;
+  
   //if(odd){odd=0;r1=TCNT1;}
   //else{odd=1;r2=TCNT1;}
   // if(millis() - resetTime > TIMEOUTPERIOD){
@@ -624,44 +602,6 @@ void SetADCinputChannel(uint8_t input,uint16_t us)
 //#define digitalPinToPort(P) ( pgm_read_byte( digital_pin_to_port_PGM + (P) ) )
 #define mRawADC(v,p) ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|p;do{}while(bit_is_set(ADCSRA,ADSC));v=ADCW; 
 
-
-
-/*
-typedef struct { 
- char c1; 
- char c2; 
- uint8_t b1; 
- uint8_t b2; 
- } sager_type; 
- 
- static sager_type forecast[] PROGMEM = 
- { 
- {'C', 'U', '8', '8'}, 
- {'C', 'U', '8', '8'}, 
- {'C', 'U', '8', '8'}, 
- {'C', 'U', '8', '8'}, 
- {'W', 'U', '8', '8'}, 
- {'A', 'U', '8', '8'}, 
- {'A', 'U', '8', '8'} 
- }; 
- 
- sager_type ram_struct; */
-byte pin2_interrupt_flag=0;
-long timv=0;
-long timl=0;
-long t2ovf=0;
-long t1ovf=0;
-
-word volatile t1111; // vars updated in ISR should be declared as volatile and accessed with cli()/sei() ie atomic
-
-void pin2_isr()
-{
-  //timl=timv;
-  t1111=TCNT1;//timl=t2ovf;
-  sleep_disable();
-  detachInterrupt(0);
-  pin2_interrupt_flag = 1;
-}
 
 
 // the setup routine runs once when you press reset:
@@ -902,7 +842,7 @@ void loop() {
 
   //.for(int i=0;i<strlen(buf2);i++){sprintf(buf,"%d %d %c %d %d]",i,buf2[i],buf2[i],Rus[(buf2[i]-32)*5],Rus[(buf2[i]-32)*5+1]);sa(buf);}
   //sprintf( buf+strlen(buf), ",%s:%04i", sensorCode, sensorValue );
-  sprintf(buf," INT0=%d ",pin2_interrupt_flag);
+  sprintf(buf,"  WD=%d ",WDhappen);
   cli();
   sw(t1111);
   sei();
@@ -959,134 +899,6 @@ void loop() {
   word i;
   mRawADC(i,2);
   //digitalWrite(A5,HIGH);
-
-  //A0 playground
-  //-------------------------------------------
-
-  // stage1
-  //--------------------------
-  //     +Vcc
-  //      |
-  //     ||| 20-100K
-  //      |
-  // ---------zzzz220R----A0
-  //      |
-  //     ===
-  //      |
-  //      G
-
-  //A0=102 of 1023
-
-  //n=digitalRead(A0);// 1
-  //n=PINC&1; // 1
-  //byte c=DDRC;//1E 0
-  //n=digitalRead(A0);// 1
-
-  //DDRC|=(1<<0);//pinMode(A0,OUTPUT);
-  //PORTC&=~(1<<0);//digitalWrite(A0,LOW);
-  //n=PINC&1; // 0
-
-    //NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;
-  //NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;
-
-  //A0=96 of 1023
-  //A0=44..48 of 1023 with //digitalWrite(A0,LOW);
-  //A0=63..64 of 1023 with PORTC&=~(1<<0);
-
-
- // delayMicroseconds(50);// time for capacitor to discharge A0=12;
-  //delayMicroseconds(30);// time for capacitor to discharge A0=28;
-  //delayMicroseconds(20);// time for capacitor to discharge A0=39 of 1023;
-
-
-
-
-
-  //cli();TCNT1=0;
- // byte c=DDRC;//1F 1
- // DDRC&=~(1<<0);//pinMode(A0,INPUT);//(9clocks vs 1)// clear bit A0 in DDRC
- // byte d=DDRC;//1E 0
-  //t=TCNT1;sei();
-
-  // here the capacitor is charging
-
-  // A0=143 of 1023
-
-  //cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();
-
-  //delayMicroseconds(10);// time for capacitor to discharge
-
-  //i=PINC;//0
-  //n=0;while(digitalRead(A0)==LOW){if(++n==3000){break;}}//n=114
-  //n=0;while((PINC&1)==LOW){NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;if(++n==32000){break;}}//n=419 with ~1us delay (8x0.125)
-  //n=0;while((PINC&1)==LOW){NOP;NOP;NOP;NOP;if(++n==32000){break;}}//n=541 with ~0.5us delay (4x0.125)
-  //n=0;while((PINC&1)==LOW){if(++n==32000){break;}}//n=755..778 with 2/8 us delay (2x0.125) 0.1microfarad +20k pullup +220r to A0
-
-  //pinMode(2,INPUT);
-  //digitalWrite(2,HIGH);delay(100);
-  //digitalWrite(2,LOW);
-
-/*
-  cli();
-  TCNT1=0;
-  n=0;
-//  while((PINC&1)==LOW){
-  while((PIND&0b00000100)==LOW){
-    if(++n==32000){
-      break;
-    }
-  }//n=419 with ~1us delay (8x0.125)
-  //n=0;while((PINC&1)==LOW){if(++n==32000){break;}}//n=4502..4746 with 2/8 us delay (2x0.125) 0.1microfarad +100k pullup +220r to A0
-  t=TCNT1;
-  sei();*/
-
-//  n=digitalRead(2);
-  //i=PINC;//1
-
-  //A0=519 of 1023
-
-  //cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();
-
-  // stage2 - capacitor is discharging to ground very fast. maybe connect it to closed mosfet instead of ground???
-  // nope. different current circuits. don't mix them
-  //--------------------------
-  // ---------zzzz220R----A0
-  //     +|
-  //     ===
-  //      |
-  //      G
-
-  // charge the capacitor by output logic HIGH to pin
-  //cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei(); //A0=67 of 1023 here
-
-  //DDRC|=(1<<PINC0);//pinMode(A0,OUTPUT);
-  //PORTC|=(1<<PINC0);//digitalWrite(A0,HIGH);
-  //PORTC|=(1<<PINC0);// in asm this is supposedly right to avoid logic 1 during transitions? need extended check though
-  //DDRC|=(1<<PINC0);
-
-  //n=PINC;
-  //n=PIND2;//2
-
-  //delayMicroseconds(100);// time for capacitor to charge (1022)
-  //delayMicroseconds(50);// time for capacitor to charge (1012)
-  //delayMicroseconds(10);// time for capacitor to charge (960)
-  //delayMicroseconds(5);// time for capacitor to charge (944)
-
-  //cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();//924
-  // now disconnect pin
-
-  //n=PINC&1;
-
-  //PORTC&=~(1<<PINC0);//digitalWrite(A0,LOW);// more rapid discharge if just write low
-  //DDRC&=~(1<<PINC0);//pinMode(A0,INPUT);// probably this will be during sleeping 17..22
-
-  //n=PINC&1;
-
-  //cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();//82
-
-  //cli();TCNT1=0;
-  //n=0;while((PINC&1)==HIGH){if(++n==32000){break;}}//n=3805..4374 with 2/8 us delay (2x0.125) 0.1microfarad +100k pullup +220r to A0
-  //t=TCNT1;sei();
 
 /*
   sprintf(buf,"     TCNT1=%d i=%d",t,i);
@@ -1192,7 +1004,7 @@ Pin2Output(DDRC,2);
 
 
 byte val=0;
-cli();TCNT1=0;
+//cli();TCNT1=0;
 
 // use PB6&PB7 bits
 
@@ -1200,7 +1012,7 @@ cli();TCNT1=0;
 rtcgettime(7);//rtcgettime(8); 7 is enough
 
 
-t=TCNT1;sei();
+//t=TCNT1;sei();
 //digitalWrite(CE,LOW);
 //PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);
 
@@ -1252,12 +1064,24 @@ sa(" ");
 //  s3(val);
 //  sh(rtc.peek(15));
 //  sh(rtc.peek(19));
- 
+WDhappen=0;
+  sa("WD");
+  s2(WDhappen);
+  NOP;
+//SetupWD(WDTO_15MS);
+//wdt_enable(WDTO_15MS);
+//wdt_reset();
+TCNT1=0;
+//  delay (2000);
+  //wdt_disable();
 
-  
-  
-  delay (400);
 
+  sa("WD");
+  s2(WDhappen);
+  sa("~");
+  sw(t1111);
+  
+  delay(1500);
   /*
 cli();
    t1=TCNT1;
@@ -1272,20 +1096,20 @@ cli();
   //for(int j=0;j<16;j++){z+=sc[j]*10;
   //lcd.print(" ");lcd.print(sc[j]);}
 
-  /*
+  
 //17211..17226 ~120clocks each 17ms sleep inaccuracy
-   cli();  // disable all interrupts
+   /*cli();  // disable all interrupts
    TCNT1=0; //17202..17263x8 17249.5 137996 clocks with 8000000 17.2ms
    wdt_reset(); // reset the WDT timer
    MCUSR &= ~(1<<WDRF);  // because the data sheet said to
    // Enter Watchdog Configuration mode:
    WDTCSR = (1<<WDCE) | (1<<WDE);
    // Set Watchdog settings: interrupte enable, 0110 for timer
-   WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms
-   //WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
+//   WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms
+   WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
+   WDhappen=0;
    sei();
-   delay(24);*/
- 
+ */
 
 //delay(2000);
 
@@ -1295,15 +1119,15 @@ cli();
   //digitalWrite(A5,LOW);
   //  pinMode(A5, OUTPUT); //LCD led backlight
   //-------------------------------------------------------------------------------------------------[ power saving wait state ]
-  digitalWrite(RST,LOW);
+ // digitalWrite(RST,LOW);
   // digitalWrite(RST,HIGH);
 
   SPCR&=~(1<<SPE); //  SPI.end();
 
   ADCSRA=0;// switch off ADC
   ACSR = (1<<ACD); // switch off analog comparator
-  digitalWrite(10,LOW);// lcd 
-  digitalWrite(9,LOW);// acs712 module 
+//  digitalWrite(10,LOW);// lcd 
+//  digitalWrite(9,LOW);// acs712 module 
   //digitalWrite(A5,LOW);// LCD display backlight off
 /*  pinMode(A0,INPUT);
   pinMode(A1,INPUT);
@@ -1358,34 +1182,29 @@ cli();  // disable all interrupts
   //set_sleep_mode (SLEEP_MODE_STANDBY);// 2.7ma 
   //set_sleep_mode (SLEEP_MODE_PWR_DOWN);// 0.76ma
 
+//  SetupWD(1);
 
-  pinMode(2,OUTPUT);digitalWrite(2,HIGH);delayMicroseconds(65);digitalWrite(2,LOW);pinMode(2,INPUT);// controlled charging(~100us)
+  wdt_enable(WDTO_30MS);
+  wdt_reset();
 
-//                                       -----51K----
-// D2(INT0)---------220R---|----+||-----|--------G   ~100us charging at 5V gives 1.7ms sleeping time (with 100K 3.2ms 680K 19ms 1M 32ms    without R 35.8ms)
-//                                            0.1uF
-//
-
-
-cli();
-  pin2_interrupt_flag=0;
-  sleep_enable();
-  attachInterrupt(0, pin2_isr, LOW);
-  ticks=0;
-  TCNT1=0;
   set_sleep_mode (SLEEP_MODE_IDLE);
-  
   //set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-  //set_sleep_mode (SLEEP_MODE_PWR_SAVE);// timer2 but it is not in async mode yet
-  //cli();
-  //sleep_bod_disable();
-  //sei();
+  cli();
+  sleep_enable();
+  TCNT1=0;
   sei();
   sleep_cpu();
+  sei();
+
   // wake up here
+  t1111=TCNT1;
   sleep_disable();
+  wdt_disable();
+  
+  //digitalWrite(RST,LOW);
+//  digitalWrite(RST,HIGH);
 
-
+ // sa("wakeup");delay(3000);
 
   /*
 attachInterrupt(0, pin2_isr, LOW);
