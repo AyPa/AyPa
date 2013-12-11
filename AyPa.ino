@@ -707,16 +707,16 @@ void setup() {
   //pinMode(7,INPUT);
   //digitalWrite(7,LOW);
   // setup analog comparator
-  cli();
-  ADCSRB = 0;
-  ACSR = (1<<ACBG); //bandgap instead of AIN0 int on falling edge 
+//  cli();
+//  ADCSRB = 0;
+//  ACSR = (1<<ACBG); //bandgap instead of AIN0 int on falling edge 
   //  delay(1); // to avoid false interrupt due bandgap voltage settle
 
   //  ACSR = (1<<ACI)|(1<<ACBG)|(1<<ACIE)|(1<<ACIS1)|(0<<ACIS0); //bandgap instead of AIN0 int on falling edge 
   //  ACSR = (1<<ACBG)|(1<<ACIE)|(0<<ACIS1)|(0<<ACIS0); //bandgap instead of AIN0 int on toggle
   //  ACSR = (1<<ACBG); //bandgap instead of AIN0 int on toggle
 //  DIDR1 = (1<<AIN0D); // it will be bandgap on AIN0  (debug rtc)
-  sei();
+//  sei();
 
 
   //TIMSK0 &= ~_BV(TOIE0); // disable timer0 overflow interrupt
@@ -774,6 +774,8 @@ void loop() {
 //PORTB&=~(1<<CLKrtc);//digitalWrite(CErtc,LOW); 
 
     Pin2Input(DDRC,0); //pinMode(A0,INPUT);
+    Pin2Input(DDRD,7); //D7 AIN1
+
 
     Pin2Output(DDRB,2);  //pinMode(10,OUTPUT);
     Pin2Output(DDRB,1);//  pinMode(9,OUTPUT);
@@ -885,11 +887,23 @@ void loop() {
  // pinMode(4,OUTPUT);
   // lcd.begin(20,4);  lcd.setCursor(0,0); //lcd.print("Marinochka lapochka!"); delay(1000);
 
-  SetADCinputChannel(0,500);
-  //  SetADCinputChannel(5,500);
+
+  // setup analog comparator
+  cli();
+  DIDR1 = (1<<AIN1D); // AIN1 goes to analog comparator negative's input    so switch off digital input (+1.1 bandgap voltage is on positive input)
+  ADCSRB = 0;
+  ACSR = (1<<ACBG); //bandgap instead of AIN0 int on falling edge 
+  SetADCinputChannel(0,500);  //  delay(1); // to avoid false interrupt due bandgap voltage settle
+
+  //  ACSR = (1<<ACI)|(1<<ACBG)|(1<<ACIE)|(1<<ACIS1)|(0<<ACIS0); //bandgap instead of AIN0 int on falling edge 
+  //  ACSR = (1<<ACBG)|(1<<ACIE)|(0<<ACIS1)|(0<<ACIS0); //bandgap instead of AIN0 int on toggle
+  //  ACSR = (1<<ACBG); //bandgap instead of AIN0 int on toggle
+  sei();
+
   word i;
   mRawADC(i,2);
   //digitalWrite(A5,HIGH);
+  
 
 /*
   sprintf(buf,"     TCNT1=%d i=%d",t,i);
@@ -1039,8 +1053,10 @@ sa(" ");
   
 sa(" A0:");
     mRawADC(i,2);
+t=ACSR;
     sw(i);
-    
+    sh(t);        sh(t&(1<<ACO));    
+    if((t&(1<<ACO))==0){sa(" current is too high!");}// if ACO bit is set then the current is withing limits
     // 5V
     // 800ma 487..494  547..553(reversed polarity) ~550  (+28)
     // 600ma (+21) ~543
