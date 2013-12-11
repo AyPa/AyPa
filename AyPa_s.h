@@ -197,6 +197,8 @@ typedef struct {
  
  sager_type ram_struct; */
 //==========================================================================================
+//loop_until_bit_is_clear(PORTD,7);
+
 #define loop_until_bit_is_clear(port, bitn)\
 __asm__ __volatile__ ("nop\n\t""nop\n\t"\
 "L_%=: " "sbic %0, %1" "\n\t"\

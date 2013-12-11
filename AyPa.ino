@@ -773,7 +773,7 @@ void loop() {
 //PORTB&=~(1<<IOrtc);//digitalWrite(CErtc,LOW); 
 //PORTB&=~(1<<CLKrtc);//digitalWrite(CErtc,LOW); 
 
-
+    Pin2Input(DDRC,0); //pinMode(A0,INPUT);
 
     Pin2Output(DDRB,2);  //pinMode(10,OUTPUT);
     Pin2Output(DDRB,1);//  pinMode(9,OUTPUT);
@@ -984,9 +984,7 @@ s2(tim.sec);
 
 //Time tim= rtc.getTime();//2292us
 
-Pin2Output(DDRC,2);
-  Pin2Output(DDRC,3);
-  Pin2Output(DDRC,4);
+  Pin2Output(DDRC,2);Pin2Output(DDRC,3);  Pin2Output(DDRC,4);//corrections after DS1302 library call
 
 //Pin2Output(DDRB,3);
 //Pin2Output(DDRB,5); //this SCK/CLK pin DS1302 library has switched to INPUT mode
@@ -1038,55 +1036,24 @@ sh(buf[5]);
 sa(" ");
   sh(val);
   s3(val);
-  //sh(rtc.peek(15));
-  sa(" ");
-  s3(t);
-//loop_until_bit_is_clear(PORTD,7);
-  /*
-  __asm__ __volatile__("nop\n\t"
-  "in r24,%1\n\t" 
-  "sts [val],r24\n\t"
-  :[val]"=&w"(val)
-  :[PORT]"I"(_SFR_I08(PORTD)):);
-  */
-//  sa(PORTD);
+  
+sa(" A0:");
+    mRawADC(i,2);
+    sw(i);
+    
+    // 5V
+    // 800ma 487..494  547..553(reversed polarity) ~550  (+28)
+    // 600ma (+21) ~543
+    // 400ma (+14) ~536
+    // 200ma (+7)   ~529
+    // 0ma 519..524  ~522
+    
+    // 3.3V khaos.......... ACS712 cannot operate. 4.5V minimum as per datasheet
+    // 800ma 847..851 
+    // 0ma 825..839 860..865
 
-
-//  s3(val);
-//  sh(rtc.peek(15));
-//  sh(rtc.peek(19));
-/*
-WDhappen=0;
-  sa("WD");
-  s2(WDhappen);
-  NOP;
-//SetupWD(WDTO_15MS);
-//wdt_enable(WDTO_15MS);
-//wdt_reset();
-TCNT1=0;
-//  delay (2000);
-  //wdt_disable();
-
-
-  sa("WD");
-  s2(WDhappen);
-  sa("~");
-  sw(t1111);
-  */
-  delay(1500);
-  /*
-cli();
-   t1=TCNT1;
-   //for(int j=0;j<16;j++){sc[j]=analogRead(0);}
-   for(int j=0;j<16;j++){mRawADC(sc[j],2);}
-   t2=TCNT1;
-   sei();
-   */
-  //lcd.setCursor(0,0);
- // long z=0;
-
-  //for(int j=0;j<16;j++){z+=sc[j]*10;
-  //lcd.print(" ");lcd.print(sc[j]);}
+  
+  delay(700);
 
   
 //17211..17226 ~120clocks each 17ms sleep inaccuracy
@@ -1196,7 +1163,7 @@ cli();  // disable all interrupts
   //WDTCSR = 3; /* 120ms */
 //  WDTCSR = 9; /* 8s */
 
-   WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms
+   WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280us)
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//30ms
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (0<<WDP0);//60ms
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (1<<WDP0);//120ms
@@ -1207,8 +1174,7 @@ cli();  // disable all interrupts
    //WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
   // WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
   sei();
-  /* Enable the WD interrupt (note no reset). */
-//  WDTCSR |= _BV(WDIE);
+  /* Enable the WD interrupt (note no reset) and set timeout. */
   set_sleep_mode (SLEEP_MODE_IDLE);
 //  set_sleep_mode(SLEEP_MODE_PWR_DOWN);   /* EDIT: could also use SLEEP_MODE_PWR_DOWN for lowest power consumption. */
   sleep_enable();
@@ -1220,7 +1186,7 @@ do{
   /* Now enter sleep mode. */
 //  sleep_mode();// sleep_enable+sleep_cpu+sleep_disable
   sleep_cpu();
-  sleeps++;
+  sleeps++; // 9 times within 16ms
   /* The program will continue from here after the WDT timeout*/
   //sleep_disable(); /* First thing to do is disable sleep. */
   
