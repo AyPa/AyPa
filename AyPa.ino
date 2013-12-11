@@ -6,7 +6,7 @@
 #include <avr/sleep.h>
 #include <avr/pgmspace.h>
 
-#include <DS1302.h>// cannot sit on SPI pins (leaves pin in input state)
+//#include <DS1302.h>// cannot sit on SPI pins (leaves pin in input state)
 #include <SPI.h> // < declaration ShiftOut etc problem
 #include "AyPa_m.h"
 #include "AyPa_fonts.h"
@@ -41,7 +41,7 @@ int freeRam(void)
 
 
 //7216 bytes
-DS1302 rtc(A4,A2,A3);//ce data clk
+//DS1302 rtc(A4,A2,A3);//ce data clk
 
 
 /*
@@ -606,6 +606,7 @@ void SetADCinputChannel(uint8_t input,uint16_t us)
 
 // the setup routine runs once when you press reset:
 void setup() {                
+  wdt_disable();
 
   //  memcpy_P(&ram_struct, &forecast[4], sizeof(ram_struct)); 
 
@@ -747,19 +748,11 @@ ISR(TIMER2_OVF_vect)
   t2ovf++;
 }*/
 
-#define loop_until_bit_is_clear(port, bitn)\
-__asm__ __volatile__ ("nop\n\t""nop\n\t"\
-"L_%=: " "sbic %0, %1" "\n\t"\
-"rjmp L_%="\
-: /* no outputs */\
-: "I" ((uint8_t)(port)),\
-"I" ((uint8_t)(bitn))\
-)
 
 
 word sc[16];
 word mn=5555,mx=5000;
-
+word sleeps;
 uint16_t t1,t2,tt1,tt2,ttt1,ttt2;
 
 // the loop routine runs over and over again forever:
@@ -842,10 +835,8 @@ void loop() {
 
   //.for(int i=0;i<strlen(buf2);i++){sprintf(buf,"%d %d %c %d %d]",i,buf2[i],buf2[i],Rus[(buf2[i]-32)*5],Rus[(buf2[i]-32)*5+1]);sa(buf);}
   //sprintf( buf+strlen(buf), ",%s:%04i", sensorCode, sensorValue );
-  sprintf(buf,"  WD=%d ",WDhappen);
-  cli();
+  sprintf(buf,"  WD=%d n=%d ",WDhappen,sleeps);
   sw(t1111);
-  sei();
   sa(" ");
   sw(freeRam());
   sa(buf);
@@ -991,7 +982,7 @@ sa(":");
 s2(tim.sec);
 */
 
-Time tim= rtc.getTime();//2292us
+//Time tim= rtc.getTime();//2292us
 
 Pin2Output(DDRC,2);
   Pin2Output(DDRC,3);
@@ -1031,10 +1022,10 @@ val=rtcpeek(15);
 //for(byte i=10;i<31;i++)
 //{
 //rtc.poke(i,i);
-s2(tim.hour);
-s2(tim.min);
-s2(tim.sec);
-sa(" >");
+//s2(tim.hour);
+//s2(tim.min);
+//s2(tim.sec);
+//sa(" >");
 sh(buf[2]);
 sh(buf[1]);
 sh(buf[0]);
@@ -1064,6 +1055,7 @@ sa(" ");
 //  s3(val);
 //  sh(rtc.peek(15));
 //  sh(rtc.peek(19));
+/*
 WDhappen=0;
   sa("WD");
   s2(WDhappen);
@@ -1080,7 +1072,7 @@ TCNT1=0;
   s2(WDhappen);
   sa("~");
   sw(t1111);
-  
+  */
   delay(1500);
   /*
 cli();
@@ -1184,6 +1176,56 @@ cli();  // disable all interrupts
 
 //  SetupWD(1);
 
+
+  
+ /*** Setup the WDT ***/
+  cli();
+  /* Clear the reset flag. */
+  MCUSR &= ~(1<<WDRF);
+  
+  /* In order to change WDE or the prescaler, we need to
+   * set WDCE (This will allow updates for 4 clock cycles).
+   */
+  WDTCSR |= (1<<WDCE) | (1<<WDE);
+
+  /* set new watchdog timeout prescaler value */
+//  WDTCSR = 1<<WDP0 | 1<<WDP3; /* 8.0 seconds */
+//  WDTCSR = 0; /* 15ms */
+//  WDTCSR = 1; /* 30ms */
+//  WDTCSR = 2; /* 60ms */
+  //WDTCSR = 3; /* 120ms */
+//  WDTCSR = 9; /* 8s */
+
+   WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms
+   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//30ms
+   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (0<<WDP0);//60ms
+   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (1<<WDP0);//120ms
+   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (0<<WDP0);//240ms
+   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (1<<WDP0);//480ms
+  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);//960ms
+   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);//2s
+   //WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
+  // WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
+  sei();
+  /* Enable the WD interrupt (note no reset). */
+//  WDTCSR |= _BV(WDIE);
+  set_sleep_mode (SLEEP_MODE_IDLE);
+//  set_sleep_mode(SLEEP_MODE_PWR_DOWN);   /* EDIT: could also use SLEEP_MODE_PWR_DOWN for lowest power consumption. */
+  sleep_enable();
+  WDhappen=0;
+ sleeps=0;
+ TCNT1=0;
+
+do{  
+  /* Now enter sleep mode. */
+//  sleep_mode();// sleep_enable+sleep_cpu+sleep_disable
+  sleep_cpu();
+  sleeps++;
+  /* The program will continue from here after the WDT timeout*/
+  //sleep_disable(); /* First thing to do is disable sleep. */
+  
+  
+  /*
   wdt_enable(WDTO_30MS);
   wdt_reset();
 
@@ -1195,7 +1237,9 @@ cli();  // disable all interrupts
   sei();
   sleep_cpu();
   sei();
-
+*/
+if(WDhappen){break;}
+}while(1);
   // wake up here
   t1111=TCNT1;
   sleep_disable();
