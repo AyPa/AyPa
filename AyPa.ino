@@ -593,11 +593,11 @@ ISR (TIMER1_COMPA_vect){
 
 void SetADCinputChannel(uint8_t input,uint16_t us)
 {
-  ADMUX = (0<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input; // input (0..7)
+//  ADMUX = (0<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input; // input (0..7) (default VCC reference)
+  ADMUX = (1<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input; // input (0..7) (1.1v analogReference reference)
   ADCSRB = 0; // mux5 bit
   //    if(stime) delay(stime); // Wait for input channel to settle
   if(us)delayMicroseconds(us); // Wait for input channel to settle (300us)
-
 }
 //#define digitalPinToPort(P) ( pgm_read_byte( digital_pin_to_port_PGM + (P) ) )
 #define mRawADC(v,p) ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|p;do{}while(bit_is_set(ADCSRA,ADSC));v=ADCW; 
@@ -607,7 +607,7 @@ void SetADCinputChannel(uint8_t input,uint16_t us)
 // the setup routine runs once when you press reset:
 void setup() {                
   wdt_disable();
-
+  analogReference(INTERNAL);// just for analogRead (SetADCinputChannel sets it up for mRawADC)
   //  memcpy_P(&ram_struct, &forecast[4], sizeof(ram_struct)); 
 
 
@@ -893,6 +893,7 @@ void loop() {
   DIDR1 = (1<<AIN1D); // AIN1 goes to analog comparator negative's input    so switch off digital input (+1.1 bandgap voltage is on positive input)
   ADCSRB = 0;
   ACSR = (1<<ACBG); //bandgap instead of AIN0 int on falling edge 
+
   SetADCinputChannel(0,500);  //  delay(1); // to avoid false interrupt due bandgap voltage settle
 
   //  ACSR = (1<<ACI)|(1<<ACBG)|(1<<ACIE)|(1<<ACIS1)|(0<<ACIS0); //bandgap instead of AIN0 int on falling edge 
@@ -901,6 +902,7 @@ void loop() {
   sei();
 
   word i;
+  mRawADC(i,2);
   mRawADC(i,2);
   //digitalWrite(A5,HIGH);
   
@@ -1051,18 +1053,32 @@ sa(" ");
   sh(val);
   s3(val);
   
-sa(" A0:");
-    mRawADC(i,2);
 t=ACSR;
-    sw(i);
+word a0,a1,a2;
+sa(" A0:");
+    mRawADC(a0,2);
+    mRawADC(a1,2);
+    mRawADC(a2,2);
+//    mRawADC(i,2);
+//delay(1);
+//    i=analogRead(A0);
+//    mRawADC(i,7);
+LcdSet(0,4);
+    s3(a0);sa(" ");s3(a1);sa(" ");s3(a2);sa(" ");sw(analogRead(A0));sa(" ");
     sh(t);        sh(t&(1<<ACO));    
-    if((t&(1<<ACO))==0){sa(" current is too high!");}// if ACO bit is set then the current is withing limits
-    // 5V
-    // 800ma 487..494  547..553(reversed polarity) ~550  (+28)
-    // 600ma (+21) ~543
-    // 400ma (+14) ~536
-    // 200ma (+7)   ~529
-    // 0ma 519..524  ~522
+    if((t&(1<<ACO))==0){sa(" I too high!");}// if ACO bit is set then the current is withing limits
+
+
+// inner T
+// bandgap vs vcc
+
+
+    // 5V    
+    //0ma     816..824    ~820
+    //200ma                   ~831 (+11)
+    //400ma                   ~842 (+22)
+    //600ma                   ~853 (+33)
+    //800ma 864..867    ~864 (+44)
     
     // 3.3V khaos.......... ACS712 cannot operate. 4.5V minimum as per datasheet
     // 800ma 847..851 
