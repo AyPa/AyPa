@@ -591,12 +591,16 @@ ISR (TIMER1_COMPA_vect){
   ticks++;
 }
 
-void SetADCinputChannel(uint8_t input,uint16_t us)
+
+#define SetADC(bandgap,input,us){ADMUX=(bandgap<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input;delayMicroseconds(us);} // input (0..7,8,14) (bg/vcc analogReference )
+
+/*
+void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 {
 //  ADMUX = (0<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input; // input (0..7) (default VCC reference)
-  ADMUX = (1<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input; // input (0..7) (1.1v analogReference reference)
+  ADMUX = (REFS1bit<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input; // input (0..7) (1.1v analogReference reference)
   if(us)delayMicroseconds(us); // Wait for input channel to settle (300us)
-}
+}*/
 #define mRawADC(v,p) ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|p;do{}while(bit_is_set(ADCSRA,ADSC));v=ADCW; 
 
 
@@ -775,7 +779,7 @@ word Temp;
   DIDR1 = (1<<AIN1D); // AIN1 goes to analog comparator negative's input    so switch off digital input (+1.1 bandgap voltage is on positive input)
   ACSR = (1<<ACBG); //bandgap instead of AIN0  + turn on analog comparator
 //  ACSR&=~(1<<ACD); //turn on analog comparator
-  SetADCinputChannel(8,500);  //  select temperature sensor 352 (need calibration)
+  SetADC(1,8,500);  //  select temperature sensor 352 (need calibration)
 
 //  SetADCinputChannel(0,500);  //  delay(1); // to avoid false interrupt due bandgap voltage settle
 
@@ -786,7 +790,7 @@ word Temp;
   mRawADC(Temp,2);
   mRawADC(Temp,2);
   
-  SetADCinputChannel(0,500); // select A0
+  SetADC(1,0,500); // select A0
 
   mRawADC(t,2);
 
@@ -906,7 +910,26 @@ cli();TCNT1=0;
 LcdSet(0,4);
     s3(a0);sa(" ");s3(a1);sa(" ");s3(a2);sa(" ");s3(analogRead(A0));sa("T");s3(Temp);s3(val);sa(" ");
     sh(t);        sh(t&(1<<ACO));    
-    if((t&(1<<ACO))==0){sa(" I too high!");}// if ACO bit is set then the current is withing limits
+//    if((t&(1<<ACO))==0){sa(" I too high!");}// if ACO bit is set then the current is withing limits
+    if((t&(1<<ACO))==0){sa("*");}// if ACO bit is set then the current is withing limits
+    
+    //vcc read
+    // add REFS1 bit
+  SetADC(0,14,500);
+  mRawADC(a1,2);
+
+
+//   analogReference(DEFAULT);
+  //  analogRead(6);
+  // ADMUX = (0<<REFS1)|(1<<REFS0)|(0<<ADLAR); // input (0..7) (default VCC reference)
+  // ADMUX = (0<<REFS1)|(1<<REFS0)|(0<<ADLAR)|(1<<MUX3); // input (0..7) (default VCC reference)
+//   ADMUX = (0<<REFS1)|(1<<REFS0)|(0<<ADLAR)|(1<<MUX3)|(1<<MUX2)|(1<<MUX1); // input (14) (1.1V)
+    //bitSet(ADMUX,3);
+  //  delayMicroseconds(250);
+//    bitSet(ADCSRA,ADSC);while(bit_is_set(ADCSRA,ADSC));a1=ADCW;
+    a2=(1100L*1023)/a1;
+    sa(" ");s3(a1);sa(" ");sw(a2); //227 4957 5V   230 4892   231 4957   344 3271 3.3v
+    
 
 
 // inner T
