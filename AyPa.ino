@@ -595,20 +595,17 @@ void SetADCinputChannel(uint8_t input,uint16_t us)
 {
 //  ADMUX = (0<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input; // input (0..7) (default VCC reference)
   ADMUX = (1<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input; // input (0..7) (1.1v analogReference reference)
-  ADCSRB = 0; // mux5 bit
-  //    if(stime) delay(stime); // Wait for input channel to settle
   if(us)delayMicroseconds(us); // Wait for input channel to settle (300us)
 }
-//#define digitalPinToPort(P) ( pgm_read_byte( digital_pin_to_port_PGM + (P) ) )
 #define mRawADC(v,p) ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|p;do{}while(bit_is_set(ADCSRA,ADSC));v=ADCW; 
-
 
 
 // the setup routine runs once when you press reset:
 void setup() {                
   wdt_disable();
-  analogReference(INTERNAL);// just for analogRead (SetADCinputChannel sets it up for mRawADC)
-  //  memcpy_P(&ram_struct, &forecast[4], sizeof(ram_struct)); 
+
+
+
 
 
   // initialize the digital pin as an output.
@@ -617,16 +614,6 @@ void setup() {
   // pinMode(9, OUTPUT); //ACS712 module
 
   // digitalWrite(9,HIGH);// lcd+acs712 
-
-  //lcd.begin(20,4);
-
-  // pinMode(A5, OUTPUT); //LCD led backlight
-  //  digitalWrite(A5,HIGH);
-
-  //memcpy_P(&Dig, &Dig, sizeof(Dig)); 
-
-  //watchdogSetup();
-
 
   //setup timer1
   cli();
@@ -758,6 +745,7 @@ uint16_t t1,t2,tt1,tt2,ttt1,ttt2;
 // the loop routine runs over and over again forever:
 void loop() {
   word t,n;
+word Temp;
 
   //pinMode(2,INPUT);
 
@@ -773,8 +761,37 @@ void loop() {
 //PORTB&=~(1<<IOrtc);//digitalWrite(CErtc,LOW); 
 //PORTB&=~(1<<CLKrtc);//digitalWrite(CErtc,LOW); 
 
+
+
     Pin2Input(DDRC,0); //pinMode(A0,INPUT);
     Pin2Input(DDRD,7); //D7 AIN1
+
+  ADCSRA|=(1<<ADEN); //turn on ADC 
+
+  analogReference(INTERNAL);// just for analogRead (SetADCinputChannel set it up for mRawADC)
+    // setup analog comparator&ADC
+  DIDR0=(1<<ADC0D);// disable digital input on A0 pin
+  ADCSRB = 0;
+  DIDR1 = (1<<AIN1D); // AIN1 goes to analog comparator negative's input    so switch off digital input (+1.1 bandgap voltage is on positive input)
+  ACSR = (1<<ACBG); //bandgap instead of AIN0  + turn on analog comparator
+//  ACSR&=~(1<<ACD); //turn on analog comparator
+  SetADCinputChannel(8,500);  //  select temperature sensor 352 (need calibration)
+
+//  SetADCinputChannel(0,500);  //  delay(1); // to avoid false interrupt due bandgap voltage settle
+
+  //  ACSR = (1<<ACI)|(1<<ACBG)|(1<<ACIE)|(1<<ACIS1)|(0<<ACIS0); //bandgap instead of AIN0 int on falling edge 
+  //  ACSR = (1<<ACBG)|(1<<ACIE)|(0<<ACIS1)|(0<<ACIS0); //bandgap instead of AIN0 int on toggle
+  //  ACSR = (1<<ACBG); //bandgap instead of AIN0 int on toggle
+
+  mRawADC(Temp,2);
+  mRawADC(Temp,2);
+  
+  SetADCinputChannel(0,500); // select A0
+
+  mRawADC(t,2);
+
+
+
 
 
     Pin2Output(DDRB,2);  //pinMode(10,OUTPUT);
@@ -831,8 +848,6 @@ void loop() {
 //  cli();TCNT1=0;
  sa("Тестовая АуРа!"); 
   //sa("Тестовая АуРа!1234567890+-*~=============="); 
-  //sa("Marinochka!!!a1234567890+-*~=============="); 
-  //sa("Мариночка!!!!Мариночка!!!!!Мариночка!!!!!");
 //  t=TCNT1;  sei();
 
   //.for(int i=0;i<strlen(buf2);i++){sprintf(buf,"%d %d %c %d %d]",i,buf2[i],buf2[i],Rus[(buf2[i]-32)*5],Rus[(buf2[i]-32)*5+1]);sa(buf);}
@@ -844,168 +859,6 @@ void loop() {
   sa(buf);
 
 
-
-//  cli();TCNT1=0;
-  //sb(n);
-  //sh(0x01);
-  //sh(0xED);
-  //sw(65535);
-  //sw(t);
-//  s3(t);
-//  s2(t);
-
-  //t=TCNT1;  sei();
-//  sprintf(buf," CNT1=%d",t); sa(buf);
-
-
-
-  //for(byte i=0;i<84;i++){SendChar(i);}
-  //delay(7000);
-  //for(byte i=84;i<168;i++){SendChar(i);}
-  //delay(7000);
-
-  //for(byte i=0;i<84;i++){SendStr(ord(i));}
-  //delay(7000);
-  //sprintf( buf+strlen(buf), ",%s:%04i", sensorCode, sensorValue );
-  //SendStr("MARINOCHKA!!!a1234567890");
-  //delay(7000);
-
-
-
-  //lcd
-//  pinMode(A0,INPUT);
-//  pinMode(6,OUTPUT);
-  //pinMode(7,OUTPUT);
-//  pinMode(8,OUTPUT);//rtc
-
-  //pinMode(A1,OUTPUT);
- // pinMode(A2,OUTPUT);
- // pinMode(A3,OUTPUT);
- // pinMode(A4,OUTPUT);
-  //pinMode(2,OUTPUT);
- // pinMode(3,OUTPUT);
- // pinMode(4,OUTPUT);
-  // lcd.begin(20,4);  lcd.setCursor(0,0); //lcd.print("Marinochka lapochka!"); delay(1000);
-
-
-  // setup analog comparator
-  cli();
-  DIDR1 = (1<<AIN1D); // AIN1 goes to analog comparator negative's input    so switch off digital input (+1.1 bandgap voltage is on positive input)
-  ADCSRB = 0;
-  ACSR = (1<<ACBG); //bandgap instead of AIN0 int on falling edge 
-
-  SetADCinputChannel(0,500);  //  delay(1); // to avoid false interrupt due bandgap voltage settle
-
-  //  ACSR = (1<<ACI)|(1<<ACBG)|(1<<ACIE)|(1<<ACIS1)|(0<<ACIS0); //bandgap instead of AIN0 int on falling edge 
-  //  ACSR = (1<<ACBG)|(1<<ACIE)|(0<<ACIS1)|(0<<ACIS0); //bandgap instead of AIN0 int on toggle
-  //  ACSR = (1<<ACBG); //bandgap instead of AIN0 int on toggle
-  sei();
-
-  word i;
-  mRawADC(i,2);
-  mRawADC(i,2);
-  //digitalWrite(A5,HIGH);
-  
-
-/*
-  sprintf(buf,"     TCNT1=%d i=%d",t,i);
-  sa(buf);
-  LcdSet(0,4);
-
-  TCNT2=0;
-  //delay(2);
-  //delayMicroseconds(1000);//4 ticks on 8mhz
-  word c1=TCNT1;
-  long dl=t2ovf;
-  sprintf(buf,"n%d c%d d%d    ",n,c1,dl);
-  sa(buf);
-*/
-
-//  LcdSet(0,5);
-  /*
-cli();TCNT1=0;mRawADC(i,2);t=TCNT1;sei();
-   //sprintf(buf,"b%d",i);sa(buf);
-   
-   pinMode(A5,OUTPUT);
-   digitalWrite(A5,HIGH);// charge capacitor
-   delay(1);
-   int i1,i2,i3,i4,i5,i6;
-   cli();mRawADC(i1,2);sei();
-   //i4=digitalRead(A5);
-   
-   TCNT1=0;
-   //PORTC&=~(1<<5);//digitalWrite(A5,LOW);
-   digitalWrite(A5,LOW);
-   pinMode(A5,INPUT);
-   //DDRC&=~(1<<5);//pinMode(A5,INPUT);//(9clocks vs 1)// clear bit A5 in DDRC
-   
-   i3=digitalRead(A5);
-   n=0;while((PINC&0b00100000)==HIGH){if(++n==32000){break;}}//n=
-   
-   cli();mRawADC(i2,2);sei();
-   //cli();mRawADC(i3,2);sei();
-   //cli();mRawADC(i4,2);sei();
-   //cli();mRawADC(i5,2);sei();
-   //cli();mRawADC(i6,2);sei();
-   
-   t=TCNT1;
-   i3=n;
-   
-   //TCNT1=0;
-   sprintf(buf,"%d %d %d %d %d %d ",i1,i2,i3,i4,i5,i6);
-   //t=TCNT1;
-   sa(buf);
-   sprintf(buf,"t=%d",t);sa(buf);
-   */
-
-  
-
-
-  //  lcd.clear();
-
-  //rtc
-
-  //for (int i=0; i<31; i++)ramBuffer.cell[i]=i;
-
-  //  comment("Writing buffer to RAM...");
-  //rtc.writeBuffer(ramBuffer);
-  // bufferDump();
-
-  //    comment("Setting byte 15 (0x0F) to value 160 (0xA0)...");
-  // rtc.poke(15,160);
-  //cli();TCNT1=0;
-//rtc.writeBuffer(ramBuffer);//7896us
- // ramBuffer=rtc.readBuffer();//8075us
-// c=rtc.peek(11);//520us
-// rtc.poke(15,255);//517us
-//t=TCNT1;sei();
-  // bufferDump();
-
-  //  comment("Reading address 18 (0x12). This should return 18, 0x12.");
-  // r1 = rtc.peek(18);
-  // r2 = rtc.peek(15);
-/*
-//cli();TCNT1=0;
-//Time tim= rtc.getTime();//2292us
-//t=TCNT1;sei();
-
-
-//sprintf(buf,"  [  %d %d-%d-%d %d:%d:%d]",tim.dow,tim.date,tim.mon,tim.year,tim.hour,tim.min,tim.sec);sa(buf);
-s2(tim.hour);
-sa(":");
-s2(tim.min);
-sa(":");
-s2(tim.sec);
-*/
-
-//Time tim= rtc.getTime();//2292us
-
-  Pin2Output(DDRC,2);Pin2Output(DDRC,3);  Pin2Output(DDRC,4);//corrections after DS1302 library call
-
-//Pin2Output(DDRB,3);
-//Pin2Output(DDRB,5); //this SCK/CLK pin DS1302 library has switched to INPUT mode
-//start working with rtcclock. CErtc high
-//PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH);
 
 
 byte val=0;
@@ -1022,24 +875,10 @@ rtcgettime(7);//rtcgettime(8); 7 is enough
 //PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);
 
 //PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH);
-//rtc.poke(15,0x1C);//returns 1E
-rtcpoke(15,0x1C);//returns 1E
-//rtcpoke(15,0xcc);
-
+rtcpoke(15,0xAC);
 val=rtcpeek(15);
 
 
-
-//PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);
-//stop working with rtcclock. CErtc low
-
-//for(byte i=10;i<31;i++)
-//{
-//rtc.poke(i,i);
-//s2(tim.hour);
-//s2(tim.min);
-//s2(tim.sec);
-//sa(" >");
 sh(buf[2]);
 sh(buf[1]);
 sh(buf[0]);
@@ -1055,16 +894,17 @@ sa(" ");
   
 t=ACSR;
 word a0,a1,a2;
-sa(" A0:");
+cli();TCNT1=0;
     mRawADC(a0,2);
+    val=TCNT1;sei();
     mRawADC(a1,2);
     mRawADC(a2,2);
-//    mRawADC(i,2);
-//delay(1);
-//    i=analogRead(A0);
-//    mRawADC(i,7);
+
+//    mRawADC(,1)  807..824   5us but 864..896 800ma
+//    mRawADC(,2)  807..8124  8us 864 800ma stable <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<,
+//    mRawADC(,3)  807..818 14us 856..864 800ma
 LcdSet(0,4);
-    s3(a0);sa(" ");s3(a1);sa(" ");s3(a2);sa(" ");sw(analogRead(A0));sa(" ");
+    s3(a0);sa(" ");s3(a1);sa(" ");s3(a2);sa(" ");s3(analogRead(A0));sa("T");s3(Temp);s3(val);sa(" ");
     sh(t);        sh(t&(1<<ACO));    
     if((t&(1<<ACO))==0){sa(" I too high!");}// if ACO bit is set then the current is withing limits
 
@@ -1085,7 +925,7 @@ LcdSet(0,4);
     // 0ma 825..839 860..865
 
   
-  delay(700);
+  delay(800);
 
   
 //17211..17226 ~120clocks each 17ms sleep inaccuracy
@@ -1114,58 +954,9 @@ LcdSet(0,4);
   // digitalWrite(RST,HIGH);
 
   SPCR&=~(1<<SPE); //  SPI.end();
-
-  ADCSRA=0;// switch off ADC
-  ACSR = (1<<ACD); // switch off analog comparator
-//  digitalWrite(10,LOW);// lcd 
-//  digitalWrite(9,LOW);// acs712 module 
-  //digitalWrite(A5,LOW);// LCD display backlight off
-/*  pinMode(A0,INPUT);
-  pinMode(A1,INPUT);
-  pinMode(A2,INPUT);
-  pinMode(A3,INPUT);
-  pinMode(A4,INPUT);
-  pinMode(2,INPUT);
-  pinMode(3,INPUT);
-  pinMode(4,INPUT);
-  pinMode(9,INPUT);
-  pinMode(10,INPUT);
-  pinMode(6,INPUT);
-  pinMode(7,INPUT);
-  pinMode(8,INPUT);
-*/
-  //digitalWrite(2,LOW);//pinMode(2,INPUT);
-
-
-
-  /*
-cli();  // disable all interrupts
-   wdt_reset(); // reset the WDT timer
-   MCUSR &= ~(1<<WDRF);  // because the data sheet said to
-   
-   //WDTCSR configuration:
-   //WDIE = 1 :Interrupt Enable
-   //WDE = 1  :Reset Enable - I won't be using this on the 2560
-   //WDP3 = 0 :For 1000ms Time-out
-   //WDP2 = 1 :bit pattern is 
-   //WDP1 = 1 :0110  change this for a different
-   //WDP0 = 0 :timeout period.
-   
-   // Enter Watchdog Configuration mode:
-   WDTCSR = (1<<WDCE) | (1<<WDE);
-   // Set Watchdog settings: interrupte enable, 0110 for timer
-   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms
-   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//30ms
-   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (0<<WDP0);//60ms
-   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (1<<WDP0);//120ms
-   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (0<<WDP0);//240ms
-   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (1<<WDP0);//480ms
-   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);//960ms
-   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);//2s
-   //WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
-   WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
-   sei();
-   */
+  ADCSRA&=~(1<<ADEN); //turn off ADC 
+  ACSR = (1<<ACD); // turn off analog comparator
+  
 
   //set_sleep_mode (SLEEP_MODE_IDLE);// 29.6ma - don't work
   //set_sleep_mode (SLEEP_MODE_ADC);// 6.3ma clock is off
@@ -1173,28 +964,12 @@ cli();  // disable all interrupts
   //set_sleep_mode (SLEEP_MODE_STANDBY);// 2.7ma 
   //set_sleep_mode (SLEEP_MODE_PWR_DOWN);// 0.76ma
 
-//  SetupWD(1);
-
 
   
- /*** Setup the WDT ***/
-  cli();
-  /* Clear the reset flag. */
-  MCUSR &= ~(1<<WDRF);
-  
-  /* In order to change WDE or the prescaler, we need to
-   * set WDCE (This will allow updates for 4 clock cycles).
-   */
-  WDTCSR |= (1<<WDCE) | (1<<WDE);
-
-  /* set new watchdog timeout prescaler value */
-//  WDTCSR = 1<<WDP0 | 1<<WDP3; /* 8.0 seconds */
-//  WDTCSR = 0; /* 15ms */
-//  WDTCSR = 1; /* 30ms */
-//  WDTCSR = 2; /* 60ms */
-  //WDTCSR = 3; /* 120ms */
-//  WDTCSR = 9; /* 8s */
-
+ // Setup the WDT 
+  cli();wdt_reset();
+   MCUSR &= ~(1<<WDRF);  // Clear the reset flag. 
+   WDTCSR |= (1<<WDCE) | (1<<WDE); //  In order to change WDE or the prescaler, we need to set WDCE (This will allow updates for 4 clock cycles).
    WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280us)
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//30ms
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (0<<WDP0);//60ms
@@ -1206,93 +981,16 @@ cli();  // disable all interrupts
    //WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
   // WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
   sei();
-  /* Enable the WD interrupt (note no reset) and set timeout. */
   set_sleep_mode (SLEEP_MODE_IDLE);
-//  set_sleep_mode(SLEEP_MODE_PWR_DOWN);   /* EDIT: could also use SLEEP_MODE_PWR_DOWN for lowest power consumption. */
+//  set_sleep_mode(SLEEP_MODE_PWR_DOWN);  
   sleep_enable();
-  WDhappen=0;
- sleeps=0;
- TCNT1=0;
-
-do{  
-  /* Now enter sleep mode. */
-//  sleep_mode();// sleep_enable+sleep_cpu+sleep_disable
-  sleep_cpu();
-  sleeps++; // 9 times within 16ms
-  /* The program will continue from here after the WDT timeout*/
-  //sleep_disable(); /* First thing to do is disable sleep. */
-  
-  
-  /*
-  wdt_enable(WDTO_30MS);
-  wdt_reset();
-
-  set_sleep_mode (SLEEP_MODE_IDLE);
-  //set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-  cli();
-  sleep_enable();
-  TCNT1=0;
-  sei();
-  sleep_cpu();
-  sei();
-*/
-if(WDhappen){break;}
-}while(1);
+  WDhappen=0;sleeps=0;TCNT1=0;do{sleep_cpu();sleeps++;if(WDhappen){break;}}while(1); // 9 times within 16ms
   // wake up here
-  t1111=TCNT1;
+  cli();t1111=TCNT1;sei();
   sleep_disable();
   wdt_disable();
   
-  //digitalWrite(RST,LOW);
-//  digitalWrite(RST,HIGH);
-
- // sa("wakeup");delay(3000);
-
-  /*
-attachInterrupt(0, pin2_isr, LOW);
-   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-   cli();
-   sleep_enable();
-   sleep_bod_disable();
-   sei();
-   sleep_cpu();
-   // wake up here 
-   sleep_disable();
-   */
-  /*power_adc_disable(),power_spi_disable(),power_timer0_disable(), power_timer1_disable(),power_timer2_disable(),power_twi_disable()*/
-  /*SLEEP_MODE_IDLE: 15 mA
-   SLEEP_MODE_ADC: 6.5 mA
-   SLEEP_MODE_PWR_SAVE: 1.62 mA
-   SLEEP_MODE_EXT_STANDBY: 1.62 mA
-   SLEEP_MODE_STANDBY : 0.84 mA
-   SLEEP_MODE_PWR_DOWN : 0.36 mA
-   */
-
-  /*Power Reduction Register (PRR)
-   The next thing to experiment with is the Power Reduction Register (PRR). This lets you "turn off" various things inside the processor.
-   The various bits in this register turn off internal devices, as follows:
-   
-   Bit 7 - PRTWI: Power Reduction TWI
-   Bit 6 - PRTIM2: Power Reduction Timer/Counter2
-   Bit 5 - PRTIM0: Power Reduction Timer/Counter0
-   Bit 4 - Res: Reserved bit
-   Bit 3 - PRTIM1: Power Reduction Timer/Counter1
-   Bit 2 - PRSPI: Power Reduction Serial Peripheral Interface
-   Bit 1 - PRUSART0: Power Reduction USART0
-   Bit 0 - PRADC: Power Reduction ADC
-   */
-
-  //PRR = 0xFF; // not working
-
-  //  sleep_enable();
-  //sleep_cpu(); 
-
-
-  //  sleep_disable();//wakeup
-
-  //for(long i=0;i<6000000;i++){NOP;}//~4200ms delay
-
-
+  
   //delay(1000);               // wait for a second
 }
 
