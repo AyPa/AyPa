@@ -6,20 +6,36 @@
 #include <avr/sleep.h>
 #include <avr/pgmspace.h>
 
+
+
+//#include <SD.h>
+
+
+
 //#include <DS1302.h>// cannot sit on SPI pins (leaves pin in input state)
 #include <SPI.h> // < declaration ShiftOut etc problem
 #include "AyPa_m.h"
 #include "AyPa_fonts.h"
 #include "AyPa_rtc.h"
 
+
+// set up variables using the SD utility library functions:
+//Sd2Card card;
+//SdVolume volume;
+//SdFile root;
+// change this to match your SD shield or module;
+// Arduino Ethernet shield: pin 4
+// Adafruit SD shields and modules: pin 10
+// Sparkfun SD shield: pin 8
+const int chipSelect = 4;    
+
+
 int freeRam(void)
 {
   extern unsigned int __heap_start;
   extern void *__brkval;
-  int free_memory,stack_here;
-  if (__brkval == 0) { free_memory = (int) &stack_here - (int) &__heap_start;}
-  else{free_memory = (int) &stack_here - (int) __brkval;}
-  return (free_memory);
+  int v;
+  return (int)&v-(__brkval==0?(int)&__heap_start:(int)__brkval);
 }
 
 
@@ -27,7 +43,7 @@ int freeRam(void)
 // nokia 5110 pins layout 
 
 #define RST 3
-#define CE 4 // don't go along with CErtc but works on PIN4!
+#define CE 2 // don't go along with CErtc but works on PIN4!
 #define DC 5
 #define DIN 11
 #define CLK 13
@@ -55,12 +71,6 @@ int freeRam(void)
 // give it a name:
 //int led = 9;
 
-#define NOP __asm__ __volatile__ ("nop\n\t")
-#define wait1us NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP; // 1 microsecond delay on a 20MHz Arduino
-//#define wait500ns NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP; // 500ns delay on a 16MHz Arduino
-//#define wait250ns NOP;NOP;NOP;NOP; // 250ns delay on a 16MHz Arduino
-//#define wait125ns NOP;NOP; // 125ns delay on a 16MHz Arduino
-//#define wait63ns NOP; // 63ns delay on a 16MHz Arduino
 
 
 /*
@@ -606,8 +616,21 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 
 // the setup routine runs once when you press reset:
 void setup() {                
+  byte v;
   wdt_disable();
 
+// check setup function
+   PORTC=0x1E;//  set pins 0123 HIGH (internal pullups) //digitalWrite(A1,HIGH);digitalWrite(A2,HIGH);digitalWrite(A3,HIGH);digitalWrite(A4,HIGH);
+//  pinMode(A1,INPUT_PULLUP); pinMode(A2,INPUT_PULLUP);  pinMode(A3,INPUT_PULLUP);  pinMode(A4,INPUT_PULLUP);   same same
+delay(1);v=((~PINC)>>1)&0x0F;
+
+  if (v>0){// 0 all are OFF // 1 1st is ON // 4 3rd is ON // C 3&4 are ON // F all are ON  
+//    setup function v (1..0xF) is called
+    delay(2000);
+  }
+  
+PORTC=0;//digitalWrite(A1,LOW);digitalWrite(A2,LOW);digitalWrite(A3,LOW);digitalWrite(A4,LOW);
+DDRC=0x1E;//  pinMode(A1,OUTPUT);  pinMode(A2,OUTPUT);  pinMode(A3,OUTPUT);  pinMode(A4,OUTPUT);
 
 
 
@@ -770,10 +793,10 @@ word Temp;
     Pin2Input(DDRC,0); //pinMode(A0,INPUT);
     Pin2Input(DDRD,7); //D7 AIN1
 
-  ADCSRA|=(1<<ADEN); //turn on ADC 
 
-  analogReference(INTERNAL);// just for analogRead (SetADCinputChannel set it up for mRawADC)
+  //analogReference(INTERNAL);// just for analogRead (SetADCinputChannel set it up for mRawADC)
     // setup analog comparator&ADC
+  ADCSRA|=(1<<ADEN); //turn on ADC    
   DIDR0=(1<<ADC0D);// disable digital input on A0 pin
   ADCSRB = 0;
   DIDR1 = (1<<AIN1D); // AIN1 goes to analog comparator negative's input    so switch off digital input (+1.1 bandgap voltage is on positive input)
@@ -801,16 +824,18 @@ word Temp;
     Pin2Output(DDRB,2);  //pinMode(10,OUTPUT);
     Pin2Output(DDRB,1);//  pinMode(9,OUTPUT);
 
-//  pinMode(A4,OUTPUT);//rtc CE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! important
-//  pinMode(A3,OUTPUT);//rtc CLK
-//  pinMode(A2,OUTPUT);//rtc IO
+    Pin2HIGH(PORTB,2); //digitalWrite(10,HIGH);//
+    Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+
+  //digitalWrite(9,HIGH);// acs712 module + lcd
+  //digitalWrite(10,HIGH);// 5v mosfet control
+
+
+// rtc clock pins
   Pin2Output(DDRC,2);
   Pin2Output(DDRC,3);
   Pin2Output(DDRC,4);
   
-
-  digitalWrite(9,HIGH);// acs712 module + lcd
-  digitalWrite(10,HIGH);// 5v mosfet control
 
   //SPI.begin();//  InitSPI();
   
@@ -849,23 +874,61 @@ word Temp;
 
   LcdClear();
 
+byte val=0;
+
 //  cli();TCNT1=0;
  sa("Тестовая АуРа!"); 
   //sa("Тестовая АуРа!1234567890+-*~=============="); 
 //  t=TCNT1;  sei();
 
+/*
+ if (!card.init(SPI_HALF_SPEED, chipSelect)) {
+   sa("SD failed");
+  } else {
+    sa("SD Ok");
+  }
+*/
+
   //.for(int i=0;i<strlen(buf2);i++){sprintf(buf,"%d %d %c %d %d]",i,buf2[i],buf2[i],Rus[(buf2[i]-32)*5],Rus[(buf2[i]-32)*5+1]);sa(buf);}
   //sprintf( buf+strlen(buf), ",%s:%04i", sensorCode, sensorValue );
-  sprintf(buf,"  WD=%d n=%d ",WDhappen,sleeps);
+  
+ //  DDRC=0;// all as inputs  (already)
+//   PORTC=0x1E;//  set pins 0123 HIGH (internal pullups) //digitalWrite(A1,HIGH);digitalWrite(A2,HIGH);digitalWrite(A3,HIGH);digitalWrite(A4,HIGH);
+//  pinMode(A1,INPUT_PULLUP); pinMode(A2,INPUT_PULLUP);  pinMode(A3,INPUT_PULLUP);  pinMode(A4,INPUT_PULLUP);   same same
+
+//digitalWrite(A1,LOW);digitalWrite(A2,LOW);digitalWrite(A3,LOW);digitalWrite(A4,LOW);
+
+//delay(1);
+
+//  val=digitalRead(A0);
+//val=((~PINC)>>1)&0x0F;
+
+// 0 all are OFF
+// 1 1st is ON
+// 4 3rd is ON
+// C 3&4 are ON
+// F all are ON
+  //sh(val);sa("_");
+//PORTC=0;//digitalWrite(A1,LOW);digitalWrite(A2,LOW);digitalWrite(A3,LOW);digitalWrite(A4,LOW);
+//DDRC=0x1E;//  pinMode(A1,OUTPUT);  pinMode(A2,OUTPUT);  pinMode(A3,OUTPUT);  pinMode(A4,OUTPUT);
+  
+  sprintf(buf,"  W%d %d ",WDhappen,sleeps);
   sw(t1111);
   sa(" ");
   sw(freeRam());
+  extern int _etext;  //32
+  extern int _edata; //8224 -256
+  sw(_etext+(_edata-256));
+//  s3(_etext);sw(_edata);
+//  sw(FLASHEND);//32767
+//  sw(RAMEND);//2303
+//  sw(XRAMEND); //2303
+//  sw(E2END); //1023
   sa(buf);
 
 
 
 
-byte val=0;
 //cli();TCNT1=0;
 
 // use PB6&PB7 bits
@@ -897,18 +960,19 @@ sa(" ");
   s3(val);
   
 t=ACSR;
-word a0,a1,a2;
+word a0,a1,a2,a3;
 cli();TCNT1=0;
     mRawADC(a0,2);
     val=TCNT1;sei();
     mRawADC(a1,2);
     mRawADC(a2,2);
+    mRawADC(a3,2);
 
 //    mRawADC(,1)  807..824   5us but 864..896 800ma
 //    mRawADC(,2)  807..8124  8us 864 800ma stable <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<,
 //    mRawADC(,3)  807..818 14us 856..864 800ma
 LcdSet(0,4);
-    s3(a0);sa(" ");s3(a1);sa(" ");s3(a2);sa(" ");s3(analogRead(A0));sa("T");s3(Temp);s3(val);sa(" ");
+    s3(a0);sa(" ");s3(a1);sa(" ");s3(a2);sa(" ");s3(a3);sa("T");s3(Temp);s3(val);sa(" ");
     sh(t);        sh(t&(1<<ACO));    
 //    if((t&(1<<ACO))==0){sa(" I too high!");}// if ACO bit is set then the current is withing limits
     if((t&(1<<ACO))==0){sa("*");}// if ACO bit is set then the current is withing limits
@@ -948,8 +1012,8 @@ LcdSet(0,4);
     // 0ma 825..839 860..865
 
   
-  delay(800);
-
+  delay(1500);
+sa("z");
   
 //17211..17226 ~120clocks each 17ms sleep inaccuracy
    /*cli();  // disable all interrupts
@@ -976,6 +1040,10 @@ LcdSet(0,4);
  // digitalWrite(RST,LOW);
   // digitalWrite(RST,HIGH);
 
+    Pin2LOW(PORTB,2); //digitalWrite(10,LOW);//
+    Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
+
+
   SPCR&=~(1<<SPE); //  SPI.end();
   ADCSRA&=~(1<<ADEN); //turn off ADC 
   ACSR = (1<<ACD); // turn off analog comparator
@@ -993,16 +1061,16 @@ LcdSet(0,4);
   cli();wdt_reset();
    MCUSR &= ~(1<<WDRF);  // Clear the reset flag. 
    WDTCSR |= (1<<WDCE) | (1<<WDE); //  In order to change WDE or the prescaler, we need to set WDCE (This will allow updates for 4 clock cycles).
-   WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280us)
-   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//30ms
+   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280us)
+  // WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//30ms
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (0<<WDP0);//60ms
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (1<<WDP0);//120ms
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (0<<WDP0);//240ms
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (1<<WDP0);//480ms
   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);//960ms
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);//2s
-   //WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
-  // WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
+   WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
+   //WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
   sei();
   set_sleep_mode (SLEEP_MODE_IDLE);
 //  set_sleep_mode(SLEEP_MODE_PWR_DOWN);  
