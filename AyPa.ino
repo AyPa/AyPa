@@ -615,22 +615,23 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 
 
 // the setup routine runs once when you press reset:
+byte v;
 void setup() {                
-  byte v;
+//  byte v;
   wdt_disable();
 
 // check setup function
-   PORTC=0x1E;//  set pins 0123 HIGH (internal pullups) //digitalWrite(A1,HIGH);digitalWrite(A2,HIGH);digitalWrite(A3,HIGH);digitalWrite(A4,HIGH);
+   PORTC=0xF;//  set pins 0123 HIGH (internal pullups) //digitalWrite(A1,HIGH);digitalWrite(A2,HIGH);digitalWrite(A3,HIGH);digitalWrite(A4,HIGH);
 //  pinMode(A1,INPUT_PULLUP); pinMode(A2,INPUT_PULLUP);  pinMode(A3,INPUT_PULLUP);  pinMode(A4,INPUT_PULLUP);   same same
-delay(1);v=((~PINC)>>1)&0x0F;
+delay(1);v=(~PINC)&0x0F;
 
   if (v>0){// 0 all are OFF // 1 1st is ON // 4 3rd is ON // C 3&4 are ON // F all are ON  
 //    setup function v (1..0xF) is called
-    delay(2000);
+//    delay(2000);
   }
   
 PORTC=0;//digitalWrite(A1,LOW);digitalWrite(A2,LOW);digitalWrite(A3,LOW);digitalWrite(A4,LOW);
-DDRC=0x1E;//  pinMode(A1,OUTPUT);  pinMode(A2,OUTPUT);  pinMode(A3,OUTPUT);  pinMode(A4,OUTPUT);
+DDRC=0xF;//  pinMode(A1,OUTPUT);  pinMode(A2,OUTPUT);  pinMode(A3,OUTPUT);  pinMode(A4,OUTPUT);
 
 
 
@@ -789,8 +790,11 @@ word Temp;
 //PORTB&=~(1<<CLKrtc);//digitalWrite(CErtc,LOW); 
 
 
+//pinMode(A0,OUTPUT);pinMode(A1,OUTPUT);pinMode(A2,OUTPUT);pinMode(A3,OUTPUT);
 
-    Pin2Input(DDRC,0); //pinMode(A0,INPUT);
+
+
+    Pin2Input(DDRC,5); //pinMode(A0,INPUT);
     Pin2Input(DDRD,7); //D7 AIN1
 
 
@@ -813,7 +817,7 @@ word Temp;
   mRawADC(Temp,2);
   mRawADC(Temp,2);
   
-  SetADC(1,0,500); // select A0
+  SetADC(1,5,500); // select A5
 
   mRawADC(t,2);
 
@@ -832,9 +836,9 @@ word Temp;
 
 
 // rtc clock pins
-  Pin2Output(DDRC,2);
-  Pin2Output(DDRC,3);
-  Pin2Output(DDRC,4);
+//  Pin2Output(DDRC,2);
+  //Pin2Output(DDRC,3);
+  //Pin2Output(DDRC,4);
   
 
   //SPI.begin();//  InitSPI();
@@ -876,6 +880,12 @@ word Temp;
 
 byte val=0;
 
+//PORTC=0x7; // select channel 7
+//PORTC=0b0000001; // select channel 1
+PORTC=0b0000000; // select channel 0
+    Pin2HIGH(PORTC,3); //digitalWrite(1A3HIGH);//  power to current sensor
+
+//PORTC=0;
 //  cli();TCNT1=0;
  sa("Тестовая АуРа!"); 
   //sa("Тестовая АуРа!1234567890+-*~=============="); 
@@ -908,7 +918,7 @@ byte val=0;
 // 4 3rd is ON
 // C 3&4 are ON
 // F all are ON
-  //sh(val);sa("_");
+  sh(v);sa("_");
 //PORTC=0;//digitalWrite(A1,LOW);digitalWrite(A2,LOW);digitalWrite(A3,LOW);digitalWrite(A4,LOW);
 //DDRC=0x1E;//  pinMode(A1,OUTPUT);  pinMode(A2,OUTPUT);  pinMode(A3,OUTPUT);  pinMode(A4,OUTPUT);
   
@@ -934,7 +944,7 @@ byte val=0;
 // use PB6&PB7 bits
 
 //rtcwriteprotect(true);//20us(cannot pair with false)
-rtcgettime(7);//rtcgettime(8); 7 is enough
+//rtcgettime(7);//rtcgettime(8); 7 is enough
 
 
 //t=TCNT1;sei();
@@ -942,8 +952,8 @@ rtcgettime(7);//rtcgettime(8); 7 is enough
 //PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);
 
 //PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH);
-rtcpoke(15,0xAC);
-val=rtcpeek(15);
+//rtcpoke(15,0xAC);
+//val=rtcpeek(15);
 
 
 sh(buf[2]);
@@ -1014,6 +1024,7 @@ LcdSet(0,4);
   
   delay(1500);
 sa("z");
+
   
 //17211..17226 ~120clocks each 17ms sleep inaccuracy
    /*cli();  // disable all interrupts
@@ -1042,6 +1053,11 @@ sa("z");
 
     Pin2LOW(PORTB,2); //digitalWrite(10,LOW);//
     Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
+
+    PORTC=0; // switch off PORTC control pins
+//    Pin2LOW(PORTC,3); //digitalWrite(1A3HIGH);//  power to current sensor
+
+PORTC=0x7; // select channel 7 (some unused channel for debug)
 
 
   SPCR&=~(1<<SPE); //  SPI.end();
