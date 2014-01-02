@@ -16,6 +16,7 @@
 #include <SPI.h> // < declaration ShiftOut etc problem
 #include "AyPa_m.h"
 #include "AyPa_fonts.h"
+#include "AyPa_n.h"
 #include "AyPa_rtc.h"
 
 
@@ -39,37 +40,8 @@ int freeRam(void)
 }
 
 
-
-// nokia 5110 pins layout 
-
-#define RST 3
-#define CE 2 // don't go along with CErtc but works on PIN4!
-#define DC 5
-#define DIN 11
-#define CLK 13
-
-// rtc 1302 pins
-
-
-//#define CErtc 4 //CE of DS1302 and of Nokia3110 are compliment each other nicely!
-//#define CLKrtc 7
-//#define IOrtc 6
-
-
-//7216 bytes
 //DS1302 rtc(A4,A2,A3);//ce data clk
 
-
-/*
-  Blink
- Turns on an LED on for one second, then off for one second, repeatedly.
- 
- This example code is in the public domain.
- */
-
-// Pin 13 has an LED connected on most Arduino boards.
-// give it a name:
-//int led = 9;
 
 
 
@@ -90,384 +62,6 @@ int freeRam(void)
  while(!(SPSR&(1<<SPIF)));// interrupt also can!
  */
 
-void LcdSet(byte x,byte y)
-{
-  LcdWriteCmd(0b10000000|x*5);//set X (0..83)
-  LcdWriteCmd(0b01000000|y);//set Y (0..5)
-}
-
-
-// 89 clocks
-// integer 3 digits representation 
-void s3(word v)
-{
-  byte c,ch;
-
-  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
-  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
-
-  SPDR = 0;// start transfer with space  
-  ch=v/100;
-  v-=ch*100;
-  ch*=3;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = 0;// start transfer with space
-  ch=v/10;
-  v-=ch*10;
-  ch*=3;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = 0;// start transfer with space
-  ch=v*3;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-
-  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);      
-}
-
-//51 us
-// integer 2 digits representation 
-void s2(word v)
-{
-  byte c,ch;
-
-  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
-  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
-
-  SPDR = 0;// start transfer with space
-  ch=v/10;
-  v-=ch*10;
-  ch*=3;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = 0;// start transfer with space
-  ch=v*3;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-
-  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);      
-}
-
-// 164 clocks
-// integer word representation 
-void sw(word v)
-{
-  byte c,ch;
-
-  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
-  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
-
-  SPDR = 0;// start transfer with space  
-  ch=v/10000;
-  v-=ch*10000;
-  ch*=3; 
-  c = pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c; 
-  c = pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c; 
-  c = pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c; 
-  c = pgm_read_byte(&(Dig[ch++]));//c=Dig[ch];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = 0;// start transfer with space
-  ch=v/1000;
-  v-=ch*1000;
-  ch*=3; 
-  c = pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c; 
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = 0;// start transfer with space
-  ch=v/100;
-  v-=ch*100;
-  ch*=3;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = 0;// start transfer with space
-  ch=v/10;
-  v-=ch*10;
-  ch*=3;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = 0;// start transfer with space
-  ch=v*3;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-
-  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);      
-}
-
-// 27 clocks
-//hex byte representation
-void sh(byte v)
-{
-  byte c,ch;
-
-  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
-  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
-
-  //do{
-  SPDR = 0;// start transfer with space
-  ch=(v>>4)*3;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = 0;// start transfer with space
-  ch=(v&0xF)*3;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  SPDR = c;
-  c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
-  while(!(SPSR&(1<<SPIF)));
-  //}while(i!=0xff);
-
-  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);      
-}
-
-
-//114-115 clocks
-//binary byte representation
-void sb(byte v)
-{
-  byte c,ch,i=7;
-
-  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
-  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
-
-  do{
-    SPDR = 0;// start transfer with space
-    ch=0;
-    if(v&(1<<i--))ch=3;
-    c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-    while(!(SPSR&(1<<SPIF)));
-    SPDR = c;
-    c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-    while(!(SPSR&(1<<SPIF)));
-    SPDR = c;
-    c=pgm_read_byte(&(Dig[ch++]));//c=Dig[ch++];
-    while(!(SPSR&(1<<SPIF)));
-    SPDR = c;
-    c=pgm_read_byte(&(Dig[ch]));//c=Dig[ch++];
-    while(!(SPSR&(1<<SPIF)));
-  }
-  while(i!=0xff);
-
-  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);      
-}
-
-// clocks delay with 42 chars in string (Atmega328 with internal 8MHz oscillator)
-// 7774 clocks original
-// 7637
-// 6624
-// 1100
-// 1057
-// 952
-// 946 
-// 799
-// 784..811 all ascii / all 16bit unicode  STRANGE... this must be ofsetted by SPI transfer. maybe volatile asm provide this better
-void sa(char *st) // send ASCII string to display at current position
-{
-  byte i=0,c;
-  word ch;
-
-  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
-  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
-
-  do{
-    //    LcdWriteData(0);//space  (start with it - while it is sending can calc address)
-
-    SPDR = 0;// start transfer with space (while it is sending can calc address)
-    //calcs
-    c=st[i++];
-    if (c>127){
-      c=st[i++];
-    }// 16bit code
-    ch=(c-32)*5;
-    //    c=Rus[ch++];//preload next char
-    c=pgm_read_byte(&(Rus[ch++]));
-
-    while(!(SPSR&(1<<SPIF)));
-
-    //  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
-
-    //-----------------------------------------------------
-    //  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
-    //  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
-    //    LcdWriteData(Rus[ch]);
-    SPDR = c;//Rus[ch++];
-    //    c=Rus[ch++];
-    c=pgm_read_byte(&(Rus[ch++]));
-
-    while(!(SPSR&(1<<SPIF)));
-    //  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
-    //----------------------------------------------------  
-    //  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
-    //  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
-    //    LcdWriteData(Rus[ch+1]);
-    SPDR = c;
-    //    c=Rus[ch++];
-    c=pgm_read_byte(&(Rus[ch++]));
-    while(!(SPSR&(1<<SPIF)));
-    //  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
-    //----------------------------------------------------  
-    //  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
-    //  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
-    //    LcdWriteData(Rus[ch+2]);
-    SPDR = c;
-    c=pgm_read_byte(&(Rus[ch++]));
-    //    c=Rus[ch++];
-    while(!(SPSR&(1<<SPIF)));
-
-    //  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
-    //----------------------------------------------------  
-    //  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
-    //  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
-    //    LcdWriteData(Rus[ch+3]);
-    SPDR = c;
-    c=pgm_read_byte(&(Rus[ch++]));
-    //    c=Rus[ch++];
-    while(!(SPSR&(1<<SPIF)));
-
-    //  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);  
-    //----------------------------------------------------  
-    //  PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
-    //  PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
-    //    LcdWriteData(Rus[ch+4]);
-    SPDR = c;
-    while(!(SPSR&(1<<SPIF)));
-    //----------------------------------------------------  
-    //if(st[i]==0){break;}
-    //  }while (1);
-  }
-  while (st[i]!=0);//same same
-
-  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);    
-}
-
-void SendStr(char *st)
-{
-  byte i=0;
-  byte ch;
-
-  do{
-    ch=(st[i++]-32)*5;
-    LcdWriteData(~Rus[ch]);
-    LcdWriteData(~Rus[ch+1]);
-    LcdWriteData(~Rus[ch+2]);
-    LcdWriteData(~Rus[ch+3]);
-    LcdWriteData(~Rus[ch+4]);
-    LcdWriteData(0xff);//space  
-  }
-  while (st[i]!=0);
-
-}
-
-void SendChar(byte ch)
-{
-  LcdWriteData(0);//space
-  LcdWriteData(Rus[ch*5]);
-  LcdWriteData(Rus[ch*5+1]);
-  LcdWriteData(Rus[ch*5+2]);
-  LcdWriteData(Rus[ch*5+3]);
-  LcdWriteData(Rus[ch*5+4]);
-}
 
 void InitSPI(void)
 {
@@ -480,59 +74,6 @@ void InitSPI(void)
   SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
 }
 
-//1828us (clocks with /8 prescaler)
-void LcdClear(void)
-{
-  LcdSet(0,0);for(byte i=0;i<84;i++){sa(" ");} // clear ram manually (1828us)
-  //for(byte i=0;i<6;i++){sa("              ");} // (1614us)
-}
-
-void LcdWriteCmd(byte cmd)
-{
-
-  digitalWrite(DC,LOW);
-  digitalWrite(CE,LOW);
-
-  SPDR = cmd;// start transfer
-  while(!(SPSR&(1<<SPIF)));// interrupt also can!
-
-  digitalWrite(CE,HIGH);  
-}
-
-void LcdWriteData(byte cmd)
-{
-  //SPI.setDataMode(SPI_MODE0);//default
-  //SPI.setBitOrder(MSBFIRST);// maybe
-  //SPI.setClockDivider(SPI_CLOCK_DIV2);//max
-  SPSR = (1 << SPI2X);//2
-  //SPSR = (0 << SPI2X); //4
-  //SPCR = (1 << MSTR) | (1 << SPE) |(1<<SPR0);      // enable, master, msb first
-  SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
-
-  digitalWrite(DC,HIGH);
-  digitalWrite(CE,LOW);
-
-  SPDR = cmd;// start transfer
-  while(!(SPSR&(1<<SPIF)));// interrupt also can!
-
-  digitalWrite(CE,HIGH);  
-}
-
-void LcdWriteCmdold(byte cmd)
-{
-  digitalWrite(DC,LOW);
-  digitalWrite(CE,LOW);
-  shiftOut(DIN,CLK,MSBFIRST,cmd);
-  digitalWrite(CE,HIGH);  
-}
-
-void LcdWriteDataold(byte cmd)
-{
-  digitalWrite(DC,HIGH);
-  digitalWrite(CE,LOW);
-  shiftOut(DIN,CLK,MSBFIRST,cmd);
-  digitalWrite(CE,HIGH);  
-}
 
 unsigned long resetTime = 0;
 #define TIMEOUTPERIOD 100             // You can make this time as long as you want,
@@ -632,7 +173,7 @@ delay(1);v=(~PINC)&0x0F;
   
 PORTC=0;//digitalWrite(A1,LOW);digitalWrite(A2,LOW);digitalWrite(A3,LOW);digitalWrite(A4,LOW);
 DDRC=0xF;//  pinMode(A1,OUTPUT);  pinMode(A2,OUTPUT);  pinMode(A3,OUTPUT);  pinMode(A4,OUTPUT);
-
+//DDRC=0; //input
 
 
 
@@ -794,8 +335,14 @@ word Temp;
 
 
 
-    Pin2Input(DDRC,5); //pinMode(A0,INPUT);
+    Pin2Input(DDRC,5); //pinMode(A5,INPUT);
     Pin2Input(DDRD,7); //D7 AIN1
+
+
+    Pin2Output(DDRB,0); //latch 595
+
+
+    Pin2Output(DDRD,0); //+vcc A
 
 
   //analogReference(INTERNAL);// just for analogRead (SetADCinputChannel set it up for mRawADC)
@@ -825,10 +372,8 @@ word Temp;
 
 
 
-    Pin2Output(DDRB,2);  //pinMode(10,OUTPUT);
     Pin2Output(DDRB,1);//  pinMode(9,OUTPUT);
 
-    Pin2HIGH(PORTB,2); //digitalWrite(10,HIGH);//
     Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
 
   //digitalWrite(9,HIGH);// acs712 module + lcd
@@ -843,7 +388,7 @@ word Temp;
 
   //SPI.begin();//  InitSPI();
   
-  Pin2HIGH(PORTB,2); //set SS high
+  Pin2HIGH(PORTB,2); //set SS (10) high (also CE 4051)
   Pin2Output(DDRB,2); //SS pin
 
   //SPSR = (0 << SPI2X); //4
@@ -878,12 +423,44 @@ word Temp;
 
   LcdClear();
 
+
+
+  Pin2HIGH(PORTD,0); //vcc to A
+
+
 byte val=0;
+
+word bb,aa;
+  SetADC(1,5,500); // select A5 (1.1v reference)
+//  mRawADC(bb,2);//1023 (>1.1v)
+//  mRawADC(bb,2);
+
 
 //PORTC=0x7; // select channel 7
 //PORTC=0b0000001; // select channel 1
 PORTC=0b0000000; // select channel 0
     Pin2HIGH(PORTC,3); //digitalWrite(1A3HIGH);//  power to current sensor
+
+delay(10);
+  mRawADC(aa,2); // 688 imm 711--718 after 10ms
+  mRawADC(aa,2); // after powering up current sensor 
+
+/*
+// SPI 595
+// digitalWrite (53, LOW);
+Pin2LOW(PORTB,0);//latch
+ SPSR = (1 << SPI2X);
+ SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
+ // polarity and phase = 0
+ // clock = fosc / 2
+// SPDR = 0b10101001;// start transfer
+ SPDR = 0b00000001;// start transfer
+ while(!(SPSR&(1<<SPIF)));// interrupt also can!
+ //SPI.transfer(0b10101001);
+Pin2HIGH(PORTB,0);//latch
+Pin2LOW(PORTB,0);//latch
+*/
+ 
 
 //PORTC=0;
 //  cli();TCNT1=0;
@@ -921,8 +498,6 @@ PORTC=0b0000000; // select channel 0
   sh(v);sa("_");
 //PORTC=0;//digitalWrite(A1,LOW);digitalWrite(A2,LOW);digitalWrite(A3,LOW);digitalWrite(A4,LOW);
 //DDRC=0x1E;//  pinMode(A1,OUTPUT);  pinMode(A2,OUTPUT);  pinMode(A3,OUTPUT);  pinMode(A4,OUTPUT);
-  
-  sprintf(buf,"  W%d %d ",WDhappen,sleeps);
   sw(t1111);
   sa(" ");
   sw(freeRam());
@@ -934,7 +509,10 @@ PORTC=0b0000000; // select channel 0
 //  sw(RAMEND);//2303
 //  sw(XRAMEND); //2303
 //  sw(E2END); //1023
+  sprintf(buf,"  W%d ",WDhappen);
   sa(buf);
+  sw(sleeps);sa("s ");
+  sw(aa);sa(" ");
 
 
 
@@ -981,16 +559,17 @@ cli();TCNT1=0;
 //    mRawADC(,1)  807..824   5us but 864..896 800ma
 //    mRawADC(,2)  807..8124  8us 864 800ma stable <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<,
 //    mRawADC(,3)  807..818 14us 856..864 800ma
+
+
+
 LcdSet(0,4);
     s3(a0);sa(" ");s3(a1);sa(" ");s3(a2);sa(" ");s3(a3);sa("T");s3(Temp);s3(val);sa(" ");
     sh(t);        sh(t&(1<<ACO));    
 //    if((t&(1<<ACO))==0){sa(" I too high!");}// if ACO bit is set then the current is withing limits
     if((t&(1<<ACO))==0){sa("*");}// if ACO bit is set then the current is withing limits
     
-    //vcc read
-    // add REFS1 bit
-  SetADC(0,14,500);
-  mRawADC(a1,2);
+
+    //vcc read============================================================================
 
 
 //   analogReference(DEFAULT);
@@ -1001,9 +580,18 @@ LcdSet(0,4);
     //bitSet(ADMUX,3);
   //  delayMicroseconds(250);
 //    bitSet(ADCSRA,ADSC);while(bit_is_set(ADCSRA,ADSC));a1=ADCW;
-    a2=(1100L*1023)/a1;
+//    a2=(1100L*1023)/a1;
+  SetADC(0,14,500);
+
+for(int e=0;e<100;e++)
+{
+  mRawADC(a1,2);
+
+LcdSet(6,5);
+
+    a2=1103817L/a1;//(1079L*1023) //roughly calibrated value
     sa(" ");s3(a1);sa(" ");sw(a2); //227 4957 5V   230 4892   231 4957   344 3271 3.3v
-    
+}  
 
 
 // inner T
@@ -1021,8 +609,9 @@ LcdSet(0,4);
     // 800ma 847..851 
     // 0ma 825..839 860..865
 
+    Pin2LOW(PORTB,2); //digitalWrite(10,LOW);//work with 4051
   
-  delay(1500);
+  delay(3000);
 sa("z");
 
   
@@ -1051,9 +640,17 @@ sa("z");
  // digitalWrite(RST,LOW);
   // digitalWrite(RST,HIGH);
 
-    Pin2LOW(PORTB,2); //digitalWrite(10,LOW);//
+//    Pin2LOW(PORTB,2); //digitalWrite(10,LOW);//
+    Pin2HIGH(PORTB,2);//digitalWrite(10,HIGH//
+  
     Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
+//    Pin2Input(DDRB,1);//  pinMode(9,INPUT);
 
+    Pin2LOW(PORTB,5); //SPI SCK pin low
+    Pin2LOW(PORTB,3); //SPI MOSI pin low
+
+    Pin2LOW(PORTD,0); //vcc A to low
+    
     PORTC=0; // switch off PORTC control pins
 //    Pin2LOW(PORTC,3); //digitalWrite(1A3HIGH);//  power to current sensor
 
@@ -1083,10 +680,10 @@ PORTC=0x7; // select channel 7 (some unused channel for debug)
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (1<<WDP0);//120ms
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (0<<WDP0);//240ms
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (1<<WDP0);//480ms
-  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);//960ms
+  WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);//960ms
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);//2s
-   WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
-   //WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
+  // WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
+//   WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
   sei();
   set_sleep_mode (SLEEP_MODE_IDLE);
 //  set_sleep_mode(SLEEP_MODE_PWR_DOWN);  
