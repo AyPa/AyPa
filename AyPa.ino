@@ -374,7 +374,7 @@ word Temp;
 
     Pin2Output(DDRB,1);//  pinMode(9,OUTPUT);
 
-    Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+    //Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
 
   //digitalWrite(9,HIGH);// acs712 module + lcd
   //digitalWrite(10,HIGH);// 5v mosfet control
@@ -583,7 +583,7 @@ LcdSet(0,4);
 //    a2=(1100L*1023)/a1;
   SetADC(0,14,500);
 
-for(int e=0;e<100;e++)
+for(int e=0;e<10;e++)
 {
   mRawADC(a1,2);
 
@@ -593,6 +593,58 @@ LcdSet(6,5);
     sa(" ");s3(a1);sa(" ");sw(a2); //227 4957 5V   230 4892   231 4957   344 3271 3.3v
 }  
 
+// 5x5
+for(int k=0;k<15000;k++)
+{
+    cli();
+    TCNT2=0;
+    Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+    {}while(TCNT2<5);
+    Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
+    //TCNT2=0;
+    sei();
+    {}while(TCNT2<10);
+}
+
+//5x15
+for(int k=0;k<15000;k++)
+{
+    cli();
+    TCNT2=0;
+    Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+    {}while(TCNT2<5);
+    Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
+    //TCNT2=0;
+    sei();
+    {}while(TCNT2<20);
+}
+
+
+//5x55
+for(int k=0;k<15000;k++)
+{
+    cli();
+    TCNT2=0;
+    Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+    {}while(TCNT2<5);
+    Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
+    //TCNT2=0;
+    sei();
+    {}while(TCNT2<55);
+}
+
+//5x240
+for(int k=0;k<1500;k++)
+{
+    cli();
+    TCNT2=0;
+    Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+    {}while(TCNT2<5);
+    Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
+    //TCNT2=0;
+    sei();
+    {}while(TCNT2<245);
+}
 
 // inner T
 // bandgap vs vcc
@@ -610,9 +662,14 @@ LcdSet(6,5);
     // 0ma 825..839 860..865
 
     Pin2LOW(PORTB,2); //digitalWrite(10,LOW);//work with 4051
+
+
+
   
   delay(3000);
 sa("z");
+
+
 
   
 //17211..17226 ~120clocks each 17ms sleep inaccuracy
@@ -643,7 +700,7 @@ sa("z");
 //    Pin2LOW(PORTB,2); //digitalWrite(10,LOW);//
     Pin2HIGH(PORTB,2);//digitalWrite(10,HIGH//
   
-    Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
+  //  Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
 //    Pin2Input(DDRB,1);//  pinMode(9,INPUT);
 
     Pin2LOW(PORTB,5); //SPI SCK pin low
@@ -680,8 +737,8 @@ PORTC=0x7; // select channel 7 (some unused channel for debug)
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (1<<WDP0);//120ms
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (0<<WDP0);//240ms
    //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (1<<WDP0);//480ms
-  WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);//960ms
-   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);//2s
+  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);//960ms
+   WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);//2s
   // WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
 //   WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
   sei();
