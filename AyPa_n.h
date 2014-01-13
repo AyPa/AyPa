@@ -2,9 +2,9 @@
 
 // pins layout 
 
-#define RST 3
-#define CE 2 // don't go along with CErtc but works on PIN4!
-#define DC 5
+//#define RST 3 (to arduino's RST)
+#define CE 3 
+#define DC 4
 #define DIN 11
 #define CLK 13
 
@@ -41,6 +41,7 @@ void LcdWriteData(byte cmd)
   digitalWrite(CE,HIGH);  
 }
 
+/*
 void LcdWriteCmdold(byte cmd)
 {
   digitalWrite(DC,LOW);
@@ -55,7 +56,7 @@ void LcdWriteDataold(byte cmd)
   digitalWrite(CE,LOW);
   shiftOut(DIN,CLK,MSBFIRST,cmd);
   digitalWrite(CE,HIGH);  
-}
+}*/
 
 void LcdSet(byte x,byte y)
 {
@@ -408,6 +409,7 @@ void sa(char *st) // send ASCII string to display at current position
   PORTD|=(1<<CE);// digitalWrite(CE,HIGH);    
 }
 
+/*
 void SendStr(char *st)
 {
   byte i=0;
@@ -434,13 +436,52 @@ void SendChar(byte ch)
   LcdWriteData(Rus[ch*5+2]);
   LcdWriteData(Rus[ch*5+3]);
   LcdWriteData(Rus[ch*5+4]);
-}
+}*/
 
 //1828us (clocks with /8 prescaler)
 void LcdClear(void)
 {
-  LcdSet(0,0);for(byte i=0;i<84;i++){sa(" ");} // clear ram manually (1828us)
+  LcdSet(0,0);//for(byte i=0;i<84;i++){sa(" ");} // clear ram manually (1828us)
+
+//for(byte i=0;i<(84);i++){SPDR = 0;while(!(SPSR&(1<<SPIF)));}// 361us - not working..
   //for(byte i=0;i<6;i++){sa("              ");} // (1614us)
 }
 
+void LcdInit(void)
+{
+    Pin2Output(DDRB,2); //SS pin  (SPI depends on this pin)
+  Pin2HIGH(PORTB,2); //set SS (10) high (also CE 4051)
 
+  //SPSR = (0 << SPI2X); //4
+  //SPCR = (1 << MSTR) | (1 << SPE) |(1<<SPR0);      // enable, master, msb first
+  SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first (lcd)
+//  SPCR = (1 << MSTR) | (1 << SPE) | (1<<DORD);      // enable, master, lsb first (rtc)
+  SPSR = (1 << SPI2X);// 1/2clk
+  Pin2Output(DDRB,3); //MOSI pin
+  Pin2Output(DDRB,5); //SCK pin
+  Pin2Output(DDRD,3);
+  Pin2Output(DDRD,4);
+
+
+  LcdWriteCmd(0x21);
+  LcdWriteCmd(0xB8);
+  LcdWriteCmd(0x07);
+  LcdWriteCmd(0x14);//bias(best)
+  //LcdWriteCmd(0x20); // extended instruction set control (H=0)
+  //LcdWriteCmd(0x09); // all display segments on
+  //LcdWriteCmd(0x20); // extended instruction set control (H=0)
+  //LcdWriteCmd(0x08); // all segments off - need to clear all ram on start
+  //LcdWriteCmd(0x20);
+  //LcdWriteCmd(0x0D); // invert
+  LcdWriteCmd(0x20); // extended instruction set control (H=0)
+  LcdWriteCmd(0x0c); // LCD in normal mode (0x0d = inverse mode)
+
+//cli();
+//TCNT1=0;
+  LcdClear();
+ // word rr=TCNT1;
+//sei();
+//delay(2000);//??????????????????????????????????????
+//sa("clear=");sw(rr);
+
+}
