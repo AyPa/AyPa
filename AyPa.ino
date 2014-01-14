@@ -1078,6 +1078,7 @@ __asm__ __volatile__ (
   
   
 // 1/8 250ns 50%    0.3A
+/*
 cli();
 for(int k=0;k<10000;k++)
 {
@@ -1092,6 +1093,7 @@ for(int k=0;k<10000;k++)
     Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
 }
 sei();
+*/
 /*
   LcdSet(15,5);sa("^");
 
@@ -1156,11 +1158,127 @@ for(int k=0;k<15000;k++)
 
   LcdSet(15,5);sa("3");*/
 
+//#define mRawADC(v,p) ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|p;do{}while(bit_is_set(ADCSRA,ADSC));v=ADCW; 
+
 
 // 100% ~1.7A
+sei();
+
+word t1,t2,v1,v2,v3,v4,v5;
+long nn=0;
+
+word tq[10];
+
+
+do{
+
+    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
+    do{}while(bit_is_set(ADCSRA,ADSC));
+    v1=ADCW;
+    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
+    do{}while(bit_is_set(ADCSRA,ADSC));
+    v2=ADCW; 
+
+for(long jj=0;jj<100;jj++){  
+for(long j=0;j<10;j++){
+cli();
+//    TCNT1=0;
+  //  TCNT2=0;
     Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
-  sei();delay(2000);  
+    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
+    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   // NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
+    //    delayMicroseconds(1);  
+   // Pin2LOW(PORTB,1); //digitalWrite(9,LOW//   
+    do{}while(bit_is_set(ADCSRA,ADSC));
+    
+//    delayMicroseconds(10);  
+  //  Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+ //   ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
+  //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
+    //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
+
+   // do{}while(bit_is_set(ADCSRA,ADSC));
+  // v3=ADCW; 
+
+
+//    delayMicroseconds(1);  
+
+
+
     Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
+
+    tq[j]=ADCW; 
+    
+
+//    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
+  //  do{}while(bit_is_set(ADCSRA,ADSC));
+    //v3=ADCW; 
+ //   ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
+   // do{}while(bit_is_set(ADCSRA,ADSC));
+  //  v4=ADCW; 
+  //  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
+  //  do{}while(bit_is_set(ADCSRA,ADSC));
+  //  v5=ADCW; 
+
+//    t2=TCNT2;
+    //t1=TCNT1;
+
+sei();
+    delayMicroseconds(1000);      
+    
+}//for 10
+}//for jj
+
+
+
+LcdSet(0,0);
+sa(" vb:");s3(v1);s3(v2);
+LcdSet(0,1);
+for(byte o=0;o<10;o++){s3(tq[o]);sa(" ");}
+LcdSet(0,3);
+sa(">");sw(1103817L/v2);sa(" 0 ");sw(1103817L/tq[0]);sa(" 9 ");sw(1103817L/tq[9]);sa("<   ");
+LcdSet(0,5);
+sh(nn>>24);
+sh((nn>>16)&0xff);
+sh((nn>>8)&0xff);
+sh(nn&0xff);
+
+nn++;
+}while(1);
+
+
+/*
+for(long j=0;j<10000;j++){
+cli();    
+    Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+    delayMicroseconds(4);  
+    Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
+//    delayMicroseconds(10);  
+//    Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+//    delayMicroseconds(4);  
+//    Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
+sei();
+    delayMicroseconds(1000);  
+}
+
+
+for(long j=0;j<10000;j++){
+cli();
+    Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+    delayMicroseconds(12);  
+    Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
+    delayMicroseconds(10);  
+    Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+    delayMicroseconds(12);  
+    Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
+sei();
+    delayMicroseconds(1000);  
+}*/
+
+
+
+
+
 
 // inner T
 // bandgap vs vcc
@@ -1183,7 +1301,7 @@ for(int k=0;k<15000;k++)
  // LcdSet(15,5);sa("4");
 
   
-  delay(2000);
+  delay(4000);
   LcdSet(15,5);sa("z");
 
 
@@ -1216,7 +1334,7 @@ for(int k=0;k<15000;k++)
   // digitalWrite(RST,HIGH);
 
 //    Pin2LOW(PORTB,2); //digitalWrite(10,LOW);//
-    Pin2HIGH(PORTB,2);//digitalWrite(10,HIGH//
+   // Pin2HIGH(PORTB,2);//digitalWrite(10,HIGH//
   
   //  Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
 //    Pin2Input(DDRB,1);//  pinMode(9,INPUT);
@@ -1224,12 +1342,15 @@ for(int k=0;k<15000;k++)
     Pin2LOW(PORTB,5); //SPI SCK pin low
     Pin2LOW(PORTB,3); //SPI MOSI pin low
 
-    Pin2LOW(PORTD,0); //vcc A to low
+//    Pin2LOW(PORTB,5); //SPI SCK pin low
+    Pin2LOW(PORTB,2); //SPI SS pin low
+
+    //Pin2LOW(PORTD,0); //vcc A to low
     
-    PORTC=0; // switch off PORTC control pins
+  //  PORTC=0; // switch off PORTC control pins
 //    Pin2LOW(PORTC,3); //digitalWrite(1A3HIGH);//  power to current sensor
 
-PORTC=0x7; // select channel 7 (some unused channel for debug)
+//PORTC=0x7; // select channel 7 (some unused channel for debug)
 
 
   SPCR&=~(1<<SPE); //  SPI.end();
