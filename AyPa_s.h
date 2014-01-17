@@ -1,7 +1,7 @@
 
 // various handy staff
 
-// chrging capacitor  on D2 pin. when it is discharged   to logic "0" INT0 on low level is fired
+// charging capacitor  on D2 pin. when it is discharged   to logic "0" INT0 on low level is fired
 //===========================================================================================
 
 byte pin2_interrupt_flag=0;
@@ -17,6 +17,7 @@ void pin2_isr()
 }
 
 
+//pinMode(2,OUTPUT);digitalWrite(2,HIGH);delayMicroseconds(65);digitalWrite(2,LOW);pinMode(2,INPUT);// controlled charging(~100us)
 pinMode(2,OUTPUT);digitalWrite(2,HIGH);delayMicroseconds(65);digitalWrite(2,LOW);pinMode(2,INPUT);// controlled charging(~100us)
 
 //                                       -----51K----
