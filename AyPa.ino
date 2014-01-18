@@ -791,6 +791,92 @@ lcd.clear();
 }
 
 
+void Flash_B(byte mask)
+{
+PORTB=mask;
+//Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
+        //    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|1;
+        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   // NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
+        //    delayMicroseconds(1);  
+        // Pin2LOW(PORTB,1); //digitalWrite(9,LOW//   
+
+do{}while(bit_is_set(ADCSRA,ADSC));
+
+        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   
+        //    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
+
+        //    delayMicroseconds(10);  
+        //  Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+        //   ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
+        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
+        //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
+
+        // do{}while(bit_is_set(ADCSRA,ADSC));
+        // v3=ADCW; 
+
+
+        //    delayMicroseconds(1);  
+PORTB=0;
+}
+void Flash_C(byte mask)
+{
+PORTC=mask;
+//Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
+        //    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|1;
+        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   // NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
+        //    delayMicroseconds(1);  
+        // Pin2LOW(PORTB,1); //digitalWrite(9,LOW//   
+
+do{}while(bit_is_set(ADCSRA,ADSC));
+
+        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   
+        //    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
+
+        //    delayMicroseconds(10);  
+        //  Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+        //   ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
+        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
+        //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
+
+        // do{}while(bit_is_set(ADCSRA,ADSC));
+        // v3=ADCW; 
+
+
+        //    delayMicroseconds(1);  
+PORTC=0;
+}
+void Flash_D(byte mask)
+{
+PORTD=mask;
+//Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
+        //    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|1;
+        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   // NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
+        //    delayMicroseconds(1);  
+        // Pin2LOW(PORTB,1); //digitalWrite(9,LOW//   
+
+do{}while(bit_is_set(ADCSRA,ADSC));
+
+        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   
+        //    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
+
+        //    delayMicroseconds(10);  
+        //  Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+        //   ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
+        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
+        //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
+
+        // do{}while(bit_is_set(ADCSRA,ADSC));
+        // v3=ADCW; 
+
+
+        //    delayMicroseconds(1);  
+PORTD=0;
+}
+
+
 byte pinmask,prt;
 
 // charging capacitor  on D2 pin. when it is discharged   to logic "0" INT0 on low level is fired
@@ -1236,15 +1322,41 @@ cli();
     do{}while(bit_is_set(ADCSRA,ADSC));
     v2=ADCW; 
 
-    for(long jj=0;jj<10000;jj++){  
+    for(long jj=0;jj<1000;jj++){  
       cli();
 
-      for(long j=0;j<10;j++){
-        pinmask=0b00000000;
-        
-        if(j==0){pinmask=0b00000010;}
-        else if(j==1){pinmask=0b00000100;}
+//Flash_B(0b10000011); // PB0,PB1,PB7
+Flash_B(0b10000000); // PB7
+      tq[0]=ADCW; 
+Flash_B(0b00000010); // PB1
+      tq[1]=ADCW; 
+Flash_B(0b00000001); // PB0
+      tq[2]=ADCW; 
+//Flash_C(0b00111100); // PC2,PC3,PC4,PC5
+Flash_C(0b00000100); // PC2
+      tq[3]=ADCW; 
+Flash_C(0b00001000); // PC3
+      tq[4]=ADCW; 
+Flash_C(0b00010000); // PC4
+      tq[5]=ADCW; 
+Flash_C(0b00100000); // PC5
+      tq[6]=ADCW; 
+//Flash_D(0b11100000); // PD5,PD6,PD7
+Flash_D(0b00100000); // PD5
+      tq[7]=ADCW; 
+Flash_D(0b01000000); // PD6
+      tq[8]=ADCW; 
+Flash_D(0b10000000); // PD7
+      tq[9]=ADCW; 
+
+sei();
 NOP;
+//      for(long j=0;j<10;j++){
+  //      pinmask=0b00000000;
+        
+    //    if(j==0){pinmask=0b00000010;}
+      //  else if(j==1){pinmask=0b00000100;}
+//NOP;
 //NOP;
 //NOP;
         //    Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);  delayMicroseconds(20);         
@@ -1274,16 +1386,16 @@ __asm__ __volatile__(
 
 
 //bit_set(PORTB,1);
-PORTB=pinmask;
+//PORTB=pinmask;
 
 //Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
-ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
+//ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
         //    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|1;
         //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   // NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
         //    delayMicroseconds(1);  
         // Pin2LOW(PORTB,1); //digitalWrite(9,LOW//   
 
-do{}while(bit_is_set(ADCSRA,ADSC));
+//do{}while(bit_is_set(ADCSRA,ADSC));
 
         //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   
         //    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
@@ -1301,12 +1413,12 @@ do{}while(bit_is_set(ADCSRA,ADSC));
         //    delayMicroseconds(1);  
 
 
-PORTB=0;
+//PORTB=0;
 //Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
 
         //Pin2Input(DDRD,0);Pin2HIGH(PORTD,0);
 
-        tq[j]=ADCW; 
+  //      tq[j]=ADCW; 
 
 
         //    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
@@ -1325,7 +1437,7 @@ PORTB=0;
         // 1us   
         // NOP;    NOP;    NOP;    NOP;    //NOP;    NOP;    NOP;    NOP;   
 
-
+/*
         NOP;    
         NOP;    
         NOP;    
@@ -1342,7 +1454,7 @@ PORTB=0;
         NOP;    
         NOP;    
         NOP;
-        //   NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
+*/        //   NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
         //    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
         //    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
 
@@ -1351,7 +1463,7 @@ PORTB=0;
         //    delayMicroseconds(1000);          //???
         //delayMicroseconds(100);  // give batteryies some time for recovery (fire each lamp at 1/10 interval)
         //delayMicroseconds(1);  // give batteryies some time for recovery (fire each lamp at 1/10 interval)
-      }//for 10
+  //    }//for 10
       //sei();
 
       //Pin2Output(DDRD,0);
@@ -1387,9 +1499,14 @@ PORTB=0;
       //pinMode(2,OUTPUT);digitalWrite(2,HIGH);delayMicroseconds(65);digitalWrite(2,LOW);pinMode(2,INPUT);// controlled charging(~100us)
 
 
-      cli();
       Pin2Output(DDRD,2);
       Pin2HIGH(PORTD,2);// start charging timeout capacitor
+      cnt1=0;
+      TCNT1=0;
+  
+      do{
+
+            cli();
       pin2_interrupt_flag=0;
       sleep_enable();
       attachInterrupt(0, pin2_isr, LOW);
@@ -1400,6 +1517,8 @@ PORTB=0;
 
       // power saving
       PORTB=0;
+      PORTC=0;
+      PORTD=0;
       SPCR&=~(1<<SPE); //  SPI.end();
       ADCSRA&=~(1<<ADEN); //turn off ADC 
       ACSR = (1<<ACD); // turn off analog comparator
@@ -1407,22 +1526,18 @@ PORTB=0;
 
       Pin2LOW(PORTD,2);
       Pin2Input(DDRD,2); // controlled charging (very impurtant set it 2 input (high impedance state))
-      cnt1=0;
-      TCNT1=0;
 
-      //set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-      //set_sleep_mode (SLEEP_MODE_PWR_SAVE);// timer2 but it is not in async mode yet
-      //cli();
-      //sleep_bod_disable();
-      //sei();
-      sei();
-      sleep_cpu();
-      // wake up here
-      sleep_disable();
+        sei();
+        sleep_cpu();
+//wake up here
+// check if it us or not
+        sleep_disable();
+        if(pin2_interrupt_flag){break;}
+      }while(1);
 
       ADCSRA|=(1<<ADEN); //turn on ADC    
       //      Pin2Output(DDRB,2); //SS pin  (SPI depends on this pin)
-      Pin2HIGH(PORTB,2); //set SS (10) high (also CE 4051)
+      Pin2HIGH(PORTB,2); //set SS (10) high ??????????????????????? lcd?
       SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first (lcd)
       SPSR = (1 << SPI2X);// 1/2clk
 
