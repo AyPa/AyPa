@@ -3,7 +3,7 @@
 // pins layout 
 
 //#define RST 3 (to arduino's RST)
-#define CE 3 
+#define CE 0 
 #define DC 4
 #define DIN 11
 #define CLK 13
@@ -459,7 +459,7 @@ void LcdInit(void)
   SPSR = (1 << SPI2X);// 1/2clk
   Pin2Output(DDRB,3); //MOSI pin
   Pin2Output(DDRB,5); //SCK pin
-  Pin2Output(DDRD,3);
+  Pin2Output(DDRD,0);
   Pin2Output(DDRD,4);
 
 
@@ -478,7 +478,7 @@ void LcdInit(void)
 
 //cli();
 //TCNT1=0;
-  LcdClear();
+//  LcdClear();
  // word rr=TCNT1;
 //sei();
 //delay(2000);//??????????????????????????????????????
