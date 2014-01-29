@@ -196,7 +196,7 @@ void setup() {
 
   wdt_disable();
 
-      Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// start charging timeout capacitor (default state)
+     // Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// start charging timeout capacitor (default state)
 
   extreset=MCUSR;
 
@@ -372,6 +372,11 @@ void setup() {
   //rtcsetDOW(1);
 
 
+Pin2Output(DDRD,0);// sreset mosfet 2n7000 control
+Pin2Output(DDRD,2);// INT0 line
+Pin2Output(DDRD,3);// INT1 line
+
+
 Pin2Output(DDRB,0); // CLOCKPIN 8
 Pin2Output(DDRB,1); // DATAPIN 9
 Pin2Output(DDRB,2);
@@ -388,7 +393,6 @@ Pin2Output(DDRD,6); // pin 6 LATCH
 Pin2Output(DDRD,7); // pin 7 SRCLR
 
 
-  Pin2Output(DDRD,3);// INT1 line
 
   pinMode(DATAPIN,OUTPUT);
   pinMode(CLOCKPIN,OUTPUT);
@@ -979,89 +983,94 @@ uint16_t t1,t2,tt1,tt2,ttt1,ttt2;
 
 word it=0;
 
-void nap(void)
-{
 
+void longnap(void)
+{
+//?????????????????
 PORTC=0;
 PORTB=0;
-//PORTD=0;
-PORTD=0b00000100; //except 2nd pin (INT0)
+PORTD=0;
+//PORTD=0b00000100; //except 2nd pin (INT0)
 
 
      // cnt1=0;
       //tc1=TCNT1;
- //     set_sleep_mode (SLEEP_MODE_IDLE);//// in r24,0x33// andi r24,0xF1// out 0x33,r24
         set_sleep_mode(SLEEP_MODE_PWR_DOWN);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
+//      set_sleep_mode (SLEEP_MODE_IDLE);//// in r24,0x33// andi r24,0xF1// out 0x33,r24
 
+//Pin2Output(DDRD,0);// sleep 2n7000 control
+//Pin2HIGH(PORTD,0);// switch ON sleep control mosfet
+
+Pin2Output(DDRD,3);Pin2HIGH(PORTD,3);// charge cap
+
+//            WDhappen=0;
+        sleeps=0;
       TCNT1=0;
       do{
 
             cli();
-            WDhappen=0;
-      pin2_interrupt_flag=0;
+      pin3_interrupt_flag=0;
       sleep_enable();
-      attachInterrupt(0, pin2_isr, LOW);
-      //ticks=0;
+      attachInterrupt(1, pin3_isr, LOW);
 
-
-      // power saving
-//      PORTB=0;
-  //    PORTC=0;
-    //  PORTD=0;
-//      SPCR&=~(1<<SPE); //  SPI.end();
-  //    ADCSRA&=~(1<<ADEN); //turn off ADC 
-    //  ACSR = (1<<ACD); // turn off analog comparator
-      sleeps++;
-
-      Pin2LOW(PORTD,2);Pin2Input(DDRD,2); // controlled charging (very impurtant set it 2 input (high impedance state))
-
+      Pin2LOW(PORTD,3);Pin2Input(DDRD,3); // controlled charging (very impurtant set it 2 input (high impedance state))
         sei();
         sleep_cpu();
 //wake up here
 // check if it us or not
         sleep_disable();
-        if(pin2_interrupt_flag||WDhappen){break;}
-  //      if(pin2_interrupt_flag||pin3_interrupt_flag||WDhappen){break;}
+  //      if(pin3_interrupt_flag||WDhappen){break;}else{sleeps++;}
+        if(pin3_interrupt_flag){break;}else{sleeps++;}
       }while(1);
   
+  cli();t1111=TCNT1;sei();//atomic read
+}
+void fastnap(void)
+{
+//?????????????????
+PORTC=0;
+PORTB=0;
+PORTD=0;
+//PORTD=0b00000100; //except 2nd pin (INT0)
 
-/*
 
+     // cnt1=0;
+      //tc1=TCNT1;
+        set_sleep_mode(SLEEP_MODE_PWR_DOWN);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
+//      set_sleep_mode (SLEEP_MODE_IDLE);//// in r24,0x33// andi r24,0xF1// out 0x33,r24
 
-cli();
-  T1happen=0;WDhappen=0;
+//Pin2Output(DDRD,0);// sleep 2n7000 control
+//Pin2HIGH(PORTD,0);// switch ON sleep control mosfet
+
+Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// charge cap
+
+//            WDhappen=0;
+        sleeps=0;
+      TCNT1=0;
+      do{
+
+            cli();
       pin2_interrupt_flag=0;
-            attachInterrupt(0, pin2_isr, LOW);
+      sleep_enable();
+      attachInterrupt(0, pin2_isr, LOW);
 
-  sleeps=0;
-  TCNT1=0;
-      Pin2LOW(PORTD,2);
-      Pin2Input(DDRD,2); // controlled charging (very impurtant set it 2 input (high impedance state))
-  sei();
-//TCNT0=0;
-  do{
-   __asm__ __volatile__("sleep\n\t");//  sleep_cpu();//
-//    if(pin2_interrupt_flag|WDhappen||T1happen){break;}
-    if(pin2_interrupt_flag||WDhappen){break;}
-//    if(WDhappen){break;}
-    sleeps++;
-  }while(1); // 9 times within 16ms
-  // wake up here
+      Pin2LOW(PORTD,2);Pin2Input(DDRD,2); // controlled charging (very impurtant set it 2 input (high impedance state))
+        sei();
+        sleep_cpu();
+//wake up here
+// check if it us or not
+        sleep_disable();
+  //      if(pin3_interrupt_flag||WDhappen){break;}else{sleeps++;}
+        if(pin2_interrupt_flag){break;}else{sleeps++;}
+      }while(1);
   
-*/
-// if woken up by WDT or other case
-
-
-  cli();t1111=TCNT1;//atomic read
-  detachInterrupt(0);  //INT 0
-  sleep_disable();
-        Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// start charging timeout capacitor (default state)// internal pull up?
-
-//  detachInterrupt(1);  //INT 1
-sei();
+  cli();t1111=TCNT1;sei();//atomic read
 }
 
-
+byte rnd;
+long flashes=0;
+long ln=0;
+long fn=0;
 
 // the loop routine runs over and over again forever:
 void loop() {
@@ -1078,9 +1087,13 @@ void loop() {
 
 
 it++;
-if((it&0xFF)==0)// once in 256
+
+if((it&0x3FF)==0x3FF)// once in 1024
 {
-t=0;  
+
+  if(it==0xFFFF){flashes++;}
+
+  t=0;  
   if((it>>8)==1)//once in 65536
   {
     t=Vcc();
@@ -1090,8 +1103,26 @@ t=0;
   LcdInit();
 
   LcdSet(0,0);
+  //sh(rnd); delay(1000);
+  sh(flashes>>24);
+  sh((flashes>>16)&0xff);
+  sh((flashes>>8)&0xff);
+  sh(flashes&0xff);sa(" <F");
   sh(extreset);if(extreset&0b00000010){sa("R");}else{sa(" ");}   extreset=MCUSR;// check external reset flag
-  sw(it);sa(" ");sw(t1111);sa(" ");s3(sleeps);sh((pin3_interrupt_flag<<4)|pin2_interrupt_flag);
+  sw(it);
+  
+  sh(ln>>24);
+  sh((ln>>16)&0xff);
+  sh((ln>>8)&0xff);
+  sh(ln&0xff);sa(" <L");
+
+  sh(fn>>24);
+  sh((fn>>16)&0xff);
+  sh((fn>>8)&0xff);
+  sh(fn&0xff);sa(" <F");
+  
+  
+  sa(" ");sw(t1111);sa(" ");sw(cnt1);sa(" S:");s3(sleeps);sa("1:");sh(pin3_interrupt_flag);sa("0:");sh(pin2_interrupt_flag);sa(" ");
   if(t)
   {
     LcdSet(0,1);
@@ -1460,12 +1491,15 @@ for(byte z=0;z<8;z++)// serie of flashes
 
 cli();
 //enter critical section
-Pin2LOW(PORTD,2);Pin2Input(DDRD,2); // controlled charging (very impurtant set it 2 input (high impedance state))
+//Pin2Input(DDRD,0); // important set it 2 input (high impedance state)
+Pin2HIGH(PORTD,0);// open reset mosfet
 Pin2LOW(PORTD,5);// start lighting
+//Pin2LOW(PORTD,0);// start lighting
+
 //NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;
 //NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;
 //delayMicroseconds(5);//10us
-
+/*
 if((it==0x1000)&&(z==0)){   
 Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // start/stop light
   SetADC(0,4,500); // pin A4 
@@ -1506,21 +1540,40 @@ Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // start/stop light
       ADCoff;
       t=1;
 }
-else {delayMicroseconds(15);}//30us
+else {*/
+delayMicroseconds(15);
+//}//30us
+
 
 
 //if(it==6000){delayMicroseconds(400);} // ~800us
 
 Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // start/stop light
 //exit critical section >> if mcu haven't got here within 1-2ms then it will be rebooted
-Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// start charging timeout capacitor (default state)// internal pull up?
+//Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);// start charging timeout capacitor (default state)// internal pull up?
+/*
+if(it==5000){delayMicroseconds(50);} // 100us
+if(it==10000){delayMicroseconds(100);} // 200us
+if(it==15000){delayMicroseconds(150);} // 300us
+if(it==20000){delayMicroseconds(200);} // 400us (both USB & battery powered) (R=20k)
+if(it==25000){delayMicroseconds(250);} // 500us
+if(it==30000){delayMicroseconds(300);} // 600us
+if(it==35000){delayMicroseconds(350);} // 700us
+if(it==40000){delayMicroseconds(400);} // 800us
+if(it==45000){delayMicroseconds(450);} // 900us
+if(it==50000){delayMicroseconds(500);} // 1000us
+if(it==55000){delayMicroseconds(550);} // 1100us
+if(it==60000){delayMicroseconds(600);} // 1200us
+*/
 
+Pin2LOW(PORTD,0);// close reset mosfet
 sei();
 //NOP;//sei();delay(2000);cli();
 //if((it==0x0200)&&(z<8)){    mRawADC(VccN[z],2);    mRawADC(VccN2[z],2);}
 //else
 //{
-//delayMicroseconds(10);//20 us
+//Pin2LOW(PORTD,0);// close reset mosfet
+
 //}
 
 //nap();
@@ -2219,7 +2272,7 @@ for(long j=0;j<10000;j++){
 //  NOP;
   MCUSR &= ~(1<<WDRF);  // Clear the reset flag. 
   WDTCSR |= (1<<WDCE) | (1<<WDE); //  In order to change WDE or the prescaler, we need to set WDCE (This will allow updates for 4 clock cycles).
- WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280us)
+ //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280us)
  //  WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//30ms
   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (0<<WDP0);//60ms
   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (1<<WDP0);//120ms
@@ -2228,13 +2281,16 @@ for(long j=0;j<10000;j++){
   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);//960ms
  // WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);//2s
   // WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
- //    WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
+     WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
   sei();
 
-nap();  
+rnd=(word(word(rand()*109)+89))%251;//rnd=rand();
 
-    //    Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// start charging timeout capacitor (default state)
+//if(rnd==0){break;}// long sleep. 8s?
+if (rnd<20){fn++;fastnap();}
+else if (rnd<251){ln++;longnap();}
 
+//longnap();
   
 /*  
         Pin2Output(DDRD,2);
@@ -2287,10 +2343,12 @@ nap();
 // out 0x33,r24
 
 
-  NOP;
+//  NOP;
 
-  wdt_disable();// some serious stuff (its role in hangups prevention?) why disable?
-NOP;
+//  wdt_disable();// some serious stuff (its role in hangups prevention?) why disable?
+  __asm__ __volatile__("wdr\n\t");//  wdt_reset(); why disable just reset WDT
+
+//NOP;
 
   //delay(1000);               // wait for a second
 }
