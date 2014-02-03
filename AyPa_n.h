@@ -3,12 +3,33 @@
 // pins layout 
 
 //#define RST 3 (to arduino's RST)
-#define CE 1 
+//#define CE 10 
+//#define DC 8
+#define CE 3 
 #define DC 4
 #define DIN 11
 #define CLK 13
 
+void LcdWriteCmd1(byte cmd)
+{
 
+  digitalWrite(DC,LOW);
+  digitalWrite(CE,LOW);
+
+  for(byte r=0;r<8;r++)
+  {
+      digitalWrite(DIN,LOW);
+      if(cmd&(1<<(7-r)))      digitalWrite(DIN,HIGH);
+
+    
+  digitalWrite(CLK,LOW);
+  digitalWrite(CLK,HIGH);
+    
+  }
+  
+
+  digitalWrite(CE,HIGH);  
+}
 
 void LcdWriteCmd(byte cmd)
 {
@@ -18,6 +39,27 @@ void LcdWriteCmd(byte cmd)
 
   SPDR = cmd;// start transfer
   while(!(SPSR&(1<<SPIF)));// interrupt also can!
+
+  digitalWrite(CE,HIGH);  
+}
+
+void LcdWriteData1(byte cmd)
+{
+
+  digitalWrite(DC,HIGH);
+  digitalWrite(CE,LOW);
+
+  for(byte r=0;r<8;r++)
+  {
+      digitalWrite(DIN,LOW);
+      if(cmd&(1<<(7-r)))      digitalWrite(DIN,HIGH);
+
+    
+  digitalWrite(CLK,LOW);
+  digitalWrite(CLK,HIGH);
+    
+  }
+  
 
   digitalWrite(CE,HIGH);  
 }
@@ -483,5 +525,172 @@ void LcdInit(void)
 //sei();
 //delay(2000);//??????????????????????????????????????
 //sa("clear=");sw(rr);
+
+}
+
+void LcdInitN(void)
+{
+  byte i;
+    Pin2Output(DDRB,2); //SS pin  (SPI depends on this pin)
+  Pin2HIGH(PORTB,2); //set SS (10) high (also CE 4051)
+
+  //SPSR = (0 << SPI2X); //4
+  //SPCR = (1 << MSTR) | (1 << SPE) |(1<<SPR0);      // enable, master, msb first
+  SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first (lcd)
+//  SPCR = (1 << MSTR) | (1 << SPE) | (1<<DORD);      // enable, master, lsb first (rtc)
+  SPSR = (1 << SPI2X);// 1/2clk
+  Pin2Output(DDRB,3); //MOSI pin
+  Pin2Output(DDRB,5); //SCK pin
+  Pin2Output(DDRD,1);
+  Pin2Output(DDRD,4);
+
+
+  LcdWriteCmd(0x21);
+  
+  
+  LcdWriteCmd(0xB9);//SETEXTC
+	LcdWriteData(0xFF);
+	LcdWriteData(0x83);
+	LcdWriteData(0x53);
+
+LcdWriteCmd(0xB0);//RADJ
+        LcdWriteData(0x3C);
+        LcdWriteData(0x01);
+
+	
+LcdWriteCmd(0xB6);//VCOM
+	LcdWriteData(0x94);
+
+	LcdWriteData(0x6C);
+
+	LcdWriteData(0x50);   
+
+	
+
+	LcdWriteCmd(0xB1);//PWR
+
+	LcdWriteData(0x00);
+
+	LcdWriteData(0x01);
+
+	LcdWriteData(0x1B);
+
+	LcdWriteData(0x03);
+
+	LcdWriteData(0x01);
+
+	LcdWriteData(0x08);
+
+	LcdWriteData(0x77);
+
+	LcdWriteData(0x89);
+
+	
+
+	LcdWriteCmd(0xE0); //Gamma setting for tpo Panel
+
+	LcdWriteData(0x50);
+
+	LcdWriteData(0x77);
+
+	LcdWriteData(0x40);
+
+	LcdWriteData(0x08);
+
+	LcdWriteData(0xBF);
+
+	LcdWriteData(0x00);
+
+	LcdWriteData(0x03);
+
+	LcdWriteData(0x0F);
+
+	LcdWriteData(0x00);
+
+	LcdWriteData(0x01);
+
+	LcdWriteData(0x73);
+
+	LcdWriteData(0x00);
+
+	LcdWriteData(0x72);
+
+	LcdWriteData(0x03);
+
+	LcdWriteData(0xB0);
+
+	LcdWriteData(0x0F);
+
+	LcdWriteData(0x08);
+
+	LcdWriteData(0x00);
+
+	LcdWriteData(0x0F);
+
+		
+
+	LcdWriteCmd(0x3A);   
+
+	LcdWriteData(0x05);  //05 
+
+	LcdWriteCmd(0x36);    
+
+	LcdWriteData(0xC0); //83  //0B 
+
+		
+
+	LcdWriteCmd(0x11); // SLPOUT  
+
+	delay(150);	
+
+	LcdWriteCmd(0x29);    // display on
+
+
+
+	delay(150);
+
+	LcdWriteCmd(0x2D);  //Look up table
+
+	for(i=0;i<32;i++)
+
+	 {LcdWriteData(2*i);} //Red
+
+	for(i=0;i<64;i++)
+
+	 {LcdWriteData(1*i);} //Green
+
+	for(i=0;i<32;i++)
+
+	 {LcdWriteData(2*i);} //Blue 
+
+	
+
+	LcdWriteCmd(0x2c);  
+
+	delay(150);	
+
+//fill rect
+//setaddrwindow
+	LcdWriteCmd(0x2a);  // caset
+	LcdWriteData(0x00);  
+	LcdWriteData(0x00);  // x start
+	LcdWriteData(0x00);  
+	LcdWriteData(0x32);  // x end
+
+	LcdWriteCmd(0x2b);  // raset
+	LcdWriteData(0x00);  
+	LcdWriteData(0x00);  // y start
+	LcdWriteData(0x00);  
+	LcdWriteData(0x48);  // y end
+
+	LcdWriteCmd(0x2c);  // ramwr
+
+
+for(i=0;i<120;i++)
+{
+	LcdWriteData(0x50);  
+}
+
+delay(1000);
 
 }

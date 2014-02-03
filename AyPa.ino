@@ -29,6 +29,7 @@
 #include "AyPa_m.h"
 #include "AyPa_fonts.h"
 #include "AyPa_n.h"
+#include "AyPa_TFT.h"
 #include "AyPa_rtc.h"
 
 
@@ -90,35 +91,33 @@ unsigned long resetTime = 0;
 #define TIMEOUTPERIOD 100             // You can make this time as long as you want,
 // it's not limited to 8 seconds like the normal
 // watchdog
-#define doggieTickle() resetTime = millis();  // This macro will reset the timer
+//#define doggieTickle() resetTime = millis();  // This macro will reset the timer
 void(* resetFunc) (void) = 0; //declare reset function @ address 0
 
-#define SetupWD(timeout){cli();wdt_reset();MCUSR&=~(1<<WDRF);WDTCSR=(1<<WDCE)|(1<<WDE);WDTCSR=(1<<WDIE)|timeout;WDhappen;sei();}
+//#define SetupWD(timeout){cli();wdt_reset();MCUSR&=~(1<<WDRF);WDTCSR=(1<<WDCE)|(1<<WDE);WDTCSR=(1<<WDIE)|timeout;WDhappen;sei();}
 
 //byte odd=0;
 //long r1=0,r2;
+word VccN[8][8];
+word Vcc1;
+
+
 
 volatile byte WDhappen;
 volatile word  t1111; // vars updated in ISR should be declared as volatile and accessed with cli()/sei() ie atomic
-
+volatile boolean WDsleep=0;
 
 ISR(WDT_vect) // Watchdog timer interrupt.
 { 
   //resetFunc();  //reboot
   //  r2=TCNT1;
+  if(WDsleep)
+  {
   t1111=TCNT1;
   WDhappen=1;
-
-  //if(odd){odd=0;r1=TCNT1;}
-  //else{odd=1;r2=TCNT1;}
-  // if(millis() - resetTime > TIMEOUTPERIOD){
-  //    Serial.println("This is where it would have rebooted");  // just here for testing
-  //    lcd.print("R");  // just here for testing
-  //  doggieTickle();                                          // take these lines out
-  //  resetFunc();     // This will call location zero and cause a reboot.
-  //  }
-  //else                                                       // these lines should
-  //    lcd.print("H");                                 // be removed also
+  WDsleep=0;
+  }
+  else{    resetFunc();     }// This will call location zero and cause a reboot.
 }
 
 uint32_t ticks=0;
@@ -158,6 +157,7 @@ ISR (TIMER1_COMPA_vect){
 
 #define SetADC(bandgap,input,us){ ADCSRA|=(1<<ADEN);delayMicroseconds(2);ADMUX=(bandgap<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input;delayMicroseconds((us>>1));} // input (0..7,8,14) (bg/vcc analogReference )
 #define ADCoff{ ADCSRA&=~(1<<ADEN); }
+#define mRawADC(v,p) ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|p;do{}while(bit_is_set(ADCSRA,ADSC));v=ADCW; 
 /*
 void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
  {
@@ -165,15 +165,14 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
  ADMUX = (REFS1bit<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input; // input (0..7) (1.1v analogReference reference)
  if(us)delayMicroseconds(us); // Wait for input channel to settle (300us)
  }*/
-#define mRawADC(v,p) ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|p;do{}while(bit_is_set(ADCSRA,ADSC));v=ADCW; 
 
-
+/*
 #define tRST 8
 #define tCE 2 // don't go along with CErtc but works on PIN4!
 #define tDC 5
 #define tDIN 11
 #define tCLK 13
-
+*/
 //tpic6a595
 #define DATAPIN 9
 #define CLOCKPIN 8
@@ -373,8 +372,15 @@ void setup() {
 
 
 Pin2Output(DDRD,0);// sreset mosfet 2n7000 control
+Pin2Output(DDRD,1);// 3.3/5v mosfet 2n7000 control
 Pin2Output(DDRD,2);// INT0 line
-Pin2Output(DDRD,3);// INT1 line
+
+Pin2Output(DDRD,3);// INT1 line /TFT CS
+Pin2Output(DDRD,4);// TFT DC
+Pin2Output(DDRB,3);// MOSI
+Pin2Output(DDRB,5);// CLK
+
+
 
 
 Pin2Output(DDRB,0); // CLOCKPIN 8
@@ -402,6 +408,76 @@ Pin2Output(DDRD,7); // pin 7 SRCLR
 PORTC=0;
 PORTB=0;
 PORTD=0;
+
+
+// test LCD
+
+//Pin2Output(DDRC,4);
+//Pin2HIGH(PORTC,4);
+//delay(1);
+
+
+  initR();   // initialize a ST7735S chip, black tab
+
+//delay(5000);
+/*
+SPI.begin();
+//    SPI.setClockDivider(SPI_CLOCK_DIV4); // 4 MHz (half speed)
+//    SPI.setClockDivider(SPI_CLOCK_DIV8); // 4 MHz (half speed)
+//    SPI.setClockDivider(SPI_CLOCK_DIV16); // 4 MHz (half speed)
+    SPI.setClockDivider(SPI_CLOCK_DIV32); // 4 MHz (half speed)
+    //Due defaults to 4mHz (clock divider setting of 21)
+    SPI.setBitOrder(MSBFIRST);
+    SPI.setDataMode(SPI_MODE0);
+*/
+
+  uint16_t time = millis();
+  fillScreen(0x000000);// black
+
+  time = millis() - time;
+
+  // a single pixel
+//  tft.drawPixel(tft.width()/2, tft.height()/2, ST7735_GREEN);
+  drawPixel(100, 100, 0xfc0000);
+  drawPixel(102, 100, 0x00fc00);
+  drawPixel(104, 120, 0x0000fc);
+  drawPixel(106, 120, 0xfcfcfc);
+  drawPixel(108, 120, 0x00fcfc);
+  delay(1500);
+
+  fillRect(10,20,70,18,0x00fcfc);
+
+  delay(1500);
+
+
+
+
+
+
+
+
+
+
+
+
+  // Setup the WDT  (16ms or reboot)
+  cli();
+//  NOP;
+  __asm__ __volatile__("wdr\n\t");//  wdt_reset();
+//  NOP;
+  MCUSR &= ~(1<<WDRF);  // Clear the reset flag. 
+  WDTCSR |= (1<<WDCE) | (1<<WDE); //  In order to change WDE or the prescaler, we need to set WDCE (This will allow updates for 4 clock cycles).
+WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280us)
+ //  WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//30ms
+  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (0<<WDP0);//60ms
+  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (1<<WDP0);//120ms
+  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (0<<WDP0);//240ms
+  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (1<<WDP0);//480ms
+  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);//960ms
+ // WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);//2s
+  // WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
+//     WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
+  sei();
 
 }
 
@@ -982,7 +1058,39 @@ word sleeps;
 uint16_t t1,t2,tt1,tt2,ttt1,ttt2;
 
 word it=0;
+byte rnd;
+long flashes=0;
+long ln=0;
+long fn=0;
+word tim;
+word fnt,lnt; // fast/long nap time
 
+void unap(void)
+{
+PORTC=0;
+PORTB=0;
+PORTD=0;
+
+  // Setup the WDT 
+  cli();
+  __asm__ __volatile__("wdr\n\t");//  wdt_reset();
+  MCUSR &= ~(1<<WDRF);  // Clear the reset flag. 
+  WDTCSR |= (1<<WDCE) | (1<<WDE); //  In order to change WDE or the prescaler, we need to set WDCE (This will allow updates for 4 clock cycles).
+  WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
+  sei();
+
+            WDhappen=0;
+            WDsleep=1;// notify WD that we are sleeping (to avoid rebbot)
+        sleeps=0;
+      do{
+        sleep_enable();
+        sleep_cpu();
+//wake up here
+// check if it us or not
+        sleep_disable();
+        if(WDhappen){break;}else{sleeps++;}
+      }while(1);
+}
 
 void longnap(void)
 {
@@ -995,7 +1103,7 @@ PORTD=0;
 
      // cnt1=0;
       //tc1=TCNT1;
-        set_sleep_mode(SLEEP_MODE_PWR_DOWN);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
+//        set_sleep_mode(SLEEP_MODE_PWR_DOWN);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
 //      set_sleep_mode (SLEEP_MODE_IDLE);//// in r24,0x33// andi r24,0xF1// out 0x33,r24
 
 //Pin2Output(DDRD,0);// sleep 2n7000 control
@@ -1005,7 +1113,7 @@ Pin2Output(DDRD,3);Pin2HIGH(PORTD,3);// charge cap
 
 //            WDhappen=0;
         sleeps=0;
-      TCNT1=0;
+//      TCNT1=0;
       do{
 
             cli();
@@ -1023,7 +1131,7 @@ Pin2Output(DDRD,3);Pin2HIGH(PORTD,3);// charge cap
         if(pin3_interrupt_flag){break;}else{sleeps++;}
       }while(1);
   
-  cli();t1111=TCNT1;sei();//atomic read
+  //cli();t1111=TCNT1;sei();//atomic read
 }
 void fastnap(void)
 {
@@ -1036,7 +1144,7 @@ PORTD=0;
 
      // cnt1=0;
       //tc1=TCNT1;
-        set_sleep_mode(SLEEP_MODE_PWR_DOWN);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
+//        set_sleep_mode(SLEEP_MODE_PWR_DOWN);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
 //      set_sleep_mode (SLEEP_MODE_IDLE);//// in r24,0x33// andi r24,0xF1// out 0x33,r24
 
 //Pin2Output(DDRD,0);// sleep 2n7000 control
@@ -1046,7 +1154,8 @@ Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// charge cap
 
 //            WDhappen=0;
         sleeps=0;
-      TCNT1=0;
+      //  tim=TCNT1;
+    //  TCNT1=0;
       do{
 
             cli();
@@ -1064,13 +1173,9 @@ Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// charge cap
         if(pin2_interrupt_flag){break;}else{sleeps++;}
       }while(1);
   
-  cli();t1111=TCNT1;sei();//atomic read
+//  cli();t1111=TCNT1;sei();//atomic read
 }
 
-byte rnd;
-long flashes=0;
-long ln=0;
-long fn=0;
 
 // the loop routine runs over and over again forever:
 void loop() {
@@ -1084,26 +1189,30 @@ void loop() {
 //        Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// start charging timeout capacitor (default state)// internal pull up?
 //}
 
+//        Pin2HIGH(PORTD,1);// 5.5v?
+
+        Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // stop light outputs
+        Pin2HIGH(PORTB,6);//power supply to tpic6a595  (add caps?)
+        delayMicroseconds(11);// wait for rise. 10 minimum to avoid nasty bugs
+
+TCNT1=0;
 
 
-it++;
-
-if((it&0x3FF)==0x3FF)// once in 1024
+if((it&0x3FF)==0)// once in 1024
 {
 
-  if(it==0xFFFF){flashes++;}
+    t=0;  
 
-  t=0;  
-  if((it>>8)==1)//once in 65536
-  {
-    t=Vcc();
-    // measure with ADC inner voltage
-  }
-  
+  //once in 65536
+  if(it==0xFFFF){flashes++;
+
+//    t=Vcc();    // measure with ADC inner voltage
+
+}
+
   LcdInit();
 
   LcdSet(0,0);
-  //sh(rnd); delay(1000);
   sh(flashes>>24);
   sh((flashes>>16)&0xff);
   sh((flashes>>8)&0xff);
@@ -1121,8 +1230,19 @@ if((it&0x3FF)==0x3FF)// once in 1024
   sh((fn>>8)&0xff);
   sh(fn&0xff);sa(" <F");
   
+  s3(tim);
+  sa("<tim");
+  s3(Vcc1);
+  sa("Vcc1");
   
-  sa(" ");sw(t1111);sa(" ");sw(cnt1);sa(" S:");s3(sleeps);sa("1:");sh(pin3_interrupt_flag);sa("0:");sh(pin2_interrupt_flag);sa(" ");
+  sa("F");sw(fnt);sa("L");sw(lnt);sa(" S");s3(sleeps);sa(" ");
+  
+  for(byte d=0;d<8;d++){
+  if(it==(1024+d*7*1024)){LcdSet(3,4);s2(d);for(byte e=0;e<8;e++){sa(" ");s3(VccN[d][e]);}}
+  }
+
+  
+/*
   if(t)
   {
     LcdSet(0,1);
@@ -1130,7 +1250,7 @@ if((it&0x3FF)==0x3FF)// once in 1024
     sa("V:");s3(t);
     t=0;
   }
-
+*/
 
 /*      Pin2Output(DDRD,3);
       Pin2HIGH(PORTD,3);// start charging timeout capacitor (INT1)
@@ -1156,8 +1276,8 @@ sw(t);
   
 }
 
-word VccN[8];
-word VccN2[8];
+//word VccN[8];
+//word VccN2[8];
 
 //
 
@@ -1230,9 +1350,9 @@ word VccN2[8];
   // Pin2HIGH(PORTD,0); //vcc to A
 
 
-  byte val=0;
+//  byte val=0;
 
-  word bb,aa;
+  //word bb,aa;
   //  mRawADC(bb,2);//1023 (>1.1v)
   //  mRawADC(bb,2);
 
@@ -1426,15 +1546,9 @@ word VccN2[8];
   
   //digitalWrite(5,LOW);
   
-        
   
 //  for(int i=0;i<100;i++) {
 //  cli();
-        Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // stop light outputs
-        Pin2HIGH(PORTB,6);//power supply
-
-  //      NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP; // wait for rise
-delayMicroseconds(10);
 
 //Pin2LOW(PORTD,6);//digitalWrite(LATCHPIN,LOW);///already low
 Pin2HIGH(PORTD,7);//digitalWrite(SRCLR,HIGH); // can write to 595 (it is cleared now)
@@ -1460,18 +1574,17 @@ digitalWrite(CLOCKPIN,LOW);digitalWrite(CLOCKPIN,HIGH);
 //  shiftOut(DATAPIN,CLOCKPIN,MSBFIRST,0b11111111);
 
 
-//Pin2HIGH(PORTB,1);//DATAPIN to HIGH
+Pin2HIGH(PORTB,1);//DATAPIN to HIGH
 
-t=0;
+//t=0;
 
 //  if((z&7)==0){Pin2HIGH(PORTB,1);} // 1st bit is "1"
 //  Pin2HIGH(PORTB,1); // 1st bit is "1"
 
 
 for(byte z=0;z<8;z++)// serie of flashes
-//for(byte z=0;z<32;z++)// 4 series of flashes
 {
-  if((z&7)==0){Pin2HIGH(PORTB,1);} // 1st bit is "1"
+//  if((z&7)==0){Pin2HIGH(PORTB,1);} // 1st bit is "1"
   Pin2HIGH(PORTB,0);Pin2LOW(PORTB,0); // clock pulse 
 //  if((z&7)==0){Pin2LOW(PORTB,1);} // next 7 are zeroes
   Pin2LOW(PORTB,1); // next 7 are zeroes
@@ -1487,12 +1600,67 @@ for(byte z=0;z<8;z++)// serie of flashes
 //Pin2LOW(PORTD,5);delayMicroseconds(30);Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // start/stop light
 //}
 
+if(it==1021)
+{
+  ADCSRA|=(1<<ADEN);  // start ADC
+  ADMUX=(0<<REFS1)|(1<<REFS0)|(0<<ADLAR)|14;// input 14 (Vcc) internalRef Vcc
+  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start 1st conversion
+  
+/*
+#define SetADC(bandgap,input,us){ ADCSRA|=(1<<ADEN);delayMicroseconds(2);ADMUX=(bandgap<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input;delayMicroseconds((us>>1));} // input (0..7,8,14) (bg/vcc analogReference )
+#define ADCoff{ ADCSRA&=~(1<<ADEN); }
+#define mRawADC(v,p) ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|p;do{}while(bit_is_set(ADCSRA,ADSC));v=ADCW; 
+*/
 
+}
+if(it==1022)// measure Vcc and stop ADC
+{
+if(z==0){Vcc1=ADCW;
+  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
+  do{}while(bit_is_set(ADCSRA,ADSC));Vcc1=ADCW; //repeat
+}// read 1st conversion
+cli();
+
+
+  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
+  do{}while(bit_is_set(ADCSRA,ADSC));VccN[z][0]=ADCW; 
+
+//enter critical section
+//Pin2Input(DDRD,0); // important set it 2 input (high impedance state)
+Pin2HIGH(PORTD,0);// open reset mosfet
+//TCNT1=0;
+Pin2LOW(PORTD,5);// start lighting
+// do 3 ADC reading (27us)
+  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
+  do{}while(bit_is_set(ADCSRA,ADSC));VccN[z][1]=ADCW; 
+  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
+  do{}while(bit_is_set(ADCSRA,ADSC));VccN[z][2]=ADCW; 
+  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
+  do{}while(bit_is_set(ADCSRA,ADSC));VccN[z][3]=ADCW; 
+//delayMicroseconds(14);
+
+Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // start/stop light
+//tim=TCNT1;    // 27us
+
+Pin2LOW(PORTD,0);// close reset mosfet
+
+  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
+  do{}while(bit_is_set(ADCSRA,ADSC));VccN[z][4]=ADCW; 
+  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
+  do{}while(bit_is_set(ADCSRA,ADSC));VccN[z][5]=ADCW; 
+  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
+  do{}while(bit_is_set(ADCSRA,ADSC));VccN[z][6]=ADCW; 
+  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
+  do{}while(bit_is_set(ADCSRA,ADSC));VccN[z][7]=ADCW; 
+
+}
+else{
 
 cli();
 //enter critical section
 //Pin2Input(DDRD,0); // important set it 2 input (high impedance state)
 Pin2HIGH(PORTD,0);// open reset mosfet
+//TCNT1=0;
 Pin2LOW(PORTD,5);// start lighting
 //Pin2LOW(PORTD,0);// start lighting
 
@@ -1541,7 +1709,8 @@ Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // start/stop light
       t=1;
 }
 else {*/
-delayMicroseconds(15);
+//delayMicroseconds(14);// 28 us
+delayMicroseconds(9);// 18 us
 //}//30us
 
 
@@ -1549,6 +1718,8 @@ delayMicroseconds(15);
 //if(it==6000){delayMicroseconds(400);} // ~800us
 
 Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // start/stop light
+//tim=TCNT1;    // 29-30us
+
 //exit critical section >> if mcu haven't got here within 1-2ms then it will be rebooted
 //Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);// start charging timeout capacitor (default state)// internal pull up?
 /*
@@ -1567,7 +1738,11 @@ if(it==60000){delayMicroseconds(600);} // 1200us
 */
 
 Pin2LOW(PORTD,0);// close reset mosfet
+}//if
+
 sei();
+
+
 //NOP;//sei();delay(2000);cli();
 //if((it==0x0200)&&(z<8)){    mRawADC(VccN[z],2);    mRawADC(VccN2[z],2);}
 //else
@@ -1581,6 +1756,9 @@ sei();
 
 }// for
 
+if(it==1022){ADCSRA&=~(1<<ADEN); // stop ADC
+}
+/*
 if(t)
 {
   // show 
@@ -1603,7 +1781,7 @@ if(t)
     
   SPCR&=~(1<<SPE); //  SPI.end(); // turn off SPI ????
     t=0;
-}
+}*/
 
 
 // flash duration
@@ -2061,7 +2239,8 @@ __asm__ __volatile__(
       PORTC=0;
       PORTD=0;
       SPCR&=~(1<<SPE); //  SPI.end();
-      ADCSRA&=~(1<<ADEN); //turn off ADC 
+//      ADCSRA&=~(1<<ADEN); //turn off ADC 
+      ADCSRA=0;//turn off ADC 
       ACSR = (1<<ACD); // turn off analog comparator
 
 
@@ -2078,7 +2257,7 @@ __asm__ __volatile__(
 
       ADCSRA|=(1<<ADEN); //turn on ADC    
       //      Pin2Output(DDRB,2); //SS pin  (SPI depends on this pin)
-      Pin2HIGH(PORTB,2); //set SS (10) high ??????????????????????? lcd?
+//      Pin2HIGH(PORTB,2); //set SS (10) high ??????????????????????? lcd?
       SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first (lcd)
       SPSR = (1 << SPI2X);// 1/2clk
 
@@ -2265,14 +2444,46 @@ for(long j=0;j<10000;j++){
 
 
 
-  // Setup the WDT 
+
+/*
+NOP;NOP;
+//tim=TCNT1;    //291
+//rnd=(word(word(rand()*109)+89))%251;//rnd=rand(); // ~210us????????????????????????
+//rnd=rand();// still long time
+rnd=55;//if((it&0xF)==0){rnd=10;}
+// ADC for rnd?
+NOP;NOP;
+
+    */
+
+
+//if(rnd==0){break;}// long sleep. 8s?
+
+if((it&0x7FFF)==0) // measure nap time
+{
+      set_sleep_mode (SLEEP_MODE_IDLE);//// in r24,0x33// andi r24,0xF1// out 0x33,r24
+TCNT1=0;
+      fastnap();
+fnt=TCNT1;      
+      set_sleep_mode (SLEEP_MODE_IDLE);//// in r24,0x33// andi r24,0xF1// out 0x33,r24
+TCNT1=0;
+      longnap();
+lnt=TCNT1;      
+}
+else
+{
+    set_sleep_mode(SLEEP_MODE_PWR_DOWN);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
+if(it==55555)// ultra long nap 8s once  in somewhere  2 minutes
+{
+  unap();
+  // reprogram the WDT  back to 16ms
   cli();
 //  NOP;
   __asm__ __volatile__("wdr\n\t");//  wdt_reset();
 //  NOP;
   MCUSR &= ~(1<<WDRF);  // Clear the reset flag. 
   WDTCSR |= (1<<WDCE) | (1<<WDE); //  In order to change WDE or the prescaler, we need to set WDCE (This will allow updates for 4 clock cycles).
- //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280us)
+ WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280us)
  //  WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//30ms
   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (0<<WDP0);//60ms
   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (1<<WDP0);//120ms
@@ -2281,17 +2492,15 @@ for(long j=0;j<10000;j++){
   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);//960ms
  // WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);//2s
   // WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
-     WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
+ //    WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
   sei();
 
-rnd=(word(word(rand()*109)+89))%251;//rnd=rand();
+}
+//else{ln++;longnap();}  
+else {fn++;fastnap();} 
+//if ((it&0x3)==0){ln++;longnap();}else {fn++;fastnap();} // 1:3
 
-//if(rnd==0){break;}// long sleep. 8s?
-if (rnd<20){fn++;fastnap();}
-else if (rnd<251){ln++;longnap();}
-
-//longnap();
-  
+}
 /*  
         Pin2Output(DDRD,2);
       Pin2HIGH(PORTD,2);// start charging timeout capacitor
@@ -2349,6 +2558,7 @@ else if (rnd<251){ln++;longnap();}
   __asm__ __volatile__("wdr\n\t");//  wdt_reset(); why disable just reset WDT
 
 //NOP;
+it++;
 
   //delay(1000);               // wait for a second
 }
