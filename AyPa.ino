@@ -8,9 +8,13 @@
 
 
 
-//#include <SD.h>
+#include <SD.h>
 
+Sd2Card card;
+SdVolume volume;
+SdFile root;
 
+const int chipSelect = A3;   
 
 //#include <DS1302.h>// cannot sit on SPI pins (leaves pin in input state)
 
@@ -41,7 +45,7 @@
 // Arduino Ethernet shield: pin 4
 // Adafruit SD shields and modules: pin 10
 // Sparkfun SD shield: pin 8
-const int chipSelect = 4;    
+//const int chipSelect = 4;    
 
 
 int freeRam(void)
@@ -436,23 +440,118 @@ SPI.begin();
 
   time = millis() - time;
 
+delay(500);
   // a single pixel
 //  tft.drawPixel(tft.width()/2, tft.height()/2, ST7735_GREEN);
-  drawPixel(100, 100, 0xfc0000);
-  drawPixel(102, 100, 0x00fc00);
-  drawPixel(104, 120, 0x0000fc);
-  drawPixel(106, 120, 0xfcfcfc);
-  drawPixel(108, 120, 0x00fcfc);
+//fillRect(5,5,10,100,0xE400fc);
+
+  setAddrWindow(10,20,17,32);
+
+t3(100);
+//  byte hi = (color >> 8)&0xff, lo = color&0xff,uh=color>>16;
+/*
+Pin2HIGH(PORTD,4); 
+Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
+
+// display digit
+  for(byte j=0;j<3;j++)
+{
+  spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);// 1st space
+  byte c=pgm_read_byte(&(Dig[12*3+j]));
+  for(byte i=0;i<8;i++)
+  {
+    if(c&0x01){      spiwrite(0xFC);spiwrite(0xFC);spiwrite(0xFC);}
+    else{      spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);}
+    c=c>>1;
+  }
+}
+
+Pin2HIGH(PORTD,3);//    digitalWrite(cs,HIGH);
+
+*/
+  delay(15000);
+
+
+  pinMode(10, OUTPUT);   
+  digitalWrite(10,HIGH);    
+  digitalWrite(3,LOW);// 
+  // On the Ethernet Shield, CS is pin 4. It's set as an output by default.
+  // Note that even if it's not used as the CS pin, the hardware SS pin 
+  // (10 on most Arduino boards, 53 on the Mega) must be left as an output 
+  // or the SD library functions will not work. 
+  
+
+  // we'll use the initialization code from the utility libraries
+  // since we're just testing if the card is working!
+  if (!card.init(SPI_HALF_SPEED, chipSelect)) {
+  digitalWrite(3,HIGH);
+   SPSR = (1 << SPI2X);//max speed
+  SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
+
+  fillScreen(0xfc0000);// red
+//s3(123);
+
+  } else {
+    byte cardt=card.type();
+  digitalWrite(3,HIGH);
+//   SPSR = (1 << SPI2X);//max speed
+  //SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
+
+  fillScreen(0x00fc00);// green
+
+delay(1000);
+
+    switch(cardt) {
+    case SD_CARD_TYPE_SD1:
+    fillScreen(0xffffff);// white
+//      Serial.println("SD1");
+      break;
+    case SD_CARD_TYPE_SD2:
+    fillScreen(0x00fcfc);
+//      Serial.println("SD2");
+      break;
+    case SD_CARD_TYPE_SDHC:
+        fillScreen(0x20fc10);
+//        SQ(8,8,120,152,0xfc8080);
+
+
+//      Serial.println("SDHC");
+      break;
+    default:
+      Serial.println("Unknown");
+  }
+
+  
+  }
+
+  delay(1500);
+
+
+//  fillRect(5,5,120,150,0x00fc00);
+  
+
+
+  fillScreen(0x0000fc);// blue
+
   delay(1500);
 
   fillRect(10,20,70,18,0x00fcfc);
 
   delay(1500);
 
+//  	writecommand(0x39);  //IDMON
+//  delay(1500);
+//  	writecommand(0x38);  //IDMOFF // no visible effect
 
+//  	writecommand(0x28);  //DISPOFF -- белая подсветка пустой экран
+//  delay(2500);
+//  	writecommand(0x29);  //DISPON
 
+//  	writecommand(0x10);  //SLPIN- белая подсветка пустой экран
+//  delay(2500);
+//  	writecommand(0x11);  //SLPOUT
 
-
+delay(5000);
 
 
 

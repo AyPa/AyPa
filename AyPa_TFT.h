@@ -28,10 +28,11 @@
 #define mosi 11
 #define cs   3
 #define dc   4
-//#define rst  10  // you can also connect this to the Arduino reset
 #define rst  10  // you can also connect this to the Arduino reset
+// не работает без reset
 
-#include <SPI.h>
+
+//#include <SPI.h>
 #define spiwrite(c){  SPDR = c;  while(!(SPSR&(1<<SPIF)));}
 void spiwritefunc(byte c)
 {
@@ -74,30 +75,11 @@ void spiwritefunc(byte c)
     
    
 }
-void writecommand(byte c) {
-  digitalWrite(dc,LOW);
-  digitalWrite(cs,LOW);
-//  *rsport &= ~rspinmask;
-//  *csport &= ~cspinmask;
-
-  //Serial.print("C ");
-  spiwrite(c);
-
-  digitalWrite(cs,HIGH);
-//  *csport |= cspinmask;
-}
-void writedata(byte c) {
-  digitalWrite(dc,HIGH);
-  digitalWrite(cs,LOW);
-//  *rsport &= ~rspinmask;
-//  *csport &= ~cspinmask;
-
-  //Serial.print("C ");
-  spiwrite(c);
-
-  digitalWrite(cs,HIGH);
-//  *csport |= cspinmask;
-}
+//void writecommand(byte c) {
+#define writecommand(c) {PORTD&=0b11100111;spiwrite(c);PORTD|=0b00001000;}
+//void writedata(byte c) {
+#define writedata(c) {PORTD|=0b00010000;  PORTD&=0b11110111;  spiwrite(c);  PORTD|=0b00001000;}
+  // set C/D вынести за скобки
 
 // some flags for initR() :(
 #define INITR_GREENTAB 0x0
@@ -175,7 +157,7 @@ static const uint8_t PROGMEM
   Rcmd1[] = {                 // Init for 7735R, part 1 (red or green tab)
     9,                       // 15 commands in list:
     ST7735_SWRESET,   DELAY,  //  1: Software reset, 0 args, w/delay
-      150,                    //     150 ms delay
+      150,                    //   5ms was 150 ms delay
     0xB9,3,0xFF,0x83,0x53,
     0xB0,2,0x3C,0x01,
     0xB6,3,0x94,0x6C,0x50,
@@ -186,9 +168,9 @@ static const uint8_t PROGMEM
     0x72,0x03,0xB0,0x0F,
     0x08,0x00,0x0F,
     0x3A,1,0x06,
-    0x36,1,0xC0,
+    0x36,1,0x20, // MADCTL: MXMY=0 MV=1 ML=0 was 0xC0   000  001 010 011 60 100 80 101 A0 110 C0 111 E0
     ST7735_SLPOUT ,   DELAY,  //  2: Out of sleep mode, 0 args, w/delay
-      255,                    //     500 ms delay
+      255,                    //     was 255 500 ms delay
 //    ST7735_FRMCTR1, 3      ,  //  3: Frame rate ctrl - normal mode, 3 args:
 //      0x01, 0x2C, 0x2D,       //     Rate = fosc/(1x2+40) * (LINE+2C+2D)
 //    ST7735_FRMCTR2, 3      ,  //  4: Frame rate control - idle mode, 3 args:
@@ -296,25 +278,15 @@ void commonInit(const uint8_t *cmdList) {
   if (rst) {
     pinMode(rst, OUTPUT);
     digitalWrite(rst, HIGH);
-    delay(500);
+    delay(5);
     digitalWrite(rst, LOW);
-    delay(500);
+    delay(5);
     digitalWrite(rst, HIGH);
-    delay(500);
+//    delay(5);
   }
 
   if(cmdList) commandList(cmdList);
-  
-  	delay(150);
-	writecommand(0x2D);  //Look up table
-	for(byte i=0;i<32;i++)
-	 {writedata(2*i);} //Red
-	for(byte i=0;i<64;i++)
-	 {writedata(1*i);} //Green
-	for(byte i=0;i<32;i++)
-	 {writedata(2*i);} //Blue 
-	writecommand(0x2c);  
-	delay(150);	
+
 }
 
 void initR() {
@@ -340,18 +312,105 @@ void setAddrWindow(byte x0, byte y0, byte x1,byte y1) {
   writecommand(ST7735_RAMWR); // write to RAM
 }
 
-void pushColor(word color) {
-    digitalWrite(dc, HIGH);
-    digitalWrite(cs, LOW);
+void t3(word v)
+{
+  byte c,ch;
+  
+  
+  Pin2HIGH(PORTD,4); 
+  Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
+  
+  ch=v/100;
+  v-=ch*100;
+  ch*=3;
 
-//  *rsport |=  rspinmask;
-//  *csport &= ~cspinmask;
-  spiwrite(color >> 8);
-  spiwrite(color);
 
-    digitalWrite(cs,HIGH);
+  for(byte j=0;j<24;j++)spiwrite(0x00);// 1st space
+
+for(byte j=0;j<3;j++)  // display digit
+{
+  c=pgm_read_byte(&(Dig[ch++]));
+  for(byte i=0;i<8;i++)
+  {
+    if(c&0x01){      spiwrite(0xFC);spiwrite(0xFC);spiwrite(0xFC);}
+    else{      spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);}
+    c=c>>1;
+  }
 }
 
+  ch=v/10;
+  v-=ch*10;
+  ch*=3;
+
+  for(byte j=0;j<24;j++)spiwrite(0x00);// 1st space
+
+//  spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);// 1st space
+
+for(byte j=0;j<3;j++)  // display digit
+{
+  byte c=pgm_read_byte(&(Dig[ch++]));
+  for(byte i=0;i<8;i++)
+  {
+    if(c&0x01){      spiwrite(0xFC);spiwrite(0xFC);spiwrite(0xFC);}
+    else{      spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);}
+    c=c>>1;
+  }
+}
+  
+    ch=v*3;
+    for(byte j=0;j<24;j++)spiwrite(0x00);// 1st space
+
+//  spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);// 1st space
+  
+for(byte j=0;j<3;j++)  // display digit
+{
+  byte c=pgm_read_byte(&(Dig[ch++]));
+  for(byte i=0;i<8;i++)
+  {
+    if(c&0x01){      spiwrite(0xFC);spiwrite(0xFC);spiwrite(0xFC);}
+    else{      spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);}
+    c=c>>1;
+  }
+}
+  
+  Pin2HIGH(PORTD,3);//    digitalWrite(cs,HIGH);
+}
+
+
+/* fill rect ? no2
+// square
+void SQ(byte x0, byte y0, byte x1,byte y1,long color) {
+  byte uh,hi,lo,n;
+  
+  setAddrWindow(x0,y0,x1,y1);
+  uh=color>>24;
+  hi=((color>>16)&0xff);
+  lo=(color&0xff);
+  n=(x1-x0)*(y1-y0);
+  
+
+Pin2HIGH(PORTD,4); //    digitalWrite(dc, HIGH);//4
+Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
+
+  for(byte i=0;i<n;i++)
+  {
+  spiwrite(uh);
+  spiwrite(hi);
+  spiwrite(lo);
+  }
+  
+Pin2HIGH(PORTD,3);//    digitalWrite(cs,HIGH);
+  
+}*/
+
+/*
+void LcdSet(byte x,byte y)
+{
+  LcdWriteCmd(0b10000000|x*5);//set X (0..83)
+  LcdWriteCmd(0b01000000|y);//set Y (0..5)
+}*/
+//CASET x start x end
+//PASET y start y end
 
 void drawPixel(word x, word y, long color) {
 
@@ -378,9 +437,12 @@ void fillRect(word x, word y, word w, word h,long color) {
 
   byte hi = (color >> 8)&0xff, lo = color&0xff,uh=color>>16;
 
-    digitalWrite(dc, HIGH);
-    digitalWrite(cs, LOW);
+Pin2HIGH(PORTD,4); //    digitalWrite(dc, HIGH);//4
+Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
+
   for(y=h; y>0; y--) {
+//    uh+=0x4;
+    
     for(x=w; x>0; x--) {
       spiwrite(uh);
       spiwrite(hi);
@@ -388,9 +450,10 @@ void fillRect(word x, word y, word w, word h,long color) {
     }
   }
 
-    digitalWrite(cs,HIGH);
+Pin2HIGH(PORTD,3);//    digitalWrite(cs,HIGH);
 }
 void fillScreen(long color) {
+//  fillRect(0, 0,  128, 160, color);
   fillRect(0, 0,  128, 160, color);
 }
 

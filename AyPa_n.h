@@ -106,7 +106,6 @@ void LcdSet(byte x,byte y)
   LcdWriteCmd(0b01000000|y);//set Y (0..5)
 }
 
-
 // 89 clocks
 // integer 3 digits representation 
 void s3(word v)
