@@ -1,8 +1,17 @@
 
 
-#define CErtc 4 //CE of DS1302 and of Nokia3110 are compliment each other nicely!
-#define CLKrtc 3//13//7
-#define IOrtc 2//12//11 //6
+
+
+
+
+#define CLKrtc 2 //portc
+#define IOrtc 1
+#define CErtc 0
+
+
+
+
+
 
 //CLKrtc IOrtc
 void ShiftOut(byte val)
@@ -207,6 +216,58 @@ byte val=0;
 //  Pin2Output(DDRD,7);
   
 // sbic - skip if bit in io register cleared
+asm volatile(
+"clr r24\n\t"
+
+//"sbi 0x0b,4\n\t"
+//"sbic 9,3\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t" //9 portd 5-portb 8 portc
+//"ori r24,0x01\n\t"
+//"cbi 0x0b,4\n\t"
+
+"sbi 0x08,0\n\t"
+"sbic 8,1\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t" //9 portd 5-portb 8 portc
+"ori r24,0x01\n\t"
+"cbi 0x08,0\n\t"
+
+"sbi 0x08,0\n\t"
+"sbic 8,1\n\t"
+"ori r24,0x02\n\t"
+"cbi 0x08,0\n\t"
+
+"sbi 0x08,0\n\t"
+"sbic 8,1\n\t"
+"ori r24,0x04\n\t"
+"cbi 0x08,0\n\t"
+
+"sbi 0x08,0\n\t"
+"sbic 8,1\n\t"
+"ori r24,0x08\n\t"
+"cbi 0x08,0\n\t"
+
+"sbi 0x08,0\n\t"
+"sbic 8,1\n\t"
+"ori r24,0x10\n\t"
+"cbi 0x08,0\n\t"
+
+"sbi 0x08,0\n\t"
+"sbic 8,1\n\t"
+"ori r24,0x20\n\t"
+"cbi 0x08,0\n\t"
+
+"sbi 0x08,0\n\t"
+"sbic 8,1\n\t"
+"ori r24,0x40\n\t"
+"cbi 0x08,0\n\t"
+
+"sbi 0x08,0\n\t"
+"sbic 8,1\n\t"
+"ori r24,0x80\n\t"
+"cbi 0x08,0\n\t"
+/*
+//"mov r24,r25\n\t" //result in r24
+);
+
+
 __asm__ __volatile__(
 "clr r24\n\t"
 
@@ -255,7 +316,7 @@ __asm__ __volatile__(
 "sbic 0x06,2\n\t"//"in r24,9\n\t"//"sbrc r24,3\n\t"
 "ori r24,0x80\n\t"
 "cbi 0x08,3\n\t"
-
+*/
 : "=r" (val)::);
 
 return val;

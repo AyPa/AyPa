@@ -157,7 +157,8 @@ static const uint8_t PROGMEM
   Rcmd1[] = {                 // Init for 7735R, part 1 (red or green tab)
     9,                       // 15 commands in list:
     ST7735_SWRESET,   DELAY,  //  1: Software reset, 0 args, w/delay
-      150,                    //   5ms was 150 ms delay
+      5,                    //   5ms was 150 ms delay
+//      150,                    //   5ms was 150 ms delay
     0xB9,3,0xFF,0x83,0x53,
     0xB0,2,0x3C,0x01,
     0xB6,3,0x94,0x6C,0x50,
@@ -170,7 +171,8 @@ static const uint8_t PROGMEM
     0x3A,1,0x06,
     0x36,1,0x20, // MADCTL: MXMY=0 MV=1 ML=0 was 0xC0   000  001 010 011 60 100 80 101 A0 110 C0 111 E0
     ST7735_SLPOUT ,   DELAY,  //  2: Out of sleep mode, 0 args, w/delay
-      255,                    //     was 255 500 ms delay
+      5,                    //     was 255 500 ms delay
+//      255,                    //     was 255 500 ms delay
 //    ST7735_FRMCTR1, 3      ,  //  3: Frame rate ctrl - normal mode, 3 args:
 //      0x01, 0x2C, 0x2D,       //     Rate = fosc/(1x2+40) * (LINE+2C+2D)
 //    ST7735_FRMCTR2, 3      ,  //  4: Frame rate control - idle mode, 3 args:
@@ -228,9 +230,10 @@ static const uint8_t PROGMEM
       0x2E, 0x2E, 0x37, 0x3F,
       0x00, 0x00, 0x02, 0x10,
     ST7735_NORON  ,    DELAY, //  3: Normal display on, no args, w/delay
-      10,                     //     10 ms delay
+      1,                     //     10 ms delay
     ST7735_DISPON ,    DELAY, //  4: Main screen turn on, no args w/delay
-      100 };                  //     100 ms delay
+      1 };                  //     100 ms delay
+//      100 };                  //     100 ms delay
 
 // Companion code to the above tables.  Reads and issues
 // a series of LCD commands stored in PROGMEM byte array.
@@ -299,17 +302,57 @@ void setAddrWindow(byte x0, byte y0, byte x1,byte y1) {
 
   writecommand(ST7735_CASET); // Column addr set
   writedata(0x00);
-  writedata(x0+colstart);     // XSTART 
+//  writedata(x0+colstart);     // XSTART 
+  writedata(x0);     // XSTART 
   writedata(0x00);
-  writedata(x1+colstart);     // XEND
+  writedata(x1);     // XEND
 
   writecommand(ST7735_RASET); // Row addr set
   writedata(0x00);
-  writedata(y0+rowstart);     // YSTART
+  writedata(y0);     // YSTART
   writedata(0x00);
-  writedata(y1+rowstart);     // YEND
+  writedata(y1);     // YEND
 
   writecommand(ST7735_RAMWR); // write to RAM
+}
+
+void ta(char *st)
+{
+  byte l=0,c;
+  word ch;
+  
+  Pin2HIGH(PORTD,4); 
+  Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
+  
+    do{
+    //    LcdWriteData(0);//space  (start with it - while it is sending can calc address)
+
+      for(byte j=0;j<24;j++)spiwrite(0x00);// 1st space
+//    SPDR = 0;// start transfer with space (while it is sending can calc address)
+    //calcs
+    c=st[l++];if (c>127){c=st[l++];}// 16bit code
+    ch=(c-32)*5;
+    //    c=Rus[ch++];//preload next char
+
+for(byte j=0;j<5;j++)  // display char
+{
+    c=pgm_read_byte(&(Rus[ch++]));
+  for(byte i=0;i<8;i++)
+  {
+    if(c&0x01){      spiwrite(0xFC);spiwrite(0xFC);spiwrite(0xFC);}
+    else{      spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);}
+    c=c>>1;
+  }
+}
+
+
+
+    
+
+  }
+  while (st[l]!=0);//same same
+
+  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);    
 }
 
 void t3(word v)
@@ -431,7 +474,8 @@ void drawPixel(word x, word y, long color) {
 
 
 // fill a rectangle
-void fillRect(word x, word y, word w, word h,long color) {
+//void fillRect(word x, word y, word w, word h,long color) {
+void fillRect(word y, word x, word h,word w,long color) {
 
   setAddrWindow(x, y, x+w-1, y+h-1);
 
@@ -453,8 +497,8 @@ Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
 Pin2HIGH(PORTD,3);//    digitalWrite(cs,HIGH);
 }
 void fillScreen(long color) {
-//  fillRect(0, 0,  128, 160, color);
   fillRect(0, 0,  128, 160, color);
+//  fillRect(0, 0,  160, 128, color);
 }
 
 /*

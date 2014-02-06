@@ -7,18 +7,21 @@
 #include <avr/pgmspace.h>
 
 
+#include <SPI.h> // < declaration ShiftOut etc problem
+//#include <SD.h>
+#include "Wire.h" // DS1307
 
-#include <SD.h>
-
-Sd2Card card;
-SdVolume volume;
-SdFile root;
+//Sd2Card card;
+//SdVolume volume;
+//SdFile root;
+//SdFile file;
 
 const int chipSelect = A3;   
 
-//#include <DS1302.h>// cannot sit on SPI pins (leaves pin in input state)
 
-#include <SPI.h> // < declaration ShiftOut etc problem
+//#include <DS1302.h>// cannot sit on SPI pins (leaves pin in input state)
+#include <DS1307.h>// cannot sit on SPI pins (leaves pin in input state)
+
 
 //#include <TFT.h> // Hardware-specific library
 
@@ -34,7 +37,7 @@ const int chipSelect = A3;
 #include "AyPa_fonts.h"
 #include "AyPa_n.h"
 #include "AyPa_TFT.h"
-#include "AyPa_rtc.h"
+//#include "AyPa_rtc.h"
 
 
 // set up variables using the SD utility library functions:
@@ -56,8 +59,10 @@ int freeRam(void)
   return (int)&v-(__brkval==0?(int)&__heap_start:(int)__brkval);
 }
 
-
-//DS1302 rtc(A4,A2,A3);//ce data clk
+//DS1302_RAM ramBuffer;
+//DS1302 rtc(A0,A1,A2);//ce data clk
+//DS1307_RAM ramBuffer;
+DS1307 rtc(A4,A5);
 
 
 
@@ -109,7 +114,7 @@ word Vcc1;
 
 volatile byte WDhappen;
 volatile word  t1111; // vars updated in ISR should be declared as volatile and accessed with cli()/sei() ie atomic
-volatile boolean WDsleep=0;
+volatile boolean WDsleep=false;
 
 ISR(WDT_vect) // Watchdog timer interrupt.
 { 
@@ -121,7 +126,8 @@ ISR(WDT_vect) // Watchdog timer interrupt.
   WDhappen=1;
   WDsleep=0;
   }
-  else{    resetFunc();     }// This will call location zero and cause a reboot.
+  //debug
+//  else{    resetFunc();     }// This will call location zero and cause a reboot.
 }
 
 uint32_t ticks=0;
@@ -183,9 +189,12 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 #define LATCHPIN 6
 
 
+#define DS1307_I2C_ADDRESS 0x68
+
 
 // port B: 5 port C: 8 port D:11
 //byte cports[10]={PORTB1,PORTB2,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1};
+  char *dstr,*tstr;
 
 byte pp[10]={
   5,5,5,5,5,5,5,5,5,5}; //port
@@ -202,6 +211,90 @@ void setup() {
      // Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// start charging timeout capacitor (default state)
 
   extreset=MCUSR;
+
+  //setup timer1
+  cli();
+  TCCR1A=0x00;
+  //  TCCR1B=(1 << WGM12)|(0<<CS22)|(0<<CS21)|(1<<CS20); // /no prescaler;
+  TCCR1B=(1 << WGM12)|(0<<CS22)|(1<<CS21)|(0<<CS20); // /8; 1us clock
+  TCNT1H=0x00;
+  TCNT1L=0x00;
+  ICR1H=0x00;
+  ICR1L=0x00;
+  //OCR1AH=0x9C;
+  //OCR1AL=0x40; // 40000
+//  OCR1AH=0x4E;
+//  OCR1AL=0x20; // 20000
+//  OCR1AH=0x03;
+//  OCR1AH=0x08;
+//  OCR1AL=0x67; // 2151 ~1ms sleeping time 
+//  OCR1AH=0x03;
+//  OCR1AL=0xE8; // 1000
+  OCR1AH=0xFF;
+  OCR1AL=0xFF;
+
+  //  TCCR1B |= (1 << WGM12);
+  //  TCCR1B |= (1 << CS10);
+  // TIMSK1 |= (1 << OCIE1A);//no need for interrupt just using for profiling code
+//  TIMSK1 |= (1 << OCIE1A);
+  sei();
+
+
+
+//rtc test
+Pin2Output(DDRC,4);
+Pin2Output(DDRC,5);
+//Pin2Output(DDRC,CLKrtc);Pin2LOW(PORTC,CLKrtc);
+//Pin2Output(DDRC,IOrtc);Pin2LOW(PORTC,IOrtc);
+//Pin2Output(DDRC,CErtc);Pin2LOW(PORTC,CErtc);
+
+  //rtcwriteprotect(true);//20us(cannot pair with false)
+//  rtcgettime(7);//rtcgettime(8); 7 is enough
+word vvv;
+
+/*
+Wire.begin();
+  //t=TCNT1;sei();
+  //digitalWrite(CE,LOW);
+  //PORTD&=~(1<<CErtc);//digitalWrite(CErtc,LOW);
+  Wire.beginTransmission(DS1307_I2C_ADDRESS);
+  Wire.write(0x07);
+  Wire.write(0x11);
+  Wire.endTransmission();
+  delay(5000);
+  Wire.beginTransmission(DS1307_I2C_ADDRESS);
+  Wire.write(0x07);
+  Wire.write(0x00);
+  Wire.endTransmission();
+  */
+//Wire.requestFrom();
+  //PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH);
+//  rtcpoke(15,0xAC);
+//cli();
+TCNT1=0;
+  rtc.poke(10,100);
+  word vv=TCNT1;
+//sei();
+//byte  val=rtcpeek(15);
+byte  val=rtc.peek(10);
+
+if(val==100)
+{
+  rtc.setDOW(WEDNESDAY);        // Set Day-of-Week to SUNDAY
+  rtc.setTime(20, 42, 0);     // Set the time to 12:00:00 (24hr format)
+  rtc.setDate(5, 2, 2014);   // Set the date to February 5th, 2014
+
+  rtc.poke(7,0x13);
+dstr=rtc.getDateStr();
+tstr=rtc.getTimeStr();
+vvv=rtc.peek(5); //month
+}
+
+//Pin2Input(DDRC,CLKrtc);Pin2LOW(PORTC,CLKrtc);
+//Pin2Input(DDRC,IOrtc);Pin2LOW(PORTC,IOrtc);
+//Pin2Input(DDRC,CErtc);Pin2LOW(PORTC,CErtc);
+
+//delay(1900);
 
 //  Serial.begin(19200);
 //  Serial.println("Hi!");
@@ -266,32 +359,6 @@ void setup() {
 
   // digitalWrite(9,HIGH);// lcd+acs712 
 
-  //setup timer1
-  cli();
-  TCCR1A=0x00;
-  //  TCCR1B=(1 << WGM12)|(0<<CS22)|(0<<CS21)|(1<<CS20); // /no prescaler;
-  TCCR1B=(1 << WGM12)|(0<<CS22)|(1<<CS21)|(0<<CS20); // /8; 1us clock
-  TCNT1H=0x00;
-  TCNT1L=0x00;
-  ICR1H=0x00;
-  ICR1L=0x00;
-  //OCR1AH=0x9C;
-  //OCR1AL=0x40; // 40000
-//  OCR1AH=0x4E;
-//  OCR1AL=0x20; // 20000
-//  OCR1AH=0x03;
-//  OCR1AH=0x08;
-//  OCR1AL=0x67; // 2151 ~1ms sleeping time 
-//  OCR1AH=0x03;
-//  OCR1AL=0xE8; // 1000
-  OCR1AH=0xFF;
-  OCR1AL=0xFF;
-
-  //  TCCR1B |= (1 << WGM12);
-  //  TCCR1B |= (1 << CS10);
-  // TIMSK1 |= (1 << OCIE1A);//no need for interrupt just using for profiling code
-//  TIMSK1 |= (1 << OCIE1A);
-  sei();
 
   // setup timer2 
 
@@ -445,33 +512,38 @@ delay(500);
 //  tft.drawPixel(tft.width()/2, tft.height()/2, ST7735_GREEN);
 //fillRect(5,5,10,100,0xE400fc);
 
-  setAddrWindow(10,20,17,32);
 
-t3(100);
-//  byte hi = (color >> 8)&0xff, lo = color&0xff,uh=color>>16;
+      char nam[16]="_";
+
+word entries=0;
+byte flag=0;
+
+  setAddrWindow(10,20,17,31);
+t3(val);
+  setAddrWindow(20,20,27,31);
+t3(vv);
+  setAddrWindow(30,20,37,31);
+t3(vvv);
+
+//delay(5000);
+
+//  setAddrWindow(30,10,37,120);
+//ta(buf);
+
+  setAddrWindow(0,0,7,119);
+
+ta(tstr);ta(">");ta(dstr);
+
+  setAddrWindow(50,10,57,120);
+
+ta("croCodile");
+//delay(5555);
+
+  setAddrWindow(80,10,87,120);
+
+ta("Русский");
+//delay(5555);
 /*
-Pin2HIGH(PORTD,4); 
-Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
-
-// display digit
-  for(byte j=0;j<3;j++)
-{
-  spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);// 1st space
-  byte c=pgm_read_byte(&(Dig[12*3+j]));
-  for(byte i=0;i<8;i++)
-  {
-    if(c&0x01){      spiwrite(0xFC);spiwrite(0xFC);spiwrite(0xFC);}
-    else{      spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);}
-    c=c>>1;
-  }
-}
-
-Pin2HIGH(PORTD,3);//    digitalWrite(cs,HIGH);
-
-*/
-  delay(15000);
-
-
   pinMode(10, OUTPUT);   
   digitalWrite(10,HIGH);    
   digitalWrite(3,LOW);// 
@@ -483,8 +555,11 @@ Pin2HIGH(PORTD,3);//    digitalWrite(cs,HIGH);
 
   // we'll use the initialization code from the utility libraries
   // since we're just testing if the card is working!
-  if (!card.init(SPI_HALF_SPEED, chipSelect)) {
-  digitalWrite(3,HIGH);
+//   if (!SD.begin(chipSelect)) {
+//  if (!card.init(SPI_HALF_SPEED, chipSelect)) {
+  if (!card.init(SPI_QUARTER_SPEED, chipSelect)) {
+// turn SD pin low?
+  digitalWrite(3,HIGH);//turn LCD ON
    SPSR = (1 << SPI2X);//max speed
   SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
 
@@ -492,15 +567,147 @@ Pin2HIGH(PORTD,3);//    digitalWrite(cs,HIGH);
 //s3(123);
 
   } else {
-    byte cardt=card.type();
-  digitalWrite(3,HIGH);
+    
+//    long color=0xfc0000; //red
+     if (!volume.init(card)) {
+  }
+  else
+  {
+    if (!root.openRoot(&volume))
+    {
+    }
+    else
+    {
+    
+ dir_t p;
+ 
+  root.rewind();
+  while (root.readDir(p) > 0) {
+    // done if past last used entry
+    if (p.name[0] == DIR_NAME_FREE) break;
+ 
+    // skip deleted entry and entries for . and  ..
+    if (p.name[0] == DIR_NAME_DELETED || p.name[0] == '.') continue;
+ 
+    // only list subdirectories and files
+    if (!DIR_IS_FILE_OR_SUBDIR(&p)) continue;
+ 
+ 
+    // print file name with possible blank fill
+    //root.printDirName(*p, flags & (LS_DATE | LS_SIZE) ? 14 : 0);
+
+            entries++; 
+//  if(nam[0]=='_'){memcpy(&nam,&p.name[0],12);}
+ 
+    for (uint8_t i = 0; i < 11; i++) {
+      if (p.name[i] == ' ') continue;
+      if (i == 8) {
+//        client.print('.');
+      }
+
+//      client.print(p.name[i]);
+    }
+    if (DIR_IS_SUBDIR(&p)) {
+        entries+=100;
+
+//      client.print('/');
+    }*/
+ 
+    // print modify date/time if requested
+//    if (flags & LS_DATE) {
+  //     root.printFatDate(p.lastWriteDate);
+    //   client.print(' ');
+      // root.printFatTime(p.lastWriteTime);
+//    }
+    // print size if requested
+//    if (!DIR_IS_SUBDIR(&p) && (flags & LS_SIZE)) {
+  //    client.print(' ');
+    //  client.print(p.fileSize);
+//    }
+//    client.println("<br>");
+
+/*
+ File dataFile = SD.open("examlpe.TXT", FILE_WRITE); //if I comment this out then the list files works
+  if (dataFile) {
+//    Serial.print(F("Writing to test.txt..."));
+  //  dataFile.println("NOW this FILE CREATED");
+    dataFile.close();
+flag=1;    
+    //Serial.println(F("done."));
+  }
+*/
+
+/*
+file.open(root, name, O_CREAT | O_APPEND | O_WRITE);
+    //Open or create the file 'name' in 'root' for
+      writing to the end of the file.
+sprintf(contents, "Millis: %d\n", millis());
+    //Copy the letters 'Millis: ' followed by the 
+      integer value of the millis() function into the 
+      'contents' array.
+file.print(contents);    //Write the 'contents' array
+                           to the end of the file.
+file.close();            //Close the file.
+*/
+/*
+Sd2Card.h:uint8_t const SPI_FULL_SPEED = 0; 
+Sd2Card.h:uint8_t const SPI_HALF_SPEED = 1; 
+Sd2Card.h:uint8_t const SPI_QUARTER_SPEED = 2; 
+Sd2Card.h:uint8_t const SPI_EIGHTH_SPEED = 3; 
+Sd2Card.h:uint8_t const SPI_SIXTEENTH_SPEED = 4; 
+Sd2Card.h: bool init(uint8_t sckRateID = SPI_FULL_SPEED, 
+SdFat.h: uint8_t sckRateID = SPI_FULL_SPEED) { 
+SdFat.h: bool init(uint8_t sckRateID = SPI_FULL_SPEED, 
+SdFatmainpage.h:card.init(SPI_HALF_SPEED) to initialize the SD card. 
+
+*/
+
+  //}      
+
+/*  
+    File myFile = SD.open("test.txt", FILE_WRITE);
+  
+  // if the file opened okay, write to it:
+  if (myFile) {
+    flag=5;
+//    Serial.print("Writing to test.txt...");
+    myFile.println("testing 1, 2, 3.");
+	// close the file:
+    myFile.close();
+//    Serial.println("done.");
+
+  } */
+
+//file.open(root, root.curPosition()/32-1, O_READ);
+//if(file.open(root, "INDIAN.MP3", O_READ))
+//if(file.open(root, "TEST.TXT", O_CREAT | O_WRITE))
+/*
+if(file.open(root, "INDIAN.MP3", O_READ))
+{flag=1;
+nam[0]=file.read(); if ((nam[0])<0){flag++;}
+nam[1]=file.read(); 
+nam[2]=file.read(); 
+nam[3]=file.read(); // if <0 then enough :)
+nam[5]=0;
+//sprintf(nam, "Millis: %d\n", millis());
+//file.print(nam);  
+file.close();
+}*/
+/*
+flag=file.open(root, "TEST.TXT", O_CREAT | O_APPEND | O_WRITE);    //Open orcreate the file 'name' in 'root' for writing to the end of the file
+if(flag)
+{
+  file.close();
+}*/
+
+      
+//  byte cardt=card.type();
+  //digitalWrite(3,HIGH);
 //   SPSR = (1 << SPI2X);//max speed
   //SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
 
-  fillScreen(0x00fc00);// green
-
-delay(1000);
-
+//  fillScreen(0x00fc00);delay(1000);
+/*
     switch(cardt) {
     case SD_CARD_TYPE_SD1:
     fillScreen(0xffffff);// white
@@ -519,13 +726,14 @@ delay(1000);
       break;
     default:
       Serial.println("Unknown");
-  }
+  }*/
 
-  
-  }
 
-  delay(1500);
+//    }    }  } 
 
+
+delay(1500);
+/*
 
 //  fillRect(5,5,120,150,0x00fc00);
   
@@ -533,12 +741,20 @@ delay(1000);
 
   fillScreen(0x0000fc);// blue
 
+  setAddrWindow(10,20,17,31);
+  t3(entries);
+   setAddrWindow(20,30,27,41);
+  t3(flag);
+
+  setAddrWindow(80,10,87,120);
+ta(nam);
+
   delay(1500);
 
   fillRect(10,20,70,18,0x00fcfc);
 
   delay(1500);
-
+*/
 //  	writecommand(0x39);  //IDMON
 //  delay(1500);
 //  	writecommand(0x38);  //IDMOFF // no visible effect
@@ -551,7 +767,7 @@ delay(1000);
 //  delay(2500);
 //  	writecommand(0x11);  //SLPOUT
 
-delay(5000);
+//delay(5000);
 
 
 
@@ -1235,9 +1451,13 @@ Pin2Output(DDRD,3);Pin2HIGH(PORTD,3);// charge cap
 void fastnap(void)
 {
 //?????????????????
+
 PORTC=0;
 PORTB=0;
 PORTD=0;
+//DDRB=0;// some needed pins are not put to output after wakeup
+//DDRD=0;
+//DDRC=0;// all pins as inputs and low (high impedance state)
 //PORTD=0b00000100; //except 2nd pin (INT0)
 
 
@@ -1250,6 +1470,7 @@ PORTD=0;
 //Pin2HIGH(PORTD,0);// switch ON sleep control mosfet
 
 Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// charge cap
+delayMicroseconds(2);
 
 //            WDhappen=0;
         sleeps=0;
@@ -1280,6 +1501,7 @@ Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// charge cap
 void loop() {
   word t,t1,n;
   word Temp;
+  char tmps[32];
   
   
 //if(it>7000){
@@ -1290,12 +1512,62 @@ void loop() {
 
 //        Pin2HIGH(PORTD,1);// 5.5v?
 
+  __asm__ __volatile__("wdr\n\t");//  wdt_reset();
+
         Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // stop light outputs
         Pin2HIGH(PORTB,6);//power supply to tpic6a595  (add caps?)
         delayMicroseconds(11);// wait for rise. 10 minimum to avoid nasty bugs
 
 TCNT1=0;
 
+if((it&0x3FFF)==0)// once in 16k
+{
+
+  rtc.poke(10,100);
+//byte  val=rtcpeek(15);
+byte  val=rtc.peek(10);
+
+if(val==100)
+{
+dstr=rtc.getDateStr();
+tstr=rtc.getTimeStr();
+}
+
+    initR();   // initialize a ST7735S chip, black tab
+
+//delay(5000);
+/*
+SPI.begin();
+//    SPI.setClockDivider(SPI_CLOCK_DIV4); // 4 MHz (half speed)
+//    SPI.setClockDivider(SPI_CLOCK_DIV8); // 4 MHz (half speed)
+//    SPI.setClockDivider(SPI_CLOCK_DIV16); // 4 MHz (half speed)
+    SPI.setClockDivider(SPI_CLOCK_DIV32); // 4 MHz (half speed)
+    //Due defaults to 4mHz (clock divider setting of 21)
+    SPI.setBitOrder(MSBFIRST);
+    SPI.setDataMode(SPI_MODE0);
+*/
+
+//  word time = millis();
+//  fillScreen((it&0xfc)<<8);
+
+//  time = millis() - time;
+
+  // a single pixel
+//  tft.drawPixel(tft.width()/2, tft.height()/2, ST7735_GREEN);
+//fillRect(5,5,10,100,0xE400fc);
+//sprintf(tmps, "%d %d %d", millis(),word(time),word(it));
+
+
+  setAddrWindow(10,20,17,119);
+t3(it);
+
+  setAddrWindow(0,0,7,119);
+ta(tstr);ta(">");ta(dstr);
+
+//ta(tmps);
+//delay(1000);
+
+}
 
 if((it&0x3FF)==0)// once in 1024
 {
@@ -2558,7 +2830,7 @@ NOP;NOP;
 
 //if(rnd==0){break;}// long sleep. 8s?
 
-if((it&0x7FFF)==0) // measure nap time
+if((it&0xFFFF)==0) // measure nap time
 {
       set_sleep_mode (SLEEP_MODE_IDLE);//// in r24,0x33// andi r24,0xF1// out 0x33,r24
 TCNT1=0;
@@ -2591,7 +2863,8 @@ if(it==55555)// ultra long nap 8s once  in somewhere  2 minutes
   //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);//960ms
  // WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);//2s
   // WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
- //    WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
+//    WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
+    
   sei();
 
 }
@@ -2655,6 +2928,40 @@ else {fn++;fastnap();}
 
 //  wdt_disable();// some serious stuff (its role in hangups prevention?) why disable?
   __asm__ __volatile__("wdr\n\t");//  wdt_reset(); why disable just reset WDT
+
+
+Pin2Output(DDRD,0);// sreset mosfet 2n7000 control
+Pin2Output(DDRD,1);// 3.3/5v mosfet 2n7000 control
+Pin2Output(DDRD,2);// INT0 line
+
+Pin2Output(DDRD,3);// INT1 line /TFT CS
+Pin2Output(DDRD,4);// TFT DC
+Pin2Output(DDRB,3);// MOSI
+Pin2Output(DDRB,5);// CLK
+
+
+
+
+Pin2Output(DDRB,0); // CLOCKPIN 8
+Pin2Output(DDRB,1); // DATAPIN 9
+Pin2Output(DDRB,2);
+Pin2Output(DDRB,6);
+
+
+//Pin2Output(DDRC,2);
+//Pin2Output(DDRC,3);
+//Pin2Output(DDRC,4);
+//Pin2Output(DDRC,5);
+
+Pin2Output(DDRD,5); // pin 5 G
+Pin2Output(DDRD,6); // pin 6 LATCH
+Pin2Output(DDRD,7); // pin 7 SRCLR
+
+
+
+  pinMode(DATAPIN,OUTPUT);
+  pinMode(CLOCKPIN,OUTPUT);
+  pinMode(LATCHPIN,OUTPUT);
 
 //NOP;
 it++;
