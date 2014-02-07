@@ -355,6 +355,61 @@ for(byte j=0;j<5;j++)  // display char
   PORTD|=(1<<CE);// digitalWrite(CE,HIGH);    
 }
 
+void pushColor(byte r,byte g,byte b)
+{
+    Pin2HIGH(PORTD,4); 
+  Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
+
+spiwrite(r);
+spiwrite(g);
+spiwrite(b);
+
+  Pin2HIGH(PORTD,3);//    digitalWrite(cs,HIGH);
+
+}
+
+
+void th(byte v)
+{
+  byte c,ch;
+
+  Pin2HIGH(PORTD,4); 
+  Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
+
+
+  ch=(v>>4)*3;
+  for(byte j=0;j<24;j++)spiwrite(0x00);// 1st space
+
+for(byte j=0;j<3;j++)  // display digit
+{
+  c=pgm_read_byte(&(Dig[ch++]));
+  for(byte i=0;i<8;i++)
+  {
+    if(c&0x01){      spiwrite(0xFC);spiwrite(0xFC);spiwrite(0xFC);}
+    else{      spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);}
+    c=c>>1;
+  }
+}
+
+  for(byte j=0;j<24;j++)spiwrite(0x00);// 1st space
+
+  ch=(v&0xF)*3;
+
+for(byte j=0;j<3;j++)  // display digit
+{
+  c=pgm_read_byte(&(Dig[ch++]));
+  for(byte i=0;i<8;i++)
+  {
+    if(c&0x01){      spiwrite(0xFC);spiwrite(0xFC);spiwrite(0xFC);}
+    else{      spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);}
+    c=c>>1;
+  }
+}
+
+  Pin2HIGH(PORTD,3);//    digitalWrite(cs,HIGH);
+}
+
+
 void t3(word v)
 {
   byte c,ch;
@@ -417,6 +472,19 @@ for(byte j=0;j<3;j++)  // display digit
 }
   
   Pin2HIGH(PORTD,3);//    digitalWrite(cs,HIGH);
+}
+
+void lh(long v)
+{
+  th(v>>24);
+  th((v>>16)&0xFF);
+  th((v>>8)&0xFF);
+  th(v&0xFF);
+}
+void wh(word v)
+{
+  th((v>>8)&0xFF);
+  th(v&0xFF);
 }
 
 

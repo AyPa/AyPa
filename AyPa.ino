@@ -8,15 +8,9 @@
 
 
 #include <SPI.h> // < declaration ShiftOut etc problem
-//#include <SD.h>
+//#include <SdFat.h>
 #include "Wire.h" // DS1307
-
-//Sd2Card card;
-//SdVolume volume;
-//SdFile root;
-//SdFile file;
-
-const int chipSelect = A3;   
+#include "TSL2561.h"
 
 
 //#include <DS1302.h>// cannot sit on SPI pins (leaves pin in input state)
@@ -189,8 +183,10 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 #define LATCHPIN 6
 
 
-#define DS1307_I2C_ADDRESS 0x68
+//#define DS1307_I2C_ADDRESS 0x68 // read and write address is different for DS1307 
 
+// use TSL2561_ADDR_LOW (0x29) or TSL2561_ADDR_HIGH (0x49) respectively TSL2561_ADDR_FLOAT)
+TSL2561 tsl(TSL2561_ADDR_LOW); 
 
 // port B: 5 port C: 8 port D:11
 //byte cports[10]={PORTB1,PORTB2,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1};
@@ -272,22 +268,24 @@ Wire.begin();
 //  rtcpoke(15,0xAC);
 //cli();
 TCNT1=0;
-  rtc.poke(10,100);
+  rtc.poke(8,'A');
   word vv=TCNT1;
 //sei();
 //byte  val=rtcpeek(15);
-byte  val=rtc.peek(10);
+byte  val=rtc.peek(8);
 
-if(val==100)
+if(val=='A')
 {
   rtc.setDOW(WEDNESDAY);        // Set Day-of-Week to SUNDAY
   rtc.setTime(20, 42, 0);     // Set the time to 12:00:00 (24hr format)
   rtc.setDate(5, 2, 2014);   // Set the date to February 5th, 2014
 
-  rtc.poke(7,0x13);
+//  rtc.poke(7,0x13);
+    rtc.poke(7,0);// turn off SQW
+
 dstr=rtc.getDateStr();
 tstr=rtc.getTimeStr();
-vvv=rtc.peek(5); //month
+//vvv=rtc.peek(5); //month
 }
 
 //Pin2Input(DDRC,CLKrtc);Pin2LOW(PORTC,CLKrtc);
@@ -518,12 +516,60 @@ delay(500);
 word entries=0;
 byte flag=0;
 
-  setAddrWindow(10,20,17,31);
+word x,xf,xi;
+long lm;
+//TSL2561
+
+  if (tsl.begin()) {vvv=1;
+  tsl.setGain(TSL2561_GAIN_0X);         // set no gain (for bright situtations)
+//  tsl.setGain(TSL2561_GAIN_16X);      // set 16x gain (for dim situations)
+  
+  // Changing the integration time gives you a longer time over which to sense light
+  // longer timelines are slower, but are good in very low light situtations!
+  tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  // shortest integration time (bright light)
+  //tsl.setTiming(TSL2561_INTEGRATIONTIME_101MS);  // medium integration time (medium light)
+  //tsl.setTiming(TSL2561_INTEGRATIONTIME_402MS);  // longest integration time (dim light)
+  
+  // Now we're ready to get readings!
+  
+    // Simple data read example. Just read the infrared, fullspecrtrum diode 
+  // or 'visible' (difference between the two) channels.
+  // This can take 13-402 milliseconds! Uncomment whichever of the following you want to read
+  TCNT1=0;
+   lm = tsl.getFullLuminosity();
+   word lmm=TCNT1;
+  
+//   x = tsl.getLuminosity(TSL2561_VISIBLE);     
+//  xf = tsl.getLuminosity(TSL2561_FULLSPECTRUM);
+//  xi = tsl.getLuminosity(TSL2561_INFRARED);
+
+//  long lum = tsl.getFullLuminosity();
+  word ir, full,lx;
+  ir = lm >> 16;
+  full = lm & 0xFFFF;
+  setAddrWindow(9,0,16,119);
+  //ta("I");th((ir>>8));th((ir&0xFF));
+//  ta(" F");th((full>>8));th((full&0xFF));
+//  ta(" V");th(((full-ir)>>8));th(((full-ir)&0xFF));
+    ta("lm:");lh(lm);
+  lx=tsl.calculateLux(full,ir);
+  ta(" L:");wh(lx);
+  ta(" ");wh(lmm);ta("us");
+  
+}
+  else{vvv=0;}
+
+
+
+  setAddrWindow(20,0,27,31);
 t3(val);
-  setAddrWindow(20,20,27,31);
-t3(vv);
-  setAddrWindow(30,20,37,31);
-t3(vvv);
+  setAddrWindow(20,20,27,51);
+th((vv>>8));th((vv&0xFF));
+  setAddrWindow(30,20,37,51);
+t3(vvv);th((x>>8));th((x&0xFF));
+  setAddrWindow(40,0,47,91);
+th((xf>>8));th((xf&0xFF));
+th((xi>>8));th((xi&0xFF));
 
 //delay(5000);
 
@@ -542,197 +588,11 @@ ta("croCodile");
   setAddrWindow(80,10,87,120);
 
 ta("Русский");
-//delay(5555);
-/*
-  pinMode(10, OUTPUT);   
-  digitalWrite(10,HIGH);    
-  digitalWrite(3,LOW);// 
-  // On the Ethernet Shield, CS is pin 4. It's set as an output by default.
-  // Note that even if it's not used as the CS pin, the hardware SS pin 
-  // (10 on most Arduino boards, 53 on the Mega) must be left as an output 
-  // or the SD library functions will not work. 
-  
-
-  // we'll use the initialization code from the utility libraries
-  // since we're just testing if the card is working!
-//   if (!SD.begin(chipSelect)) {
-//  if (!card.init(SPI_HALF_SPEED, chipSelect)) {
-  if (!card.init(SPI_QUARTER_SPEED, chipSelect)) {
-// turn SD pin low?
-  digitalWrite(3,HIGH);//turn LCD ON
-   SPSR = (1 << SPI2X);//max speed
-  SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
-
-  fillScreen(0xfc0000);// red
-//s3(123);
-
-  } else {
-    
-//    long color=0xfc0000; //red
-     if (!volume.init(card)) {
-  }
-  else
-  {
-    if (!root.openRoot(&volume))
-    {
-    }
-    else
-    {
-    
- dir_t p;
- 
-  root.rewind();
-  while (root.readDir(p) > 0) {
-    // done if past last used entry
-    if (p.name[0] == DIR_NAME_FREE) break;
- 
-    // skip deleted entry and entries for . and  ..
-    if (p.name[0] == DIR_NAME_DELETED || p.name[0] == '.') continue;
- 
-    // only list subdirectories and files
-    if (!DIR_IS_FILE_OR_SUBDIR(&p)) continue;
- 
- 
-    // print file name with possible blank fill
-    //root.printDirName(*p, flags & (LS_DATE | LS_SIZE) ? 14 : 0);
-
-            entries++; 
-//  if(nam[0]=='_'){memcpy(&nam,&p.name[0],12);}
- 
-    for (uint8_t i = 0; i < 11; i++) {
-      if (p.name[i] == ' ') continue;
-      if (i == 8) {
-//        client.print('.');
-      }
-
-//      client.print(p.name[i]);
-    }
-    if (DIR_IS_SUBDIR(&p)) {
-        entries+=100;
-
-//      client.print('/');
-    }*/
- 
-    // print modify date/time if requested
-//    if (flags & LS_DATE) {
-  //     root.printFatDate(p.lastWriteDate);
-    //   client.print(' ');
-      // root.printFatTime(p.lastWriteTime);
-//    }
-    // print size if requested
-//    if (!DIR_IS_SUBDIR(&p) && (flags & LS_SIZE)) {
-  //    client.print(' ');
-    //  client.print(p.fileSize);
-//    }
-//    client.println("<br>");
-
-/*
- File dataFile = SD.open("examlpe.TXT", FILE_WRITE); //if I comment this out then the list files works
-  if (dataFile) {
-//    Serial.print(F("Writing to test.txt..."));
-  //  dataFile.println("NOW this FILE CREATED");
-    dataFile.close();
-flag=1;    
-    //Serial.println(F("done."));
-  }
-*/
-
-/*
-file.open(root, name, O_CREAT | O_APPEND | O_WRITE);
-    //Open or create the file 'name' in 'root' for
-      writing to the end of the file.
-sprintf(contents, "Millis: %d\n", millis());
-    //Copy the letters 'Millis: ' followed by the 
-      integer value of the millis() function into the 
-      'contents' array.
-file.print(contents);    //Write the 'contents' array
-                           to the end of the file.
-file.close();            //Close the file.
-*/
-/*
-Sd2Card.h:uint8_t const SPI_FULL_SPEED = 0; 
-Sd2Card.h:uint8_t const SPI_HALF_SPEED = 1; 
-Sd2Card.h:uint8_t const SPI_QUARTER_SPEED = 2; 
-Sd2Card.h:uint8_t const SPI_EIGHTH_SPEED = 3; 
-Sd2Card.h:uint8_t const SPI_SIXTEENTH_SPEED = 4; 
-Sd2Card.h: bool init(uint8_t sckRateID = SPI_FULL_SPEED, 
-SdFat.h: uint8_t sckRateID = SPI_FULL_SPEED) { 
-SdFat.h: bool init(uint8_t sckRateID = SPI_FULL_SPEED, 
-SdFatmainpage.h:card.init(SPI_HALF_SPEED) to initialize the SD card. 
-
-*/
-
-  //}      
-
-/*  
-    File myFile = SD.open("test.txt", FILE_WRITE);
-  
-  // if the file opened okay, write to it:
-  if (myFile) {
-    flag=5;
-//    Serial.print("Writing to test.txt...");
-    myFile.println("testing 1, 2, 3.");
-	// close the file:
-    myFile.close();
-//    Serial.println("done.");
-
-  } */
-
-//file.open(root, root.curPosition()/32-1, O_READ);
-//if(file.open(root, "INDIAN.MP3", O_READ))
-//if(file.open(root, "TEST.TXT", O_CREAT | O_WRITE))
-/*
-if(file.open(root, "INDIAN.MP3", O_READ))
-{flag=1;
-nam[0]=file.read(); if ((nam[0])<0){flag++;}
-nam[1]=file.read(); 
-nam[2]=file.read(); 
-nam[3]=file.read(); // if <0 then enough :)
-nam[5]=0;
-//sprintf(nam, "Millis: %d\n", millis());
-//file.print(nam);  
-file.close();
-}*/
-/*
-flag=file.open(root, "TEST.TXT", O_CREAT | O_APPEND | O_WRITE);    //Open orcreate the file 'name' in 'root' for writing to the end of the file
-if(flag)
-{
-  file.close();
-}*/
-
-      
-//  byte cardt=card.type();
-  //digitalWrite(3,HIGH);
-//   SPSR = (1 << SPI2X);//max speed
-  //SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
-
-//  fillScreen(0x00fc00);delay(1000);
-/*
-    switch(cardt) {
-    case SD_CARD_TYPE_SD1:
-    fillScreen(0xffffff);// white
-//      Serial.println("SD1");
-      break;
-    case SD_CARD_TYPE_SD2:
-    fillScreen(0x00fcfc);
-//      Serial.println("SD2");
-      break;
-    case SD_CARD_TYPE_SDHC:
-        fillScreen(0x20fc10);
-//        SQ(8,8,120,152,0xfc8080);
 
 
-//      Serial.println("SDHC");
-      break;
-    default:
-      Serial.println("Unknown");
-  }*/
 
 
-//    }    }  } 
 
-
-delay(1500);
 /*
 
 //  fillRect(5,5,120,150,0x00fc00);
@@ -810,6 +670,7 @@ ISR(TIMER1_OVF_vect)
  //    PIND=(1<<PD0);
  t2ovf++;
  }*/
+
 
 uint16_t st1,st2,delta,flash_duration;
 uint8_t flash_start_mask,flash_stop_mask; // channel for flash
@@ -1496,6 +1357,33 @@ delayMicroseconds(2);
 //  cli();t1111=TCNT1;sei();//atomic read
 }
 
+uint16_t read16(uint8_t reg)
+{
+  uint16_t x; uint16_t t;
+
+  Wire.beginTransmission(TSL2561_ADDR_LOW);
+#if ARDUINO >= 100
+  Wire.write(reg);
+#else
+  Wire.send(reg);
+#endif
+  Wire.endTransmission();
+
+  Wire.requestFrom(TSL2561_ADDR_LOW, 2);
+#if ARDUINO >= 100
+  t = Wire.read();
+  x = Wire.read();
+#else
+  t = Wire.receive();
+  x = Wire.receive();
+#endif
+  x <<= 8;
+  x |= t;
+  return x;
+}
+
+
+  volatile long lvv;// luminous
 
 // the loop routine runs over and over again forever:
 void loop() {
@@ -1523,11 +1411,11 @@ TCNT1=0;
 if((it&0x3FFF)==0)// once in 16k
 {
 
-  rtc.poke(10,100);
+//  rtc.poke(10,100);
 //byte  val=rtcpeek(15);
-byte  val=rtc.peek(10);
+byte  val=rtc.peek(8);
 
-if(val==100)
+if(val=='A')
 {
 dstr=rtc.getDateStr();
 tstr=rtc.getTimeStr();
@@ -1558,21 +1446,78 @@ SPI.begin();
 //sprintf(tmps, "%d %d %d", millis(),word(time),word(it));
 
 
-  setAddrWindow(10,20,17,119);
-t3(it);
+  setAddrWindow(60,20,67,119);
+wh(it);ta("LV:");lh(lvv);
 
   setAddrWindow(0,0,7,119);
 ta(tstr);ta(">");ta(dstr);
 
-//ta(tmps);
-//delay(1000);
+long lm;
+//TSL2561
+
+  if (tsl.begin()) {
+  
+    tsl.setGain(TSL2561_GAIN_0X);         // set no gain (for bright situtations)
+//  tsl.setGain(TSL2561_GAIN_16X);      // set 16x gain (for dim situations)
+  
+  // Changing the integration time gives you a longer time over which to sense light
+  // longer timelines are slower, but are good in very low light situtations!
+  tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  // shortest integration time (bright light)
+  //tsl.setTiming(TSL2561_INTEGRATIONTIME_101MS);  // medium integration time (medium light)
+  //tsl.setTiming(TSL2561_INTEGRATIONTIME_402MS);  // longest integration time (dim light)
+  
+  // Now we're ready to get readings!
+  
+    // Simple data read example. Just read the infrared, fullspecrtrum diode 
+  // or 'visible' (difference between the two) channels.
+  // This can take 13-402 milliseconds! Uncomment whichever of the following you want to read
+  TCNT1=0;
+//   lm = tsl.getFullLuminosity();
+  
+//if (!_initialized) begin();
+
+  // Enable the device by setting the control bit to 0x03
+  tsl.enable(); // will init if need to
+//  uint32_t x;
+delay(14); // flash time
+
+ lm = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
+  lm <<= 16;
+  lm |= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
+
+  tsl.disable();
+   word lmm=TCNT1;
+
+//   x = tsl.getLuminosity(TSL2561_VISIBLE);     
+//  xf = tsl.getLuminosity(TSL2561_FULLSPECTRUM);
+//  xi = tsl.getLuminosity(TSL2561_INFRARED);
+
+//  long lum = tsl.getFullLuminosity();
+  word ir, full,lx;
+  ir = lm >> 16;
+  full = lm & 0xFFFF;
+  setAddrWindow(9,0,16,127);
+  //ta("I");th((ir>>8));th((ir&0xFF));
+//  ta(" F");th((full>>8));th((full&0xFF));
+//  ta(" V");th(((full-ir)>>8));th(((full-ir)&0xFF));
+    ta("lm");lh(lm);
+  lx=tsl.calculateLux(full,ir);
+  ta("L");wh(lx);
+  //ta(" ");
+  wh(lm);
+  ta(" ");lh(lvv);
+
+//  setAddrWindow(18,0,26,127);
+  //ta("lv:");lh(lv);
+  
+}
 
 }
 
-if((it&0x3FF)==0)// once in 1024
-{
+//if((it&0x3FF)==0)// once in 1024
+//{
 
-    t=0;  
+  //  t=0;  
 
   //once in 65536
   if(it==0xFFFF){flashes++;
@@ -1581,6 +1526,7 @@ if((it&0x3FF)==0)// once in 1024
 
 }
 
+/*
   LcdInit();
 
   LcdSet(0,0);
@@ -1641,12 +1587,8 @@ sw(t);
 
 
   
-  SPCR&=~(1<<SPE); //  SPI.end(); // turn off SPI ????
-  
-
-  
-}
-
+//  SPCR&=~(1<<SPE); //  SPI.end(); // turn off SPI ????
+//  }
 //word VccN[8];
 //word VccN2[8];
 
@@ -2027,6 +1969,24 @@ Pin2LOW(PORTD,0);// close reset mosfet
 }
 else{
 
+  if(it==15000)
+{
+pinMode(A4,OUTPUT);
+pinMode(A5,OUTPUT);
+delay(1);
+  // prepare light sensor
+if (tsl.begin()) {  
+    tsl.setGain(TSL2561_GAIN_0X);         // set no gain (for bright situtations)
+  tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  // shortest integration time (bright light)
+  tsl.enable(); // will init if need to
+
+//lvv+=0x100000L;  
+
+}// begin
+
+}
+//lvv++;
+  
 cli();
 //enter critical section
 //Pin2Input(DDRD,0); // important set it 2 input (high impedance state)
@@ -2081,7 +2041,13 @@ Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // start/stop light
 }
 else {*/
 //delayMicroseconds(14);// 28 us
+//  if(it==15000)
+//{
+//  delayMicroseconds(20);// 40 us
+//}  
+//else{
 delayMicroseconds(9);// 18 us
+//}
 //}//30us
 
 
@@ -2113,6 +2079,17 @@ Pin2LOW(PORTD,0);// close reset mosfet
 
 sei();
 
+  if(it==15000)
+  {
+  
+  delay(7); // flash time
+ lvv = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
+  lvv <<= 16;
+  lvv |= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
+
+  tsl.disable();
+
+}
 
 //NOP;//sei();delay(2000);cli();
 //if((it==0x0200)&&(z<8)){    mRawADC(VccN[z],2);    mRawADC(VccN2[z],2);}
