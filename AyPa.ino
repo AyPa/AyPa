@@ -8,14 +8,9 @@
 
 
 #include <SPI.h> // < declaration ShiftOut etc problem
-//#include <SdFat.h>
-//#include "Wire.h" 
-//#include "TSL2561.h"
 
 #define TSL2561_ADDR_LOW_W 82
 #define TSL2561_ADDR_LOW_R  83 //(0x29<<1)+1
-
-//#define TSL2561_ADDR_LOW  0x29
 
 #define TSL2561_READBIT           (0x01)
 #define TSL2561_COMMAND_BIT       (0x80)    // Must be 1
@@ -63,14 +58,14 @@ tsl2561Gain_t;
 //#include <DS1302.h>// cannot sit on SPI pins (leaves pin in input state)
 //#include <DS1307.h>// cannot sit on SPI pins (leaves pin in input state)
 
-#define DS1307_ADDR 0xD0
+//#define DS1307_ADDR 0xD0
 #define DS1307_ADDR_R	209
 #define DS1307_ADDR_W	208
 
-#define SQW_RATE_1		0
-#define SQW_RATE_4K		1
-#define SQW_RATE_8K		2
-#define SQW_RATE_32K	3
+#define DS1307_SQW_RATE_1		0x10
+#define DS1307_SQW_RATE_4K		0x11
+#define DS1307_SQW_RATE_8K		0x12
+#define DS1307_SQW_RATE_32K  	0x13
 
 #define _sda_pin A4
 #define _scl_pin A5
@@ -203,7 +198,8 @@ uint8_t _readRegisterT(uint8_t reg)
 	return readValue;
 }
 
-uint16_t _readRegister16(uint8_t reg)
+/*
+uint16_t _readRegister16(uint8_t reg)// not tested
 {
 	uint16_t	readValue=0;
 
@@ -223,7 +219,7 @@ uint16_t _readRegister16(uint8_t reg)
 	_sendNack();
 	_sendStop();
 	return readValue;
-}
+}*/
 
 /*
 void _burstRead()
@@ -558,7 +554,7 @@ if(val=='A')
 //  rtc.setTime(20, 42, 0);     // Set the time to 12:00:00 (24hr format)
 //  rtc.setDate(5, 2, 2014);   // Set the date to February 5th, 2014
 
-  poke2(7,0x12);// turn on SQW 8kHz
+//  poke2(7,0x12);// turn on SQW 8kHz
 //  rtc.poke(7,0x13);// turn on SQW  32kHz
   //  rtc.poke(7,0);// turn off SQW
 
@@ -572,8 +568,7 @@ dstr[2]=peek2(6);
 //vvv=rtc.peek(5); //month
 }
 
-
-        PORTC=0;pinMode(_scl_pin, INPUT);pinMode(_sda_pin, INPUT);// high imp state to avoid current  sipping through SDA/SCL pullup resistors
+PORTC=0;Pin2Input(DDRC,_scl_pin);Pin2Input(DDRC,_sda_pin);//  pinMode(_scl_pin, INPUT);pinMode(_sda_pin, INPUT);// high imp state to avoid current  sipping through SDA/SCL pullup resistors
 
 
 //Pin2Input(DDRC,CLKrtc);Pin2LOW(PORTC,CLKrtc);
@@ -633,7 +628,7 @@ dstr[2]=peek2(6);
   }
 
   PORTC=0;//digitalWrite(A1,LOW);digitalWrite(A2,LOW);digitalWrite(A3,LOW);digitalWrite(A4,LOW);
-  DDRC=0x3;//  pinMode(A1,OUTPUT);  pinMode(A2,OUTPUT);  pinMode(A3,OUTPUT);  pinMode(A4,OUTPUT);
+//  DDRC=0x3;//  pinMode(A1,OUTPUT);  pinMode(A2,OUTPUT);  pinMode(A3,OUTPUT);  pinMode(A4,OUTPUT);
   //DDRC=0; //input
 
 
@@ -776,7 +771,19 @@ PORTD=0;
 
   initR();   // initialize a ST7735S chip, black tab
 
+
+//  fillRect(0,0,27,91,0xfcfcfc);
+
+//fillScreen(0xfcfc00);
+
+
+//  setAddrWindow(0,0,20,20);
+//  drawPixel(5,10,0x000000);
+//  drawPixel(5,11,0x000000);
+  //drawPixel(5,12,0x000000);
+
 //delay(5000);
+
 /*
 SPI.begin();
 //    SPI.setClockDivider(SPI_CLOCK_DIV4); // 4 MHz (half speed)
@@ -790,10 +797,14 @@ SPI.begin();
 
   uint16_t time = millis();
   fillScreen(0x000000);// black
+//  fillScreen(0x005000);// green
 
   time = millis() - time;
 
-delay(500);
+ setAddrWindow(0,0,7,120);
+wh(time);ta("TIME");
+
+delay(1500);
   // a single pixel
 //  tft.drawPixel(tft.width()/2, tft.height()/2, ST7735_GREEN);
 //fillRect(5,5,10,100,0xE400fc);
@@ -1555,9 +1566,9 @@ word fnt,lnt; // fast/long nap time
 
 void unap(void)
 {
-PORTC=0;
-PORTB=0;
-PORTD=0;
+//PORTC=0;
+//PORTB=0;
+//PORTD=0;
 
   // Setup the WDT 
   cli();
@@ -1583,9 +1594,9 @@ PORTD=0;
 void longnap(void)
 {
 //?????????????????
-PORTC=0;
-PORTB=0;
-PORTD=0;
+//PORTC=0;
+//PORTB=0;
+//PORTD=0;
 //PORTD=0b00000100; //except 2nd pin (INT0)
 
 
@@ -1597,7 +1608,11 @@ PORTD=0;
 //Pin2Output(DDRD,0);// sleep 2n7000 control
 //Pin2HIGH(PORTD,0);// switch ON sleep control mosfet
 
-Pin2Output(DDRD,3);Pin2HIGH(PORTD,3);// charge cap
+//Pin2Output(DDRD,3);Pin2HIGH(PORTD,3);// charge cap
+
+// instead of charging cap we must set internal pullup resistor to get SQW from DS1307
+    Pin2Input(DDRD,3);Pin2HIGH(PORTD,3);// pinMode(3,INPUT_PULLUP);
+
 
 //            WDhappen=0;
         sleeps=0;
@@ -1607,15 +1622,18 @@ Pin2Output(DDRD,3);Pin2HIGH(PORTD,3);// charge cap
             cli();
       pin3_interrupt_flag=0;
       sleep_enable();
-      attachInterrupt(1, pin3_isr, LOW);
+//      attachInterrupt(1, pin3_isr, LOW);
+      attachInterrupt(1, pin3_isr, RISING);
 
-      Pin2LOW(PORTD,3);Pin2Input(DDRD,3); // controlled charging (very impurtant set it 2 input (high impedance state))
+//      Pin2LOW(PORTD,3);Pin2Input(DDRD,3); // controlled charging (very impurtant set it 2 input (high impedance state))
         sei();
         sleep_cpu();
 //wake up here
 // check if it us or not
         sleep_disable();
   //      if(pin3_interrupt_flag||WDhappen){break;}else{sleeps++;}
+  // check if there is a ob to do or sleep further
+  // 4kHz gives us 246us sleeping time
         if(pin3_interrupt_flag){break;}else{sleeps++;}
       }while(1);
   
@@ -1625,9 +1643,9 @@ void fastnap(void)
 {
 //?????????????????
 
-PORTC=0;
-PORTB=0;
-PORTD=0;
+//PORTC=0;
+//PORTB=0;
+//PORTD=0;
 //DDRB=0;// some needed pins are not put to output after wakeup
 //DDRD=0;
 //DDRC=0;// all pins as inputs and low (high impedance state)
@@ -1783,7 +1801,8 @@ void loop() {
 
   __asm__ __volatile__("wdr\n\t");//  wdt_reset();
 
-        pinMode(A3,INPUT_PULLUP);
+//        pinMode(A3,INPUT_PULLUP);
+
 
         Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // stop light outputs
         Pin2HIGH(PORTB,6);//power supply to tpic6a595  (add caps?)
@@ -1811,10 +1830,7 @@ if(val=='A')
   dstr[0]=val;
   dstr[1]=0;
 
-//  poke2(7,0x12);// turn on SQW 8kHz
-  poke2(7,0x13);// turn on SQW 32kHz
-
- v2=peek2(7);
+ if((v2=peek2(7))!=DS1307_SQW_RATE_4K){ poke2(0,peek2(0)&0x7F); poke2(7,DS1307_SQW_RATE_4K);}// quite a trick to set SQW working
 
 //dstr=rtc.getDateStr();
 //tstr=rtc.getTimeStr();
@@ -1828,6 +1844,7 @@ if(val=='A')
   Wire.endTransmission();
 */
 
+// check that we have sensor responding
 vv=_readRegisterT(TSL2561_REGISTER_ID); // works
 
 _writeRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);
@@ -1879,8 +1896,11 @@ SPI.begin();
   setAddrWindow(60,0,67,127);
 wh(it);ta("LV:");lh(lvv);t3(val);th('A');th(vv);th(v2);
 
+
   setAddrWindow(0,0,7,119);
-ta(tstr);ta(">");ta(dstr);
+//ta(tstr);ta(">");ta(dstr);
+  ta("f:");t3(fnt);  ta(" l:");t3(lnt);
+
 
 //long lm;
 //TSL2561
@@ -3283,8 +3303,8 @@ if(it==55555)// ultra long nap 8s once  in somewhere  2 minutes
   sei();
 
 }
-//else{ln++;longnap();}  
-else {fn++;fastnap();} 
+else{ln++;longnap();}  
+//else {fn++;fastnap();} 
 //if ((it&0x3)==0){ln++;longnap();}else {fn++;fastnap();} // 1:3
 
 }

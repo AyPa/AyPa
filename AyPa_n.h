@@ -5,7 +5,7 @@
 //#define RST 3 (to arduino's RST)
 //#define CE 10 
 //#define DC 8
-#define CE 3 
+#define CE 1 
 #define DC 4
 #define DIN 11
 #define CLK 13

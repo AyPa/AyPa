@@ -26,7 +26,7 @@
 //Use these pins for the shield!
 #define sclk 13
 #define mosi 11
-#define cs   3
+#define cs   1
 #define dc   4
 #define rst  10  // you can also connect this to the Arduino reset
 // не работает без reset
@@ -76,9 +76,11 @@ void spiwritefunc(byte c)
    
 }
 //void writecommand(byte c) {
-#define writecommand(c) {PORTD&=0b11100111;spiwrite(c);PORTD|=0b00001000;}
+#define writecommand(c) {Pin2LOW(PORTD,1);Pin2LOW(PORTD,4);spiwrite(c);Pin2HIGH(PORTD,1);}
+//#define writecommand(c) {PORTD&=0b11101101;spiwrite(c);PORTD|=0b00000010;}
 //void writedata(byte c) {
-#define writedata(c) {PORTD|=0b00010000;  PORTD&=0b11110111;  spiwrite(c);  PORTD|=0b00001000;}
+//#define writedata(c) {PORTD|=0b00010000;  PORTD&=0b11110101;  spiwrite(c);  PORTD|=0b00000010;}
+#define writedata(c) {Pin2LOW(PORTD,1);Pin2HIGH(PORTD,4);  spiwrite(c); Pin2HIGH(PORTD,1);}
   // set C/D вынести за скобки
 
 // some flags for initR() :(
@@ -157,8 +159,8 @@ static const uint8_t PROGMEM
   Rcmd1[] = {                 // Init for 7735R, part 1 (red or green tab)
     9,                       // 15 commands in list:
     ST7735_SWRESET,   DELAY,  //  1: Software reset, 0 args, w/delay
-      10,                    //   5ms was 150 ms delay
-//      150,                    //   5ms was 150 ms delay
+//      10,                    //   5ms was 150 ms delay
+      150,                    //   5ms was 150 ms delay
     0xB9,3,0xFF,0x83,0x53,
     0xB0,2,0x3C,0x01,
     0xB6,3,0x94,0x6C,0x50,
@@ -171,7 +173,7 @@ static const uint8_t PROGMEM
     0x3A,1,0x06,
     0x36,1,0x20, // MADCTL: MXMY=0 MV=1 ML=0 was 0xC0   000  001 010 011 60 100 80 101 A0 110 C0 111 E0
     ST7735_SLPOUT ,   DELAY,  //  2: Out of sleep mode, 0 args, w/delay
-      10,                    //     was 255 500 ms delay
+      255,                    //     was 255 500 ms delay
 //      255,                    //     was 255 500 ms delay
 //    ST7735_FRMCTR1, 3      ,  //  3: Frame rate ctrl - normal mode, 3 args:
 //      0x01, 0x2C, 0x2D,       //     Rate = fosc/(1x2+40) * (LINE+2C+2D)
@@ -230,10 +232,10 @@ static const uint8_t PROGMEM
       0x2E, 0x2E, 0x37, 0x3F,
       0x00, 0x00, 0x02, 0x10,
     ST7735_NORON  ,    DELAY, //  3: Normal display on, no args, w/delay
-      5,                     //     10 ms delay
+      10,                     //     10 ms delay
     ST7735_DISPON ,    DELAY, //  4: Main screen turn on, no args w/delay
-      10 };                  //     100 ms delay
-//      100 };                  //     100 ms delay
+//      10 };                  //     100 ms delay
+      100 };                  //     100 ms delay
 
 // Companion code to the above tables.  Reads and issues
 // a series of LCD commands stored in PROGMEM byte array.
@@ -273,6 +275,7 @@ void commonInit(const uint8_t *cmdList) {
         digitalWrite(mosi,LOW);
 
   SPSR = (1 << SPI2X);//max speed
+//  SPSR = (0 << SPI2X);//max speed/2
   SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
 
   // toggle RST low to reset; CS low so it'll listen to us
@@ -283,9 +286,9 @@ void commonInit(const uint8_t *cmdList) {
     digitalWrite(rst, HIGH);
     delay(5);
     digitalWrite(rst, LOW);
-    delay(5);
+    delay(120);
     digitalWrite(rst, HIGH);
-//    delay(5);
+    delay(5);
   }
 
   if(cmdList) commandList(cmdList);
@@ -302,7 +305,6 @@ void setAddrWindow(byte x0, byte y0, byte x1,byte y1) {
 
   writecommand(ST7735_CASET); // Column addr set
   writedata(0x00);
-//  writedata(x0+colstart);     // XSTART 
   writedata(x0);     // XSTART 
   writedata(0x00);
   writedata(x1);     // XEND
@@ -322,7 +324,7 @@ void ta(char *st)
   word ch;
   
   Pin2HIGH(PORTD,4); 
-  Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
+  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
   
     do{
     //    LcdWriteData(0);//space  (start with it - while it is sending can calc address)
@@ -358,13 +360,13 @@ for(byte j=0;j<5;j++)  // display char
 void pushColor(byte r,byte g,byte b)
 {
     Pin2HIGH(PORTD,4); 
-  Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
+  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
 
 spiwrite(r);
 spiwrite(g);
 spiwrite(b);
 
-  Pin2HIGH(PORTD,3);//    digitalWrite(cs,HIGH);
+  Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
 
 }
 
@@ -374,7 +376,7 @@ void th(byte v)
   byte c,ch;
 
   Pin2HIGH(PORTD,4); 
-  Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
+  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
 
 
   ch=(v>>4)*3;
@@ -406,7 +408,7 @@ for(byte j=0;j<3;j++)  // display digit
   }
 }
 
-  Pin2HIGH(PORTD,3);//    digitalWrite(cs,HIGH);
+  Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
 }
 
 
@@ -417,7 +419,7 @@ void t3(word v)
   
   
   Pin2HIGH(PORTD,4); 
-  Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
+  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
   
   ch=vv/100;
   vv-=ch*100;
@@ -472,7 +474,7 @@ for(byte j=0;j<3;j++)  // display digit
   }
 }
   
-  Pin2HIGH(PORTD,3);//    digitalWrite(cs,HIGH);
+  Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
 }
 
 void lh(long v)
@@ -502,7 +504,7 @@ void SQ(byte x0, byte y0, byte x1,byte y1,long color) {
   
 
 Pin2HIGH(PORTD,4); //    digitalWrite(dc, HIGH);//4
-Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
+Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
 
   for(byte i=0;i<n;i++)
   {
@@ -511,7 +513,7 @@ Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
   spiwrite(lo);
   }
   
-Pin2HIGH(PORTD,3);//    digitalWrite(cs,HIGH);
+Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
   
 }*/
 
@@ -551,7 +553,7 @@ void fillRect(word y, word x, word h,word w,long color) {
   byte hi = (color >> 8)&0xff, lo = color&0xff,uh=color>>16;
 
 Pin2HIGH(PORTD,4); //    digitalWrite(dc, HIGH);//4
-Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
+Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
 
   for(y=h; y>0; y--) {
 //    uh+=0x4;
@@ -563,124 +565,11 @@ Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
     }
   }
 
-Pin2HIGH(PORTD,3);//    digitalWrite(cs,HIGH);
+Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
 }
 void fillScreen(long color) {
   fillRect(0, 0,  128, 160, color);
 //  fillRect(0, 0,  160, 128, color);
 }
 
-/*
-#include <Adafruit_GFX.h>    // Core graphics library
-#include <Adafruit_ST7735.h> // Hardware-specific library
-#include <SPI.h>
 
-#if defined(__SAM3X8E__)
-    #undef __FlashStringHelper::F(string_literal)
-    #define F(string_literal) string_literal
-#endif*/
-
-// Option 1: use any pins but a little slower
-//Adafruit_ST7735 tft = Adafruit_ST7735(cs, dc, mosi, sclk, rst);
-
-// Option 2: must use the hardware SPI pins
-// (for UNO thats sclk = 13 and sid = 11) and pin 10 must be
-// an output. This is much faster - also required if you want
-// to use the microSD card (see the image drawing example)
-//Adafruit_ST7735 tft = Adafruit_ST7735(cs, dc, rst);
-//float p = 3.1415926;
-
- /*
-#define Neutral 0
-#define Press 1
-#define Up 2
-#define Down 3
-#define Right 4
-#define Left 5
- 
-// Check the joystick position
-int CheckJoystick()
-{
-  int joystickState = analogRead(3);
-  
-  if (joystickState < 50) return Left;
-  if (joystickState < 150) return Down;
-  if (joystickState < 250) return Press;
-  if (joystickState < 500) return Right;
-  if (joystickState < 650) return Up;
-  return Neutral;
-}*/
-
-/*
-void setup(void) {
-  Serial.begin(9600);
-  Serial.print("hello!");
-
-  // Our supplier changed the 1.8" display slightly after Jan 10, 2012
-  // so that the alignment of the TFT had to be shifted by a few pixels
-  // this just means the init code is slightly different. Check the
-  // color of the tab to see which init code to try. If the display is
-  // cut off or has extra 'random' pixels on the top & left, try the
-  // other option!
-  // If you are seeing red and green color inversion, use Black Tab
-
-//initB(); 
-  // If your TFT's plastic wrap has a Black Tab, use the following:
-//  tft.initR(INITR_BLACKTAB);   // initialize a ST7735S chip, black tab
-  initR();   // initialize a ST7735S chip, black tab
-  // If your TFT's plastic wrap has a Red Tab, use the following:
-  //tft.initR(INITR_REDTAB);   // initialize a ST7735R chip, red tab
-  // If your TFT's plastic wrap has a Green Tab, use the following:
-  //tft.initR(INITR_GREENTAB); // initialize a ST7735R chip, green tab
-
-SPI.begin();
-//    SPI.setClockDivider(SPI_CLOCK_DIV4); // 4 MHz (half speed)
-//    SPI.setClockDivider(SPI_CLOCK_DIV8); // 4 MHz (half speed)
-//    SPI.setClockDivider(SPI_CLOCK_DIV16); // 4 MHz (half speed)
-    SPI.setClockDivider(SPI_CLOCK_DIV32); // 4 MHz (half speed)
-    //Due defaults to 4mHz (clock divider setting of 21)
-    SPI.setBitOrder(MSBFIRST);
-    SPI.setDataMode(SPI_MODE0);
-
-  Serial.println("init");
-
-  uint16_t time = millis();
-//  tft.fillScreen(ST7735_BLACK);
-//  fillScreen(0xffffff);
-  fillScreen(0x000000);// black
-
-  time = millis() - time;
-
-  Serial.println(time, DEC);
-  delay(800);
-
-
-  // large block of text
-//  fillScreen(ST7735_BLACK);
-  //testdrawtext("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur adipiscing ante sed nibh tincidunt feugiat. Maecenas enim massa, fringilla sed malesuada et, malesuada sit amet turpis. Sed porttitor neque ut ante pretium vitae malesuada nunc bibendum. Nullam aliquet ultrices massa eu hendrerit. Ut sed nisi lorem. In vestibulum purus a tortor imperdiet posuere. ", ST7735_WHITE);
-//  delay(1000);
-
-  // tft print function!
-  //tftPrintTest();
-//  delay(4000);
-
-  // a single pixel
-//  tft.drawPixel(tft.width()/2, tft.height()/2, ST7735_GREEN);
-  drawPixel(100, 100, 0xfc0000);
-  drawPixel(102, 100, 0x00fc00);
-  drawPixel(104, 120, 0x0000fc);
-  drawPixel(106, 120, 0xfcfcfc);
-  drawPixel(108, 120, 0x00fcfc);
-  delay(1500);
-
-  fillRect(10,20,70,18,0x00fcfc);
-
-}
-
-void loop() {
-//  tft.invertDisplay(true);
-  delay(500);
- //tft.invertDisplay(false);
- //delay(500);
-}
-*/
