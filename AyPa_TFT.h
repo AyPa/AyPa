@@ -157,7 +157,7 @@ static const uint8_t PROGMEM
   Rcmd1[] = {                 // Init for 7735R, part 1 (red or green tab)
     9,                       // 15 commands in list:
     ST7735_SWRESET,   DELAY,  //  1: Software reset, 0 args, w/delay
-      5,                    //   5ms was 150 ms delay
+      10,                    //   5ms was 150 ms delay
 //      150,                    //   5ms was 150 ms delay
     0xB9,3,0xFF,0x83,0x53,
     0xB0,2,0x3C,0x01,
@@ -171,7 +171,7 @@ static const uint8_t PROGMEM
     0x3A,1,0x06,
     0x36,1,0x20, // MADCTL: MXMY=0 MV=1 ML=0 was 0xC0   000  001 010 011 60 100 80 101 A0 110 C0 111 E0
     ST7735_SLPOUT ,   DELAY,  //  2: Out of sleep mode, 0 args, w/delay
-      5,                    //     was 255 500 ms delay
+      10,                    //     was 255 500 ms delay
 //      255,                    //     was 255 500 ms delay
 //    ST7735_FRMCTR1, 3      ,  //  3: Frame rate ctrl - normal mode, 3 args:
 //      0x01, 0x2C, 0x2D,       //     Rate = fosc/(1x2+40) * (LINE+2C+2D)
@@ -230,9 +230,9 @@ static const uint8_t PROGMEM
       0x2E, 0x2E, 0x37, 0x3F,
       0x00, 0x00, 0x02, 0x10,
     ST7735_NORON  ,    DELAY, //  3: Normal display on, no args, w/delay
-      1,                     //     10 ms delay
+      5,                     //     10 ms delay
     ST7735_DISPON ,    DELAY, //  4: Main screen turn on, no args w/delay
-      1 };                  //     100 ms delay
+      10 };                  //     100 ms delay
 //      100 };                  //     100 ms delay
 
 // Companion code to the above tables.  Reads and issues
@@ -413,13 +413,14 @@ for(byte j=0;j<3;j++)  // display digit
 void t3(word v)
 {
   byte c,ch;
+  word vv=v;
   
   
   Pin2HIGH(PORTD,4); 
   Pin2LOW(PORTD,3); ///digitalWrite(cs, LOW);//3
   
-  ch=v/100;
-  v-=ch*100;
+  ch=vv/100;
+  vv-=ch*100;
   ch*=3;
 
 
@@ -436,8 +437,8 @@ for(byte j=0;j<3;j++)  // display digit
   }
 }
 
-  ch=v/10;
-  v-=ch*10;
+  ch=vv/10;
+  vv-=ch*10;
   ch*=3;
 
   for(byte j=0;j<24;j++)spiwrite(0x00);// 1st space
@@ -455,7 +456,7 @@ for(byte j=0;j<3;j++)  // display digit
   }
 }
   
-    ch=v*3;
+    ch=vv*3;
     for(byte j=0;j<24;j++)spiwrite(0x00);// 1st space
 
 //  spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);// 1st space

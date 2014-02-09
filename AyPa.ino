@@ -9,12 +9,282 @@
 
 #include <SPI.h> // < declaration ShiftOut etc problem
 //#include <SdFat.h>
-#include "Wire.h" // DS1307
-#include "TSL2561.h"
+//#include "Wire.h" 
+//#include "TSL2561.h"
+
+#define TSL2561_ADDR_LOW_W 82
+#define TSL2561_ADDR_LOW_R  83 //(0x29<<1)+1
+
+//#define TSL2561_ADDR_LOW  0x29
+
+#define TSL2561_READBIT           (0x01)
+#define TSL2561_COMMAND_BIT       (0x80)    // Must be 1
+#define TSL2561_CLEAR_BIT         (0x40)    // Clears any pending interrupt (write 1 to clear)
+#define TSL2561_WORD_BIT          (0x20)    // 1 = read/write word (rather than byte)
+#define TSL2561_BLOCK_BIT         (0x10)    // 1 = using block read/write
+#define TSL2561_CONTROL_POWERON   (0x03)
+#define TSL2561_CONTROL_POWEROFF  (0x00)
+
+enum
+{
+  TSL2561_REGISTER_CONTROL          = 0x00,
+  TSL2561_REGISTER_TIMING           = 0x01,
+  TSL2561_REGISTER_THRESHHOLDL_LOW  = 0x02,
+  TSL2561_REGISTER_THRESHHOLDL_HIGH = 0x03,
+  TSL2561_REGISTER_THRESHHOLDH_LOW  = 0x04,
+  TSL2561_REGISTER_THRESHHOLDH_HIGH = 0x05,
+  TSL2561_REGISTER_INTERRUPT        = 0x06,
+  TSL2561_REGISTER_CRC              = 0x08,
+  TSL2561_REGISTER_ID               = 0x0A,
+  TSL2561_REGISTER_CHAN0_LOW        = 0x0C,
+  TSL2561_REGISTER_CHAN0_HIGH       = 0x0D,
+  TSL2561_REGISTER_CHAN1_LOW        = 0x0E,
+  TSL2561_REGISTER_CHAN1_HIGH       = 0x0F
+};
+
+typedef enum
+{
+  TSL2561_INTEGRATIONTIME_13MS      = 0x00,    // 13.7ms
+  TSL2561_INTEGRATIONTIME_101MS     = 0x01,    // 101ms
+  TSL2561_INTEGRATIONTIME_402MS     = 0x02     // 402ms
+}
+tsl2561IntegrationTime_t;
+
+typedef enum
+{
+  TSL2561_GAIN_0X                   = 0x00,    // No gain
+  TSL2561_GAIN_16X                  = 0x10,    // 16x gain
+}
+tsl2561Gain_t;
+
+
 
 
 //#include <DS1302.h>// cannot sit on SPI pins (leaves pin in input state)
-#include <DS1307.h>// cannot sit on SPI pins (leaves pin in input state)
+//#include <DS1307.h>// cannot sit on SPI pins (leaves pin in input state)
+
+#define DS1307_ADDR 0xD0
+#define DS1307_ADDR_R	209
+#define DS1307_ADDR_W	208
+
+#define SQW_RATE_1		0
+#define SQW_RATE_4K		1
+#define SQW_RATE_8K		2
+#define SQW_RATE_32K	3
+
+#define _sda_pin A4
+#define _scl_pin A5
+
+
+void	_sendStart(byte addr)
+{
+	pinMode(_sda_pin, OUTPUT);
+	digitalWrite(_sda_pin, HIGH);
+	digitalWrite(_scl_pin, HIGH);
+	digitalWrite(_sda_pin, LOW);
+	digitalWrite(_scl_pin, LOW);
+	shiftOut(_sda_pin, _scl_pin, MSBFIRST, addr);
+}
+
+void	_sendStop()
+{
+	pinMode(_sda_pin, OUTPUT);
+	digitalWrite(_sda_pin, LOW);
+	digitalWrite(_scl_pin, HIGH);
+	digitalWrite(_sda_pin, HIGH);
+	pinMode(_sda_pin, INPUT);
+}
+
+void	_sendNack()
+{
+	pinMode(_sda_pin, OUTPUT);
+	digitalWrite(_scl_pin, LOW);
+	digitalWrite(_sda_pin, HIGH);
+	digitalWrite(_scl_pin, HIGH);
+	digitalWrite(_scl_pin, LOW);
+	pinMode(_sda_pin, INPUT);
+}
+
+void	_sendAck()
+{
+	pinMode(_sda_pin, OUTPUT);
+	digitalWrite(_scl_pin, LOW);
+	digitalWrite(_sda_pin, LOW);
+	digitalWrite(_scl_pin, HIGH);
+	digitalWrite(_scl_pin, LOW);
+	pinMode(_sda_pin, INPUT);
+}
+
+void	_waitForAck()
+{
+	pinMode(_sda_pin, INPUT);
+	digitalWrite(_scl_pin, HIGH);
+TCNT1=0;
+	while (_sda_pin==LOW) {if(TCNT1>100){break;}}
+	digitalWrite(_scl_pin, LOW);
+}
+
+uint8_t _readByte()
+{
+	pinMode(_sda_pin, INPUT);
+
+	uint8_t value = 0;
+	uint8_t currentBit = 0;
+
+	for (int i = 0; i < 8; ++i)
+	{
+		digitalWrite(_scl_pin, HIGH);
+		currentBit = digitalRead(_sda_pin);
+		value |= (currentBit << 7-i);
+		delayMicroseconds(1);
+		digitalWrite(_scl_pin, LOW);
+	}
+	return value;
+}
+void _writeByte(uint8_t value)
+{
+	pinMode(_sda_pin, OUTPUT);
+	shiftOut(_sda_pin, _scl_pin, MSBFIRST, value);
+}
+
+uint8_t _readRegister(uint8_t reg)
+{
+	uint8_t	readValue=0;
+
+	_sendStart(DS1307_ADDR_W);
+	_waitForAck();
+	_writeByte(reg);
+	_waitForAck();
+	_sendStop();
+	_sendStart(DS1307_ADDR_R);
+	_waitForAck();
+	readValue = _readByte();
+	_sendNack();
+	_sendStop();
+	return readValue;
+}
+
+void _writeRegister(uint8_t reg, uint8_t value)
+{
+	_sendStart(DS1307_ADDR_W);
+	_waitForAck();
+	_writeByte(reg);
+	_waitForAck();
+	_writeByte(value);
+	_waitForAck();
+	_sendStop();
+}
+
+void _writeRegisterT(uint8_t reg, uint8_t value)
+{
+	_sendStart(TSL2561_ADDR_LOW_W);
+	_waitForAck();
+	_writeByte(reg);
+	_waitForAck();
+	_writeByte(value);
+	_waitForAck();
+	_sendStop();
+}
+
+uint8_t _readRegisterT(uint8_t reg)
+{
+	uint8_t	readValue=0;
+
+	_sendStart(TSL2561_ADDR_LOW_W);
+	_waitForAck();
+	_writeByte(reg);
+	_waitForAck();
+	_sendStop();
+	_sendStart(TSL2561_ADDR_LOW_R);
+	_waitForAck();
+	readValue = _readByte();
+	_sendNack();
+	_sendStop();
+	return readValue;
+}
+
+uint16_t _readRegister16(uint8_t reg)
+{
+	uint16_t	readValue=0;
+
+	_sendStart(TSL2561_ADDR_LOW_W);
+	_waitForAck();
+	_writeByte(reg);
+	_waitForAck();
+	_sendStop();
+	_sendStart(TSL2561_ADDR_LOW_R);
+	_waitForAck();
+        _writeByte(2);
+	_waitForAck();
+	readValue = _readByte();
+	_sendNack();
+        readValue <<= 8;
+	readValue |= _readByte();
+	_sendNack();
+	_sendStop();
+	return readValue;
+}
+
+/*
+void _burstRead()
+{
+	_sendStart(DS1307_ADDR_W);
+	_waitForAck();
+	_writeByte(0);
+	_waitForAck();
+	_sendStop();
+	_sendStart(DS1307_ADDR_R);
+	_waitForAck();
+
+	for (int i=0; i<8; i++)
+	{
+		_burstArray[i] = _readByte();
+		if (i<7)
+			_sendAck();
+		else
+			_sendNack();
+	}
+	_sendStop();
+}*/
+
+void poke2(uint8_t addr, uint8_t value)
+{
+//	if ((addr >=0) && (addr<=55+8))
+//	{
+//		addr += 8;
+		_sendStart(DS1307_ADDR_W);
+		_waitForAck();
+		_writeByte(addr);
+		_waitForAck();
+		_writeByte(value);
+		_waitForAck();
+		_sendStop();
+//	}
+}
+
+uint8_t peek2(uint8_t addr)
+{
+//	if ((addr >=0) && (addr<=55+8))
+//	{
+		uint8_t readValue;
+
+	//	addr += 8;
+		_sendStart(DS1307_ADDR_W);
+		_waitForAck();
+		_writeByte(addr);
+		_waitForAck();
+		_sendStop();
+		_sendStart(DS1307_ADDR_R);
+		_waitForAck();
+		readValue = _readByte();
+		_sendNack();
+		_sendStop();
+
+		return readValue;
+//	}
+//	else
+//		return 0;
+}
 
 
 //#include <TFT.h> // Hardware-specific library
@@ -56,7 +326,7 @@ int freeRam(void)
 //DS1302_RAM ramBuffer;
 //DS1302 rtc(A0,A1,A2);//ce data clk
 //DS1307_RAM ramBuffer;
-DS1307 rtc(A4,A5);
+//DS1307 rtc(A4,A5);
 
 
 
@@ -186,7 +456,7 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 //#define DS1307_I2C_ADDRESS 0x68 // read and write address is different for DS1307 
 
 // use TSL2561_ADDR_LOW (0x29) or TSL2561_ADDR_HIGH (0x49) respectively TSL2561_ADDR_FLOAT)
-TSL2561 tsl(TSL2561_ADDR_LOW); 
+//TSL2561 tsl(TSL2561_ADDR_LOW); 
 
 // port B: 5 port C: 8 port D:11
 //byte cports[10]={PORTB1,PORTB2,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1};
@@ -238,8 +508,8 @@ void setup() {
 
 
 //rtc test
-Pin2Output(DDRC,4);
-Pin2Output(DDRC,5);
+//Pin2Output(DDRC,4);
+//Pin2Output(DDRC,5);
 //Pin2Output(DDRC,CLKrtc);Pin2LOW(PORTC,CLKrtc);
 //Pin2Output(DDRC,IOrtc);Pin2LOW(PORTC,IOrtc);
 //Pin2Output(DDRC,CErtc);Pin2LOW(PORTC,CErtc);
@@ -267,26 +537,44 @@ Wire.begin();
   //PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH);
 //  rtcpoke(15,0xAC);
 //cli();
+	pinMode(_scl_pin, OUTPUT);
+
 TCNT1=0;
-  rtc.poke(8,'A');
+//  rtc.poke(8,'A');
+
+  poke2(8,'A');
   word vv=TCNT1;
 //sei();
+//byte val=0;
 //byte  val=rtcpeek(15);
-byte  val=rtc.peek(8);
+//byte  
+//val=rtc.peek(8);
+
+byte  val=peek2(8);
 
 if(val=='A')
 {
-  rtc.setDOW(WEDNESDAY);        // Set Day-of-Week to SUNDAY
-  rtc.setTime(20, 42, 0);     // Set the time to 12:00:00 (24hr format)
-  rtc.setDate(5, 2, 2014);   // Set the date to February 5th, 2014
+//  rtc.setDOW(WEDNESDAY);        // Set Day-of-Week to SUNDAY
+//  rtc.setTime(20, 42, 0);     // Set the time to 12:00:00 (24hr format)
+//  rtc.setDate(5, 2, 2014);   // Set the date to February 5th, 2014
 
-//  rtc.poke(7,0x13);
-    rtc.poke(7,0);// turn off SQW
+  poke2(7,0x12);// turn on SQW 8kHz
+//  rtc.poke(7,0x13);// turn on SQW  32kHz
+  //  rtc.poke(7,0);// turn off SQW
 
-dstr=rtc.getDateStr();
-tstr=rtc.getTimeStr();
+//dstr=rtc.getDateStr();
+//tstr=rtc.getTimeStr();
+
+dstr[0]=peek2(4);
+dstr[1]=peek2(5);
+dstr[2]=peek2(6);
+
 //vvv=rtc.peek(5); //month
 }
+
+
+        PORTC=0;pinMode(_scl_pin, INPUT);pinMode(_sda_pin, INPUT);// high imp state to avoid current  sipping through SDA/SCL pullup resistors
+
 
 //Pin2Input(DDRC,CLKrtc);Pin2LOW(PORTC,CLKrtc);
 //Pin2Input(DDRC,IOrtc);Pin2LOW(PORTC,IOrtc);
@@ -520,50 +808,74 @@ word x,xf,xi;
 long lm;
 //TSL2561
 
-  if (tsl.begin()) {vvv=1;
-  tsl.setGain(TSL2561_GAIN_0X);         // set no gain (for bright situtations)
+  //if (tsl.begin()) {vvv=1;
+  // tsl.begin
+/*		_sendStart(TSL2561_ADDR_LOW);
+		_waitForAck();
+		_writeByte(TSL2561_REGISTER_ID);
+		_waitForAck();
+		_sendStop();
+		_sendStart(TSL2561_ADDR_LOW);
+		_waitForAck();
+		vv = _readByte();
+		_sendNack();
+		_sendStop();*/
+
+  /*
+    Wire.begin();
+
+		_sendStart(DS1307_ADDR_W);
+		_waitForAck();
+		_writeByte(addr);
+		_waitForAck();
+		_writeByte(value);
+		_waitForAck();
+		_sendStop();
+
+		_sendStart(DS1307_ADDR_W);
+		_waitForAck();
+		_writeByte(addr);
+		_waitForAck();
+		_sendStop();
+		_sendStart(DS1307_ADDR_R);
+		_waitForAck();
+		readValue = _readByte();
+		_sendNack();
+		_sendStop();
+
+    Wire.begin();
+  Wire.beginTransmission(TSL2561_ADDR_LOW);
+  Wire.write(TSL2561_REGISTER_ID);
+  Wire.endTransmission();
+  Wire.requestFrom(TSL2561_ADDR_LOW, 1);
+  int wirex = Wire.read();
+  if (wirex & 0x0A ) {//Found TSL2561"
+    
+    write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);  //  enable();
+  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  TSL2561_INTEGRATIONTIME_402MS |TSL2561_GAIN_16X);    //  // Set default integration time and gain
+
+  // Note: by default, the device is in power down mode on bootup
+  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF);  //  disable();
+  }
+*/  
+  
+//  tsl.setGain(TSL2561_GAIN_0X);         // set no gain (for bright situtations)
 //  tsl.setGain(TSL2561_GAIN_16X);      // set 16x gain (for dim situations)
   
   // Changing the integration time gives you a longer time over which to sense light
   // longer timelines are slower, but are good in very low light situtations!
-  tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  // shortest integration time (bright light)
+  //tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  // shortest integration time (bright light)
   //tsl.setTiming(TSL2561_INTEGRATIONTIME_101MS);  // medium integration time (medium light)
   //tsl.setTiming(TSL2561_INTEGRATIONTIME_402MS);  // longest integration time (dim light)
   
   // Now we're ready to get readings!
   
-    // Simple data read example. Just read the infrared, fullspecrtrum diode 
-  // or 'visible' (difference between the two) channels.
-  // This can take 13-402 milliseconds! Uncomment whichever of the following you want to read
-  TCNT1=0;
-   lm = tsl.getFullLuminosity();
-   word lmm=TCNT1;
-  
-//   x = tsl.getLuminosity(TSL2561_VISIBLE);     
-//  xf = tsl.getLuminosity(TSL2561_FULLSPECTRUM);
-//  xi = tsl.getLuminosity(TSL2561_INFRARED);
-
-//  long lum = tsl.getFullLuminosity();
-  word ir, full,lx;
-  ir = lm >> 16;
-  full = lm & 0xFFFF;
-  setAddrWindow(9,0,16,119);
-  //ta("I");th((ir>>8));th((ir&0xFF));
-//  ta(" F");th((full>>8));th((full&0xFF));
-//  ta(" V");th(((full-ir)>>8));th(((full-ir)&0xFF));
-    ta("lm:");lh(lm);
-  lx=tsl.calculateLux(full,ir);
-  ta(" L:");wh(lx);
-  ta(" ");wh(lmm);ta("us");
-  
-}
-  else{vvv=0;}
 
 
 
-  setAddrWindow(20,0,27,31);
-t3(val);
-  setAddrWindow(20,20,27,51);
+  setAddrWindow(20,0,27,91);
+ta("val:");t3(val);ta(" ");t3(val);ta(" ");th(val);
+  setAddrWindow(20,100,27,127);
 th((vv>>8));th((vv&0xFF));
   setAddrWindow(30,20,37,51);
 t3(vvv);th((x>>8));th((x&0xFF));
@@ -589,7 +901,7 @@ ta("croCodile");
 
 ta("Русский");
 
-
+delay(2000);
 
 
 
@@ -1357,31 +1669,101 @@ delayMicroseconds(2);
 //  cli();t1111=TCNT1;sei();//atomic read
 }
 
+/*
 uint16_t read16(uint8_t reg)
 {
   uint16_t x; uint16_t t;
 
   Wire.beginTransmission(TSL2561_ADDR_LOW);
-#if ARDUINO >= 100
   Wire.write(reg);
-#else
-  Wire.send(reg);
-#endif
   Wire.endTransmission();
 
   Wire.requestFrom(TSL2561_ADDR_LOW, 2);
-#if ARDUINO >= 100
   t = Wire.read();
   x = Wire.read();
-#else
-  t = Wire.receive();
-  x = Wire.receive();
-#endif
   x <<= 8;
   x |= t;
   return x;
 }
 
+void write8(uint8_t reg, uint8_t value)
+{
+  Wire.beginTransmission(TSL2561_ADDR_LOW);
+  Wire.write(reg);
+  Wire.write(value);
+  Wire.endTransmission();
+}
+
+uint8_t read88(uint8_t reg)
+{
+  uint8_t x;
+
+  Wire.beginTransmission(DS1307_ADDR_W);
+  Wire.write(reg);
+  Wire.endTransmission();
+
+  Wire.requestFrom(DS1307_ADDR_R, 1);
+  x = Wire.read();
+  return x;
+}
+
+void write88(uint8_t reg, uint8_t value)
+{
+  Wire.beginTransmission(DS1307_ADDR_W);
+  Wire.write(reg);
+  Wire.write(value);
+  Wire.endTransmission();  
+}
+
+byte rtcpeek2(byte reg)
+{
+  byte bb;
+  Wire.begin();
+  bb=read88(8);
+  return bb;
+}
+
+void rtcpoke2(byte reg,byte val)
+{
+  Wire.begin();
+  write88(reg,val);
+}
+*/
+/*    
+
+  Wire.beginTransmission(TSL2561_ADDR_LOW);
+  Wire.write(TSL2561_REGISTER_ID);
+  Wire.endTransmission();
+  Wire.requestFrom(TSL2561_ADDR_LOW, 1);
+  int wirex = Wire.read();
+  if (wirex & 0x0A ) {//Found TSL2561"
+    
+    write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);  //  enable();
+  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  TSL2561_INTEGRATIONTIME_402MS |TSL2561_GAIN_16X);    //  // Set default integration time and gain
+
+  // Note: by default, the device is in power down mode on bootup
+  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF);  //  disable();
+  }
+*/
+
+/*
+uint8_t DS1307::_readRegister(uint8_t reg)
+{
+	uint8_t	readValue=0;
+
+	_sendStart(DS1307_ADDR_W);
+	_waitForAck();
+	_writeByte(reg);
+	_waitForAck();
+	_sendStop();
+	_sendStart(DS1307_ADDR_R);
+	_waitForAck();
+	readValue = _readByte();
+	_sendNack();
+	_sendStop();
+	return readValue;
+}
+*/
 
   volatile long lvv;// luminous
 
@@ -1398,13 +1780,15 @@ void loop() {
 //        Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// start charging timeout capacitor (default state)// internal pull up?
 //}
 
-//        Pin2HIGH(PORTD,1);// 5.5v?
 
   __asm__ __volatile__("wdr\n\t");//  wdt_reset();
+
+        pinMode(A3,INPUT_PULLUP);
 
         Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // stop light outputs
         Pin2HIGH(PORTB,6);//power supply to tpic6a595  (add caps?)
         delayMicroseconds(11);// wait for rise. 10 minimum to avoid nasty bugs
+        
 
 TCNT1=0;
 
@@ -1413,12 +1797,58 @@ if((it&0x3FFF)==0)// once in 16k
 
 //  rtc.poke(10,100);
 //byte  val=rtcpeek(15);
-byte  val=rtc.peek(8);
+//byte  val=rtc.peek(8);
+//byte val=0;
+
+	pinMode(_scl_pin, OUTPUT);
+
+byte  val=peek2(8);
+byte vv=0,v2=0;
+long lm=0;
 
 if(val=='A')
 {
-dstr=rtc.getDateStr();
-tstr=rtc.getTimeStr();
+  dstr[0]=val;
+  dstr[1]=0;
+
+//  poke2(7,0x12);// turn on SQW 8kHz
+  poke2(7,0x13);// turn on SQW 32kHz
+
+ v2=peek2(7);
+
+//dstr=rtc.getDateStr();
+//tstr=rtc.getTimeStr();
+/*
+  Wire.begin();
+  Wire.beginTransmission(TSL2561_ADDR_LOW);
+  Wire.write(TSL2561_REGISTER_ID);
+  Wire.endTransmission();
+  Wire.requestFrom(TSL2561_ADDR_LOW, 1);
+  vv = Wire.read();
+  Wire.endTransmission();
+*/
+
+vv=_readRegisterT(TSL2561_REGISTER_ID); // works
+
+_writeRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);
+_writeRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_16X);   
+
+delay(14);
+
+lm=_readRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN1_HIGH);
+  lm <<= 8;
+lm|=_readRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN1_LOW);
+  lm <<= 8;
+lm|=_readRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN0_HIGH);
+  lm <<= 8;
+lm|=_readRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN0_LOW);
+
+// lm = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
+  //lm <<= 16;
+//  lm |= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
+
+_writeRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF);
+
 }
 
     initR();   // initialize a ST7735S chip, black tab
@@ -1446,23 +1876,28 @@ SPI.begin();
 //sprintf(tmps, "%d %d %d", millis(),word(time),word(it));
 
 
-  setAddrWindow(60,20,67,119);
-wh(it);ta("LV:");lh(lvv);
+  setAddrWindow(60,0,67,127);
+wh(it);ta("LV:");lh(lvv);t3(val);th('A');th(vv);th(v2);
 
   setAddrWindow(0,0,7,119);
 ta(tstr);ta(">");ta(dstr);
 
-long lm;
+//long lm;
 //TSL2561
 
-  if (tsl.begin()) {
+//  if (tsl.begin()) {
+    
+//        write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);  //  enable();
+  //write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_16X);    //  // Set integration time and gain
+
+
   
-    tsl.setGain(TSL2561_GAIN_0X);         // set no gain (for bright situtations)
+  //  tsl.setGain(TSL2561_GAIN_0X);         // set no gain (for bright situtations)
 //  tsl.setGain(TSL2561_GAIN_16X);      // set 16x gain (for dim situations)
   
   // Changing the integration time gives you a longer time over which to sense light
   // longer timelines are slower, but are good in very low light situtations!
-  tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  // shortest integration time (bright light)
+//  tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  // shortest integration time (bright light)
   //tsl.setTiming(TSL2561_INTEGRATIONTIME_101MS);  // medium integration time (medium light)
   //tsl.setTiming(TSL2561_INTEGRATIONTIME_402MS);  // longest integration time (dim light)
   
@@ -1471,22 +1906,22 @@ long lm;
     // Simple data read example. Just read the infrared, fullspecrtrum diode 
   // or 'visible' (difference between the two) channels.
   // This can take 13-402 milliseconds! Uncomment whichever of the following you want to read
-  TCNT1=0;
+//  TCNT1=0;
 //   lm = tsl.getFullLuminosity();
   
 //if (!_initialized) begin();
 
   // Enable the device by setting the control bit to 0x03
-  tsl.enable(); // will init if need to
+//  tsl.enable(); // will init if need to
 //  uint32_t x;
-delay(14); // flash time
+//delay(14); // flash time
 
- lm = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
-  lm <<= 16;
-  lm |= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
+// lm = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
+  //lm <<= 16;
+//  lm |= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
 
-  tsl.disable();
-   word lmm=TCNT1;
+//  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF);  //  disable();//  tsl.disable();
+//   word lmm=TCNT1;
 
 //   x = tsl.getLuminosity(TSL2561_VISIBLE);     
 //  xf = tsl.getLuminosity(TSL2561_FULLSPECTRUM);
@@ -1500,9 +1935,9 @@ delay(14); // flash time
   //ta("I");th((ir>>8));th((ir&0xFF));
 //  ta(" F");th((full>>8));th((full&0xFF));
 //  ta(" V");th(((full-ir)>>8));th(((full-ir)&0xFF));
-    ta("lm");lh(lm);
-  lx=tsl.calculateLux(full,ir);
-  ta("L");wh(lx);
+    ta("LM:");lh(lm);
+  //lx=tsl.calculateLux(full,ir);
+//  ta("L");wh(lx);
   //ta(" ");
   wh(lm);
   ta(" ");lh(lvv);
@@ -1510,7 +1945,6 @@ delay(14); // flash time
 //  setAddrWindow(18,0,26,127);
   //ta("lv:");lh(lv);
   
-}
 
 }
 
@@ -1971,18 +2405,21 @@ else{
 
   if(it==15000)
 {
-pinMode(A4,OUTPUT);
-pinMode(A5,OUTPUT);
-delay(1);
+//pinMode(A4,OUTPUT);
+//pinMode(A5,OUTPUT);
+//delay(1);
   // prepare light sensor
-if (tsl.begin()) {  
-    tsl.setGain(TSL2561_GAIN_0X);         // set no gain (for bright situtations)
-  tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  // shortest integration time (bright light)
-  tsl.enable(); // will init if need to
+//if (tsl.begin()) {  
+      //    write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);  //  enable();
+//  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_16X);    //  // Set integration time and gain
+
+//    tsl.setGain(TSL2561_GAIN_0X);         // set no gain (for bright situtations)
+//  tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  // shortest integration time (bright light)
+//  tsl.enable(); // will init if need to
 
 //lvv+=0x100000L;  
 
-}// begin
+//}// begin
 
 }
 //lvv++;
@@ -2082,12 +2519,13 @@ sei();
   if(it==15000)
   {
   
-  delay(7); // flash time
- lvv = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
-  lvv <<= 16;
-  lvv |= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
+//  delay(7); // flash time
+// lvv = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
+//  lvv <<= 16;
+//  lvv |= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
 
-  tsl.disable();
+//  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF);  //  disable();//  tsl.disable();
+
 
 }
 
