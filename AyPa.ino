@@ -601,12 +601,43 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 #define CLOCKPIN 8
 #define LATCHPIN 6
 
+//
+//    Pin2Output(DDRD,1);Pin2LOW(PORTD,1); \ 
+//    Pin2LOW(PORTD,1); Pin2Input(DDRD,1); \
+
+#define TFT_ON(duration){TFT_IS_ON=duration;Pin2Output(DDRB,7); Pin2HIGH(PORTB,7); \
+    Pin2Output(DDRD,4);Pin2LOW(PORTD,4); \ 
+    Pin2Output(DDRB,2);Pin2LOW(PORTB,2); \ 
+    Pin2Output(DDRB,3);Pin2LOW(PORTB,3); \ 
+    Pin2Input(DDRB,4);Pin2LOW(PORTB,4); \ 
+    Pin2Output(DDRB,5);Pin2LOW(PORTB,5);} // включаем питание  дисплея
+    
+#define TFT_OFF{ TFT_IS_ON=0; writecommand(ST7735_SLPIN); Pin2LOW(PORTB,7); Pin2Input(DDRB,7); \
+    Pin2LOW(PORTD,4); Pin2Input(DDRD,4); \
+    Pin2LOW(PORTB,2); Pin2Input(DDRB,2); \
+    Pin2LOW(PORTB,3); Pin2Input(DDRB,3); \
+    Pin2LOW(PORTB,4); Pin2Input(DDRB,4); \
+    Pin2LOW(PORTB,5); Pin2Input(DDRB,5);}// вЫключаем питание  дисплея
+// command SLIPIN?
+
 
 #define RTC_ON(DRC,p1,p2) {Pin2Output(DRC,p1);Pin2Output(DRC,p2);}
 #define RTC_OFF(DRC,PORT,p1,p2) {Pin2Input(DRC,p1);Pin2LOW(PORT,p1);Pin2Input(DRC,p2);Pin2LOW(PORT,p2);}
 
 // каждый раз перед обращением к часам проверяем их вменяемость
 byte Check_RTC(byte attempts){for(byte n=attempts;n>0;n--){Save_I2C(DS1307_ADDR_W,8,'A');if(Read_I2C(DS1307_ADDR_W,8)=='A'){return n;}}return 0;}
+
+word TouchSensor(void)
+{
+      word cycles=65000;
+      Pin2Output(DDRC,3);Pin2LOW(PORTC,3); // discharge sensor  pin
+      delay(1);
+      Pin2Input(DDRC,3);
+      for(int i=0;i<cycles;i++){if (PINC&0b00001000){cycles=i;break;}}
+      Pin2Output(DDRC,3);Pin2LOW(PORTC,3); // discharge sensor  pin
+      Pin2Input(DDRC,3);Pin2LOW(PORTC,3); // sensor pin
+      return cycles;
+}
 
 //#define DS1307_I2C_ADDRESS 0x68 // read and write address is different for DS1307 
 
@@ -616,8 +647,18 @@ byte Check_RTC(byte attempts){for(byte n=attempts;n>0;n--){Save_I2C(DS1307_ADDR_
 // port B: 5 port C: 8 port D:11
 //byte cports[10]={PORTB1,PORTB2,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1};
   char tstr[7];// строка даты и времени
-//  boolean DS1307here=false; // часики работают
 
+
+#define WHERE_IS_THE_CLOCK 0x1;
+#define STRANGE_CLOCK_DATA 0x2;
+byte ERR=0; // ошибки
+byte TFT_IS_ON=0;
+byte CS; // текущая секунда
+byte PS=0xFF; // предыдущая секунда
+byte HR; // текущий час (0..23)
+// интенсивность/продолжительность пыхи в микросекундах 0..255
+byte Intensity[24] ={0,0,0,0,0,0, 5,6,7,8,9,10, 11,11,11,11,11,11, 10,9,8,7,6,5};
+byte CurrentIntensity=0;
 
 
 
@@ -676,67 +717,9 @@ Wire.begin();
 //	pinMode(_scl_pin, OUTPUT);
 //	pinMode(_sda_pin, OUTPUT);
 
-Pin2Output(DDRB,7);Pin2HIGH(PORTB,7);// включаем питание  дисплея
+//Pin2Output(DDRB,7);Pin2HIGH(PORTB,7);// включаем питание  дисплея
 
 //Pin2Output(DDRC,4);Pin2Output(DDRC,5);
-RTC_ON(DDRC,4,5);
-//delay(10);
-
-TCNT1=0;
-//  rtc.poke(8,'A');
-byte val=Check_RTC(16);
-
-
-//if  (RTC_Here(10)==0)
-//if  (RTC_Here(10)==0)
-//{
-  // complain rtc is not here
-  //do{}while(1);
-//}
-
-//  poke2(8,'A'); 
-//Save_I2C(DS1307_ADDR_W,8,'A');
-
-//  word vv=TCNT1;
-//sei();
-//byte val=0;
-//byte  val=rtcpeek(15);
-//byte  
-//val=rtc.peek(8);
-
-//byte  val=peek2(8);
-//byte vv2=peek2(8);
-TCNT1=0;
-byte vv2=Check_RTC(3);
-  word vv=TCNT1;
-//byte val=Read_I2C(DS1307_ADDR_W,8);
-//vv=Read_I2C(DS1307_ADDR_W,8);
-
-
-
-tstr[4]=peek2(4);
-tstr[5]=peek2(5);
-tstr[6]=peek2(6);
-tstr[3]=peek2(3);
-tstr[0]=peek2(2);
-tstr[1]=peek2(1);
-tstr[3]=peek2(0);
-
-
-/*
- byte imm=peek2(6);
- if(imm<0x14||imm>0x30)// check correct date
- {
-   poke2(6,0x14);
-   poke2(5,0x02);
-   poke2(4,0x10);
-   poke2(3,0x01);
-   poke2(2,0x12);
-   poke2(1,0x49);
-   poke2(0,0x00);
- }*/
-
-RTC_OFF(DDRC,PORTC,4,5);// переводим лапки часиков в высокоомное состояние чтобы они не сливали ток через подтягивательные резисторы на шине I2C
 
 //PORTC=0;Pin2Input(DDRC,_scl_pin);Pin2Input(DDRC,_sda_pin);//  pinMode(_scl_pin, INPUT);pinMode(_sda_pin, INPUT);// high imp state to avoid current  sipping through SDA/SCL pullup resistors
 
@@ -899,8 +882,6 @@ Pin2Output(DDRD,2);// INT0 line
 
 Pin2Output(DDRD,3);// INT1 line /TFT CS
 Pin2Output(DDRD,4);// TFT DC
-Pin2Output(DDRB,3);// MOSI
-Pin2Output(DDRB,5);// CLK
 
 
 
@@ -927,9 +908,6 @@ Pin2Output(DDRD,7); // pin 7 SRCLR
   pinMode(LATCHPIN,OUTPUT);
 
 
-PORTC=0;
-PORTB=0;
-PORTD=0;
 
 
 // test LCD
@@ -939,13 +917,25 @@ PORTD=0;
 //delay(1);
 
 
-  initR();   // initialize a ST7735S chip, black tab
+
+
+TFT_ON(2);
+
+
+
+  InitTFT();   // initialize a ST7735S chip, black tab
 
 
 //  fillRect(0,0,27,91,0xfcfcfc);
 
-//fillScreen(0xfcfc00);
+fillScreen(0x000000);
 
+//word cycles=TouchSensor();
+  //setAddrWindow(0,0,7,119);
+//  ta("cycles:");lh(cycles);
+
+//delay(2000);
+TFT_OFF;
 
 //  setAddrWindow(0,0,20,20);
 //  drawPixel(5,10,0x000000);
@@ -965,11 +955,11 @@ SPI.begin();
     SPI.setDataMode(SPI_MODE0);
 */
 
-  uint16_t time = millis();
-  fillScreen(0x000000);// black (64ms)
+//  uint16_t time = millis();
+  //fillScreen(0x000000);// black (64ms)
 //  fillScreen(0x005000);// green
 
-  time = millis() - time;
+//  time = millis() - time;
 
  //setAddrWindow(0,0,7,120);
 //wh(time);ta("TIME");
@@ -979,14 +969,6 @@ SPI.begin();
 //  tft.drawPixel(tft.width()/2, tft.height()/2, ST7735_GREEN);
 //fillRect(5,5,10,100,0xE400fc);
 
-
-      char nam[16]="_";
-
-word entries=0;
-byte flag=0;
-
-word x,xf,xi;
-long lm;
 //TSL2561
 
   //if (tsl.begin()) {vvv=1;
@@ -1054,8 +1036,7 @@ long lm;
 
 
 
-  setAddrWindow(20,0,27,127);
-ta("val:");t3(val);ta(" ");t3(val);ta(" ");th(val);ta(" ");wh(vv2);ta("t");wh(vv);
+//  setAddrWindow(20,0,27,127);ta("val:");
 
 /*
   setAddrWindow(30,20,37,51);
@@ -1077,12 +1058,6 @@ th((xi>>8));th((xi&0xFF));*/
 
 //ta("croCodile");
 //delay(5555);
-
-  setAddrWindow(80,10,87,120);
-ta("Русский");
-
-delay(2800);
-
 
 
 /*
@@ -2011,6 +1986,8 @@ void loop() {
   char tmps[32];
   
   
+  do{
+  
 //if(it>7000){
   //    Pin2LOW(PORTD,2);Pin2Input(DDRD,2); // controlled charging (very impurtant set it 2 input (high impedance state))
 //delay(1);//delayMicroseconds(1000);
@@ -2025,12 +2002,36 @@ void loop() {
 //        Pin2HIGH(PORTB,6);//power supply to tpic6a595  (add caps?)
   //      delayMicroseconds(11);// wait for rise. 10 minimum to avoid nasty bugs
 
-Pin2Output(DDRB,7);Pin2HIGH(PORTB,7);// включаем питание  дисплея
+//Pin2Output(DDRB,7);Pin2HIGH(PORTB,7);// включаем питание  дисплея
 
 
 TCNT1=0;
 
-if((it&0xFFF)==0)// once in 4k
+if((it&0xFF)==0) // 1 из 256
+{
+  RTC_ON(DDRC,4,5);
+  if(!Check_RTC(16)){ERR=WHERE_IS_THE_CLOCK;} 
+  else
+  {
+    if(TFT_IS_ON) {CS=Read_I2C(DS1307_ADDR_W,0); if(CS!=PS){PS=CS; TFT_IS_ON--; if(!TFT_IS_ON){TFT_OFF;}}}// если дисплей включен то проверим не пора ли его выключить
+    else if (TouchSensor()>0x50){TFT_ON(10);InitTFT();}
+    HR=Read_I2C(DS1307_ADDR_W,2);
+    if(HR>0x20){HR-=12;}else if(HR>0x10){HR-=6;} //  читаем текущий час и конветируем из упакованного BCD
+    if(HR>23) {ERR=STRANGE_CLOCK_DATA; } // не пойми что с часов пришло
+    else{ CurrentIntensity=Intensity[HR]; } 
+  }
+  RTC_OFF(DDRC,PORTC,4,5);  // переводим лапки часиков в высокоомное состояние 
+}
+
+// если есть ошибки
+if (ERR)
+{
+  
+}
+
+//  if(!CurrentIntensity){unap();continue;} // определяем продолжительность пыхи в данном часе и спим 8s если нечего делать
+
+if(((it&0x3FF)==0)&&TFT_IS_ON)// once in 1k
 {
 
 //  rtc.poke(10,100);
@@ -2039,50 +2040,17 @@ if((it&0xFFF)==0)// once in 4k
 //byte val=0;
 
 //	pinMode(_scl_pin, OUTPUT);
-RTC_ON(DDRC,4,5);
-
-
-//byte  val=peek2(8);
-byte val=Read_I2C(DS1307_ADDR_W,8);
-
-byte vv=0,v2=0;
-long lm=0;
-
-if(val=='A')
-{
-
-    byte imm=peek2(6);
- if(imm<0x14||imm>0x30)// check correct date
- {
-   poke2(6,0x14);
-   poke2(5,0x02);
-   poke2(4,0x10);
-   poke2(3,0x01);
-   poke2(2,0x13);
-   poke2(1,0x02);
-   poke2(0,0x00);
- }
-
-
-tstr[4]=peek2(4);
-tstr[5]=peek2(5);
-tstr[6]=peek2(6);
-tstr[3]=peek2(3);
-tstr[0]=peek2(0);
-tstr[1]=peek2(1);
-tstr[2]=peek2(2);
-
-RTC_OFF(DDRC,PORTC,4,5);
 
 // check that we have sensor responding
-vv=_readRegisterT(TSL2561_REGISTER_ID); // works
+/*
+byte vv=_readRegisterT(TSL2561_REGISTER_ID); // works
 
 _writeRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);
 _writeRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_16X);   
 
 delay(14);
 
-lm=_readRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN1_HIGH);
+long lm=_readRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN1_HIGH);
   lm <<= 8;
 lm|=_readRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN1_LOW);
   lm <<= 8;
@@ -2095,36 +2063,15 @@ lm|=_readRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN0_LOW);
 //  lm |= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
 
 _writeRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF);
-
-}
-
-    initR();   // initialize a ST7735S chip, black tab
-
-//delay(5000);
-/*
-SPI.begin();
-//    SPI.setClockDivider(SPI_CLOCK_DIV4); // 4 MHz (half speed)
-//    SPI.setClockDivider(SPI_CLOCK_DIV8); // 4 MHz (half speed)
-//    SPI.setClockDivider(SPI_CLOCK_DIV16); // 4 MHz (half speed)
-    SPI.setClockDivider(SPI_CLOCK_DIV32); // 4 MHz (half speed)
-    //Due defaults to 4mHz (clock divider setting of 21)
-    SPI.setBitOrder(MSBFIRST);
-    SPI.setDataMode(SPI_MODE0);
 */
 
-//  word time = millis();
-//  fillScreen((it&0xfc)<<8);
 
-//  time = millis() - time;
+//TFT_ON(3); 
 
-  // a single pixel
-//  tft.drawPixel(tft.width()/2, tft.height()/2, ST7735_GREEN);
-//fillRect(5,5,10,100,0xE400fc);
-//sprintf(tmps, "%d %d %d", millis(),word(time),word(it));
 
 
   setAddrWindow(60,0,67,127);
-wh(it);ta("LV:");lh(lvv);t3(val);th('A');th(vv);th(v2);
+wh(it);ta("LV:");lh(lvv);//t3(val);th('A');th(vv);th(v2);
 
 
   setAddrWindow(0,0,7,119);
@@ -2132,7 +2079,7 @@ wh(it);ta("LV:");lh(lvv);t3(val);th('A');th(vv);th(v2);
 
   setAddrWindow(152,0,159,127);
 
-th(tstr[2]);ta(":");th(tstr[1]);ta(".");th(tstr[0]);ta(" ");th(tstr[4]);ta("-");th(tstr[5]);ta("-");th(tstr[6]);ta(" ");th(tstr[3]);
+th(tstr[2]);ta(":");th(tstr[1]);ta(".");th(tstr[0]);ta(" ");th(tstr[4]);ta("-");th(tstr[5]);ta("-");th(tstr[6]);ta(" ");t3(HR);ta(" ");th(CurrentIntensity);th(TFT_IS_ON);
 
 //long lm;
 //TSL2561
@@ -2142,7 +2089,7 @@ th(tstr[2]);ta(":");th(tstr[1]);ta(".");th(tstr[0]);ta(" ");th(tstr[4]);ta("-");
 //        write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);  //  enable();
   //write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_16X);    //  // Set integration time and gain
 
-
+long lm;
   
   //  tsl.setGain(TSL2561_GAIN_0X);         // set no gain (for bright situtations)
 //  tsl.setGain(TSL2561_GAIN_16X);      // set 16x gain (for dim situations)
@@ -3474,6 +3421,7 @@ Pin2Output(DDRD,7); // pin 7 SRCLR
 it++;
 
   //delay(1000);               // wait for a second
+    }while(1); // loop
 }
 
 

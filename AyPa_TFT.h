@@ -295,7 +295,7 @@ void commonInit(const uint8_t *cmdList) {
 
 }
 
-void initR() {
+void InitTFT() {
   commonInit(Rcmd1);
     commandList(Rcmd2red);
   commandList(Rcmd3);
