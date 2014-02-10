@@ -53,6 +53,12 @@ typedef enum
 tsl2561Gain_t;
 
 
+#include "AyPa_m.h"
+#include "AyPa_fonts.h"
+#include "AyPa_n.h"
+#include "AyPa_TFT.h"
+//#include "AyPa_rtc.h"
+
 
 
 //#include <DS1302.h>// cannot sit on SPI pins (leaves pin in input state)
@@ -69,6 +75,7 @@ tsl2561Gain_t;
 
 #define _sda_pin A4
 #define _scl_pin A5
+
 
 
 void	_sendStart(byte addr)
@@ -258,6 +265,157 @@ void poke2(uint8_t addr, uint8_t value)
 //	}
 }
 
+//CLKrtc IOrtc
+#define CLKrtc 5
+#define IOrtc 4
+
+void ShiftOutRTC(byte val)
+{
+//PORTC&=~(1<<CLKrtc);//clk low (already)
+
+//PORTC|=(1<<CLKrtc);// tick clk    //8
+//if(PINC&(1<<IOrtc))val|=(1<<5);   //6
+//PORTC&=~(1<<CLKrtc);//clk low
+
+/*
+__asm__ __volatile__(
+"out 0x08,r1\n\t" // clear data&clk
+"sbrc %0,0\n\t"  // if (val&(1<<(0)))PORTC|=(1<<IOrtc);// set it if needed
+"sbi 0x08,2\n\t" // set data bit
+"sbi 0x08,3\n\t" // tick clk
+
+"out 0x08,r1\n\t" // clear data&clk
+"sbrc %0,1\n\t"  // if (val&(1<<(0)))PORTC|=(1<<IOrtc);// set it if needed
+"sbi 0x08,2\n\t" // set data bit
+"sbi 0x08,3\n\t" // tick clk
+
+"out 0x08,r1\n\t" // clear data&clk
+"sbrc %0,2\n\t"  // if (val&(1<<(0)))PORTC|=(1<<IOrtc);// set it if needed
+"sbi 0x08,2\n\t" // set data bit
+"sbi 0x08,3\n\t" // tick clk
+
+"out 0x08,r1\n\t" // clear data&clk
+"sbrc %0,3\n\t"  // if (val&(1<<(0)))PORTC|=(1<<IOrtc);// set it if needed
+"sbi 0x08,2\n\t" // set data bit
+"sbi 0x08,3\n\t" // tick clk
+
+"out 0x08,r1\n\t" // clear data&clk
+"sbrc %0,4\n\t"  // if (val&(1<<(0)))PORTC|=(1<<IOrtc);// set it if needed
+"sbi 0x08,2\n\t" // set data bit
+"sbi 0x08,3\n\t" // tick clk
+
+"out 0x08,r1\n\t" // clear data&clk
+"sbrc %0,5\n\t"  // if (val&(1<<(0)))PORTC|=(1<<IOrtc);// set it if needed
+"sbi 0x08,2\n\t" // set data bit
+"sbi 0x08,3\n\t" // tick clk
+
+"out 0x08,r1\n\t" // clear data&clk
+"sbrc %0,6\n\t"  // if (val&(1<<(0)))PORTC|=(1<<IOrtc);// set it if needed
+"sbi 0x08,2\n\t" // set data bit
+"sbi 0x08,3\n\t" // tick clk
+
+"out 0x08,r1\n\t" // clear data&clk
+"sbrc %0,7\n\t"  // if (val&(1<<(0)))PORTC|=(1<<IOrtc);// set it if needed
+"sbi 0x08,2\n\t" // set data bit
+"sbi 0x08,3\n\t" // tick clk
+
+"out 0x08,r1\n\t" // clear data&clk
+
+:: "r" (val):);*/
+
+PORTC&=~(1<<IOrtc);//clear data bit
+//__asm__ __volatile__ ( "out 0x08,r1\n\t"        :::);
+//__asm__ __volatile__ ( "cbi 0x08,2\n\t"        :::);
+
+if (val&(1<<(0)))PORTC|=(1<<IOrtc);// set it if needed
+PORTC|=(1<<CLKrtc);// tick clk
+
+PORTC&=~(1<<CLKrtc);//clk low
+PORTC&=~(1<<IOrtc);//clear data bit
+//__asm__ __volatile__ ( "clr r24\n\t""out 0x08,r24\n\t"        :::);
+
+//PORTC=~((1<<IOrtc)|(1<<CLKrtc));//clk low +  clear data bit
+if (val&(1<<(1)))PORTC|=(1<<IOrtc);// set it if needed
+PORTC|=(1<<CLKrtc);// tick clk
+
+PORTC&=~(1<<CLKrtc);//clk low
+PORTC&=~(1<<IOrtc);//clear data bit
+//PORTC=~((1<<IOrtc)|(1<<CLKrtc));//clk low +  clear data bit
+if (val&(1<<(2)))PORTC|=(1<<IOrtc);// set it if needed
+PORTC|=(1<<CLKrtc);// tick clk
+
+PORTC&=~(1<<CLKrtc);//clk low
+PORTC&=~(1<<IOrtc);//clear data bit
+//PORTC=~((1<<IOrtc)|(1<<CLKrtc));//clk low +  clear data bit
+
+if (val&(1<<(3)))PORTC|=(1<<IOrtc);// set it if needed
+PORTC|=(1<<CLKrtc);// tick clk
+
+PORTC&=~(1<<CLKrtc);//clk low
+PORTC&=~(1<<IOrtc);//clear data bit
+if (val&(1<<(4)))PORTC|=(1<<IOrtc);// set it if needed
+PORTC|=(1<<CLKrtc);// tick clk
+
+PORTC&=~(1<<CLKrtc);//clk low
+PORTC&=~(1<<IOrtc);//clear data bit
+if (val&(1<<(5)))PORTC|=(1<<IOrtc);// set it if needed
+PORTC|=(1<<CLKrtc);// tick clk
+
+PORTC&=~(1<<CLKrtc);//clk low
+PORTC&=~(1<<IOrtc);//clear data bit
+if (val&(1<<(6)))PORTC|=(1<<IOrtc);// set it if needed
+PORTC|=(1<<CLKrtc);// tick clk
+
+PORTC&=~(1<<CLKrtc);//clk low
+PORTC&=~(1<<IOrtc);//clear data bit
+if (val&(1<<(7)))PORTC|=(1<<IOrtc);// set it if needed
+PORTC|=(1<<CLKrtc);// tick clk
+
+//PORTC&=~(1<<CLKrtc);//clk low (needed)
+//"=r" (result): "I" (val)
+
+}
+
+void	I2C_START(byte addr)
+{
+//	pinMode(_sda_pin, OUTPUT);
+        Pin2HIGH(PORTC,4);//	digitalWrite(_sda_pin, HIGH);
+// get port from pin//portOutputRegister(digitalPinToPort(cs);
+	Pin2HIGH(PORTC,5);//digitalWrite(_scl_pin, HIGH);
+        Pin2LOW(PORTC,4);//	digitalWrite(_sda_pin, LOW);
+        Pin2LOW(PORTC,5);//	digitalWrite(_scl_pin, LOW);
+//	shiftOut(_sda_pin, _scl_pin, MSBFIRST, addr);
+	ShiftOutRTC(addr);
+}
+
+void Save_I2C(byte addr,byte reg,byte val)
+{
+//  		_sendStart(addr);
+  I2C_START(addr);
+		_waitForAck();
+		_writeByte(reg);
+		_waitForAck();
+		_writeByte(val);
+		_waitForAck();
+		_sendStop();
+}
+
+byte Read_I2C(byte addr,byte reg)
+{
+  byte val;
+	_sendStart(addr);
+	_waitForAck();
+	_writeByte(reg);
+	_waitForAck();
+	_sendStop();
+	_sendStart(addr|1);
+	_waitForAck();
+	val = _readByte();
+	_sendNack();
+	_sendStop();
+	return val;
+}
+
 uint8_t peek2(uint8_t addr)
 {
 //	if ((addr >=0) && (addr<=55+8))
@@ -293,11 +451,6 @@ uint8_t peek2(uint8_t addr)
 //TFT myScreen = TFT(0, 1, 8);
 
 
-#include "AyPa_m.h"
-#include "AyPa_fonts.h"
-#include "AyPa_n.h"
-#include "AyPa_TFT.h"
-//#include "AyPa_rtc.h"
 
 
 // set up variables using the SD utility library functions:
@@ -449,6 +602,12 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 #define LATCHPIN 6
 
 
+#define RTC_ON(DRC,p1,p2) {Pin2Output(DRC,p1);Pin2Output(DRC,p2);}
+#define RTC_OFF(DRC,PORT,p1,p2) {Pin2Input(DRC,p1);Pin2LOW(PORT,p1);Pin2Input(DRC,p2);Pin2LOW(PORT,p2);}
+
+// каждый раз перед обращением к часам проверяем их вменяемость
+byte Check_RTC(byte attempts){for(byte n=attempts;n>0;n--){Save_I2C(DS1307_ADDR_W,8,'A');if(Read_I2C(DS1307_ADDR_W,8)=='A'){return n;}}return 0;}
+
 //#define DS1307_I2C_ADDRESS 0x68 // read and write address is different for DS1307 
 
 // use TSL2561_ADDR_LOW (0x29) or TSL2561_ADDR_HIGH (0x49) respectively TSL2561_ADDR_FLOAT)
@@ -456,7 +615,11 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 
 // port B: 5 port C: 8 port D:11
 //byte cports[10]={PORTB1,PORTB2,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1};
-  char *dstr,*tstr;
+  char tstr[7];// строка даты и времени
+//  boolean DS1307here=false; // часики работают
+
+
+
 
 byte pp[10]={
   5,5,5,5,5,5,5,5,5,5}; //port
@@ -478,41 +641,18 @@ void setup() {
   cli();
   TCCR1A=0x00;
   //  TCCR1B=(1 << WGM12)|(0<<CS22)|(0<<CS21)|(1<<CS20); // /no prescaler;
-  TCCR1B=(1 << WGM12)|(0<<CS22)|(1<<CS21)|(0<<CS20); // /8; 1us clock
-  TCNT1H=0x00;
-  TCNT1L=0x00;
-  ICR1H=0x00;
-  ICR1L=0x00;
-  //OCR1AH=0x9C;
-  //OCR1AL=0x40; // 40000
-//  OCR1AH=0x4E;
-//  OCR1AL=0x20; // 20000
-//  OCR1AH=0x03;
-//  OCR1AH=0x08;
-//  OCR1AL=0x67; // 2151 ~1ms sleeping time 
-//  OCR1AH=0x03;
-//  OCR1AL=0xE8; // 1000
-  OCR1AH=0xFF;
-  OCR1AL=0xFF;
+  TCCR1B=(1<<WGM12)|(0<<CS22)|(1<<CS21)|(0<<CS20); // /8; 1us clock
+  TCNT1H=0x00; TCNT1L=0x00;
+  ICR1H=0x00; ICR1L=0x00;
+  OCR1AH=0xFF; OCR1AL=0xFF;  //OCR1AH=0x9C;  //OCR1AL=0x40; // 40000//  OCR1AH=0x4E;//  OCR1AL=0x20; // 20000//  OCR1AH=0x03;//  OCR1AL=0xE8; // 1000
 
-  //  TCCR1B |= (1 << WGM12);
-  //  TCCR1B |= (1 << CS10);
-  // TIMSK1 |= (1 << OCIE1A);//no need for interrupt just using for profiling code
-//  TIMSK1 |= (1 << OCIE1A);
+  //  TCCR1B |= (1 << WGM12);  //  TCCR1B |= (1 << CS10);
+  // TIMSK1 |= (1 << OCIE1A);// no interrupts just counting 1 tick is 1 microsecond
   sei();
 
 
 
-//rtc test
-//Pin2Output(DDRC,4);
-//Pin2Output(DDRC,5);
-//Pin2Output(DDRC,CLKrtc);Pin2LOW(PORTC,CLKrtc);
-//Pin2Output(DDRC,IOrtc);Pin2LOW(PORTC,IOrtc);
-//Pin2Output(DDRC,CErtc);Pin2LOW(PORTC,CErtc);
-
-  //rtcwriteprotect(true);//20us(cannot pair with false)
-//  rtcgettime(7);//rtcgettime(8); 7 is enough
-word vvv;
+//word vvv;
 
 /*
 Wire.begin();
@@ -533,42 +673,72 @@ Wire.begin();
   //PORTD|=(1<<CErtc);//digitalWrite(CErtc,HIGH);
 //  rtcpoke(15,0xAC);
 //cli();
-	pinMode(_scl_pin, OUTPUT);
+//	pinMode(_scl_pin, OUTPUT);
+//	pinMode(_sda_pin, OUTPUT);
+
+Pin2Output(DDRB,7);Pin2HIGH(PORTB,7);// включаем питание  дисплея
+
+//Pin2Output(DDRC,4);Pin2Output(DDRC,5);
+RTC_ON(DDRC,4,5);
+//delay(10);
 
 TCNT1=0;
 //  rtc.poke(8,'A');
+byte val=Check_RTC(16);
 
-  poke2(8,'A');
-  word vv=TCNT1;
+
+//if  (RTC_Here(10)==0)
+//if  (RTC_Here(10)==0)
+//{
+  // complain rtc is not here
+  //do{}while(1);
+//}
+
+//  poke2(8,'A'); 
+//Save_I2C(DS1307_ADDR_W,8,'A');
+
+//  word vv=TCNT1;
 //sei();
 //byte val=0;
 //byte  val=rtcpeek(15);
 //byte  
 //val=rtc.peek(8);
 
-byte  val=peek2(8);
+//byte  val=peek2(8);
+//byte vv2=peek2(8);
+TCNT1=0;
+byte vv2=Check_RTC(3);
+  word vv=TCNT1;
+//byte val=Read_I2C(DS1307_ADDR_W,8);
+//vv=Read_I2C(DS1307_ADDR_W,8);
 
-if(val=='A')
-{
-//  rtc.setDOW(WEDNESDAY);        // Set Day-of-Week to SUNDAY
-//  rtc.setTime(20, 42, 0);     // Set the time to 12:00:00 (24hr format)
-//  rtc.setDate(5, 2, 2014);   // Set the date to February 5th, 2014
 
-//  poke2(7,0x12);// turn on SQW 8kHz
-//  rtc.poke(7,0x13);// turn on SQW  32kHz
-  //  rtc.poke(7,0);// turn off SQW
 
-//dstr=rtc.getDateStr();
-//tstr=rtc.getTimeStr();
+tstr[4]=peek2(4);
+tstr[5]=peek2(5);
+tstr[6]=peek2(6);
+tstr[3]=peek2(3);
+tstr[0]=peek2(2);
+tstr[1]=peek2(1);
+tstr[3]=peek2(0);
 
-dstr[0]=peek2(4);
-dstr[1]=peek2(5);
-dstr[2]=peek2(6);
 
-//vvv=rtc.peek(5); //month
-}
+/*
+ byte imm=peek2(6);
+ if(imm<0x14||imm>0x30)// check correct date
+ {
+   poke2(6,0x14);
+   poke2(5,0x02);
+   poke2(4,0x10);
+   poke2(3,0x01);
+   poke2(2,0x12);
+   poke2(1,0x49);
+   poke2(0,0x00);
+ }*/
 
-PORTC=0;Pin2Input(DDRC,_scl_pin);Pin2Input(DDRC,_sda_pin);//  pinMode(_scl_pin, INPUT);pinMode(_sda_pin, INPUT);// high imp state to avoid current  sipping through SDA/SCL pullup resistors
+RTC_OFF(DDRC,PORTC,4,5);// переводим лапки часиков в высокоомное состояние чтобы они не сливали ток через подтягивательные резисторы на шине I2C
+
+//PORTC=0;Pin2Input(DDRC,_scl_pin);Pin2Input(DDRC,_sda_pin);//  pinMode(_scl_pin, INPUT);pinMode(_sda_pin, INPUT);// high imp state to avoid current  sipping through SDA/SCL pullup resistors
 
 
 //Pin2Input(DDRC,CLKrtc);Pin2LOW(PORTC,CLKrtc);
@@ -796,15 +966,15 @@ SPI.begin();
 */
 
   uint16_t time = millis();
-  fillScreen(0x000000);// black
+  fillScreen(0x000000);// black (64ms)
 //  fillScreen(0x005000);// green
 
   time = millis() - time;
 
- setAddrWindow(0,0,7,120);
-wh(time);ta("TIME");
+ //setAddrWindow(0,0,7,120);
+//wh(time);ta("TIME");
 
-delay(1500);
+//delay(1500);
   // a single pixel
 //  tft.drawPixel(tft.width()/2, tft.height()/2, ST7735_GREEN);
 //fillRect(5,5,10,100,0xE400fc);
@@ -884,35 +1054,34 @@ long lm;
 
 
 
-  setAddrWindow(20,0,27,91);
-ta("val:");t3(val);ta(" ");t3(val);ta(" ");th(val);
-  setAddrWindow(20,100,27,127);
-th((vv>>8));th((vv&0xFF));
+  setAddrWindow(20,0,27,127);
+ta("val:");t3(val);ta(" ");t3(val);ta(" ");th(val);ta(" ");wh(vv2);ta("t");wh(vv);
+
+/*
   setAddrWindow(30,20,37,51);
-t3(vvv);th((x>>8));th((x&0xFF));
+th((x>>8));th((x&0xFF));
   setAddrWindow(40,0,47,91);
 th((xf>>8));th((xf&0xFF));
-th((xi>>8));th((xi&0xFF));
+th((xi>>8));th((xi&0xFF));*/
 
 //delay(5000);
 
 //  setAddrWindow(30,10,37,120);
 //ta(buf);
 
-  setAddrWindow(0,0,7,119);
+//  setAddrWindow(0,0,7,119);
 
-ta(tstr);ta(">");ta(dstr);
+//th(tstr[2]);ta(":");th(tstr[1]);ta(".");th(tstr[0]);ta(" ");th(tstr[4]);ta("-");th(tstr[5]);ta("-20");th(tstr[6]);ta(" ");th(tstr[3]);
 
-  setAddrWindow(50,10,57,120);
+  //setAddrWindow(50,10,57,120);
 
-ta("croCodile");
+//ta("croCodile");
 //delay(5555);
 
   setAddrWindow(80,10,87,120);
-
 ta("Русский");
 
-delay(2000);
+delay(2800);
 
 
 
@@ -1610,9 +1779,26 @@ void longnap(void)
 
 //Pin2Output(DDRD,3);Pin2HIGH(PORTD,3);// charge cap
 
+
+// all pins to  high imp. except some
+//PORTC=0;
+//PORTB=0;
+//PORTD=0;
+//DDRC=0;
+//DDRB=0;
+//DDRD=0;
+// every pin must  be in determined state
+/*
+    Pin2Input(DDRB,2);Pin2LOW(PORTB,2); // SPI pins
+    Pin2Input(DDRB,3);Pin2LOW(PORTB,3);
+    Pin2Input(DDRB,4);Pin2LOW(PORTB,4);    
+    Pin2Input(DDRB,5);Pin2LOW(PORTB,5);
+*/
+// не нравится...
+//.. по кнопке пробуем
+
 // instead of charging cap we must set internal pullup resistor to get SQW from DS1307
     Pin2Input(DDRD,3);Pin2HIGH(PORTD,3);// pinMode(3,INPUT_PULLUP);
-
 
 //            WDhappen=0;
         sleeps=0;
@@ -1636,6 +1822,39 @@ void longnap(void)
   // 4kHz gives us 246us sleeping time
         if(pin3_interrupt_flag){break;}else{sleeps++;}
       }while(1);
+
+
+/*
+    Pin2Output(DDRB,2);Pin2HIGH(PORTB,2); // SPI pins
+    Pin2Output(DDRB,3);Pin2LOW(PORTB,3);
+//    Pin2Input(DDRB,4);Pin2LOW(PORTB,4);    
+    Pin2Output(DDRB,5);Pin2LOW(PORTB,5);
+*/
+
+//Pin2Output(DDRD,0);// sreset mosfet 2n7000 control
+//Pin2Output(DDRD,1);// 3.3/5v mosfet 2n7000 control
+//Pin2Output(DDRD,2);// INT0 line
+
+//Pin2Output(DDRD,3);// INT1 line /TFT CS
+//Pin2Output(DDRD,4);// TFT DC
+//Pin2Output(DDRB,3);// MOSI
+//Pin2Output(DDRB,5);// CLK
+
+
+Pin2Output(DDRB,0); // CLOCKPIN 8
+Pin2Output(DDRB,1); // DATAPIN 9
+Pin2Output(DDRB,2);
+Pin2Output(DDRB,6);
+
+Pin2Output(DDRD,5); // pin 5 G
+Pin2Output(DDRD,6); // pin 6 LATCH
+Pin2Output(DDRD,7); // pin 7 SRCLR
+
+  pinMode(DATAPIN,OUTPUT);
+  pinMode(CLOCKPIN,OUTPUT);
+  pinMode(LATCHPIN,OUTPUT);
+
+
   
   //cli();t1111=TCNT1;sei();//atomic read
 }
@@ -1799,19 +2018,19 @@ void loop() {
 //}
 
 
-  __asm__ __volatile__("wdr\n\t");//  wdt_reset();
-
-//        pinMode(A3,INPUT_PULLUP);
+//  __asm__ __volatile__("wdr\n\t");//  wdt_reset();
 
 
         Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // stop light outputs
-        Pin2HIGH(PORTB,6);//power supply to tpic6a595  (add caps?)
-        delayMicroseconds(11);// wait for rise. 10 minimum to avoid nasty bugs
-        
+//        Pin2HIGH(PORTB,6);//power supply to tpic6a595  (add caps?)
+  //      delayMicroseconds(11);// wait for rise. 10 minimum to avoid nasty bugs
+
+Pin2Output(DDRB,7);Pin2HIGH(PORTB,7);// включаем питание  дисплея
+
 
 TCNT1=0;
 
-if((it&0x3FFF)==0)// once in 16k
+if((it&0xFFF)==0)// once in 4k
 {
 
 //  rtc.poke(10,100);
@@ -1819,30 +2038,41 @@ if((it&0x3FFF)==0)// once in 16k
 //byte  val=rtc.peek(8);
 //byte val=0;
 
-	pinMode(_scl_pin, OUTPUT);
+//	pinMode(_scl_pin, OUTPUT);
+RTC_ON(DDRC,4,5);
 
-byte  val=peek2(8);
+
+//byte  val=peek2(8);
+byte val=Read_I2C(DS1307_ADDR_W,8);
+
 byte vv=0,v2=0;
 long lm=0;
 
 if(val=='A')
 {
-  dstr[0]=val;
-  dstr[1]=0;
 
- if((v2=peek2(7))!=DS1307_SQW_RATE_4K){ poke2(0,peek2(0)&0x7F); poke2(7,DS1307_SQW_RATE_4K);}// quite a trick to set SQW working
+    byte imm=peek2(6);
+ if(imm<0x14||imm>0x30)// check correct date
+ {
+   poke2(6,0x14);
+   poke2(5,0x02);
+   poke2(4,0x10);
+   poke2(3,0x01);
+   poke2(2,0x13);
+   poke2(1,0x02);
+   poke2(0,0x00);
+ }
 
-//dstr=rtc.getDateStr();
-//tstr=rtc.getTimeStr();
-/*
-  Wire.begin();
-  Wire.beginTransmission(TSL2561_ADDR_LOW);
-  Wire.write(TSL2561_REGISTER_ID);
-  Wire.endTransmission();
-  Wire.requestFrom(TSL2561_ADDR_LOW, 1);
-  vv = Wire.read();
-  Wire.endTransmission();
-*/
+
+tstr[4]=peek2(4);
+tstr[5]=peek2(5);
+tstr[6]=peek2(6);
+tstr[3]=peek2(3);
+tstr[0]=peek2(0);
+tstr[1]=peek2(1);
+tstr[2]=peek2(2);
+
+RTC_OFF(DDRC,PORTC,4,5);
 
 // check that we have sensor responding
 vv=_readRegisterT(TSL2561_REGISTER_ID); // works
@@ -1898,9 +2128,11 @@ wh(it);ta("LV:");lh(lvv);t3(val);th('A');th(vv);th(v2);
 
 
   setAddrWindow(0,0,7,119);
-//ta(tstr);ta(">");ta(dstr);
   ta("f:");t3(fnt);  ta(" l:");t3(lnt);
 
+  setAddrWindow(152,0,159,127);
+
+th(tstr[2]);ta(":");th(tstr[1]);ta(".");th(tstr[0]);ta(" ");th(tstr[4]);ta("-");th(tstr[5]);ta("-");th(tstr[6]);ta(" ");th(tstr[3]);
 
 //long lm;
 //TSL2561
@@ -2631,7 +2863,7 @@ Pin2HIGH(PORTB,0);//digitalWrite(CLOCKPIN,HIGH);
     
   //Pin2HIGH(PORTD,6);//digitalWrite(LATCHPIN,HIGH);
 
-Pin2LOW(PORTB,6);//power supply OFF
+//Pin2LOW(PORTB,6);//power supply OFF  was tpic595
 //delayMicroseconds(100);
 //sei();
 /*
@@ -3022,166 +3254,6 @@ __asm__ __volatile__(
 
       //pinMode(2,OUTPUT);digitalWrite(2,HIGH);delayMicroseconds(65);digitalWrite(2,LOW);pinMode(2,INPUT);// controlled charging(~100us)
 
-/*
-      Pin2Output(DDRD,2);
-      Pin2HIGH(PORTD,2);// start charging timeout capacitor
-      cnt1=0;
-      tc1=TCNT1;
-      TCNT1=0;
-  
-      do{
-
-            cli();
-      pin2_interrupt_flag=0;
-      sleep_enable();
-      attachInterrupt(0, pin2_isr, LOW);
-      ticks=0;
-      //set_sleep_mode (SLEEP_MODE_IDLE);
-        set_sleep_mode(SLEEP_MODE_PWR_DOWN);  
-
-
-      // power saving
-      PORTB=0;
-      PORTC=0;
-      PORTD=0;
-      SPCR&=~(1<<SPE); //  SPI.end();
-//      ADCSRA&=~(1<<ADEN); //turn off ADC 
-      ADCSRA=0;//turn off ADC 
-      ACSR = (1<<ACD); // turn off analog comparator
-
-
-      Pin2LOW(PORTD,2);
-      Pin2Input(DDRD,2); // controlled charging (very impurtant set it 2 input (high impedance state))
-
-        sei();
-        sleep_cpu();
-//wake up here
-// check if it us or not
-        sleep_disable();
-        if(pin2_interrupt_flag){break;}
-      }while(1);
-
-      ADCSRA|=(1<<ADEN); //turn on ADC    
-      //      Pin2Output(DDRB,2); //SS pin  (SPI depends on this pin)
-//      Pin2HIGH(PORTB,2); //set SS (10) high ??????????????????????? lcd?
-      SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first (lcd)
-      SPSR = (1 << SPI2X);// 1/2clk
-
-      //  DIDR0=(1<<ADC0D);// disable digital input on A0 pin
-      //  ADCSRB = 0;
-      //  DIDR1 = (1<<AIN1D); // AIN1 goes to analog comparator negative's input    so switch off digital input (+1.1 bandgap voltage is on positive input)
-      //  ACSR = (1<<ACBG); //bandgap instead of AIN0  + turn on analog comparator
-      //  ACSR&=~(1<<ACD); //turn on analog comparator
-      //  SetADC(1,8,500);  //  select temperature sensor 352 (need calibration)
-
-    }//for jj
-*/
-//    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
-  //  do{}while(bit_is_set(ADCSRA,ADSC));
-//    v3=ADCW;
-
-
-/*
-    LcdSet(0,0);
-    sh(pin2_interrupt_flag);
-    sa(" ");
-    sw(cnt1);
-    s3(v1);
-    s3(v2);
-    sa(" ");
-    s3(v3);
-    LcdSet(0,1);
-    for(byte o=0;o<10;o++){
-      s3(tq[o]);
-      sa(" ");
-    }
-    LcdSet(0,3);
-    //sa(">");sw(1103817L/v2);sa("  0 ");sw(1103817L/tq[0]);sa("  5 ");sw(1103817L/tq[5]);sa("  9 ");sw(1103817L/tq[9]);sa("<   ");
-    sa(">");
-    sw(1100000L/v2);
-    sa("  0 ");
-    sw(1100000L/tq[0]);
-    sa("  5 ");
-    sw(1100000L/tq[5]);
-    sa("  9 ");
-    sw(1100000L/tq[9]);
-    sa("<   ");
-    LcdSet(0,5);
-    sh(nn>>24);
-    sh((nn>>16)&0xff);
-    sh((nn>>8)&0xff);
-    sh(nn&0xff);
-    sa(" ");
-    sw(nn&0xffff);
-//    sh((1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2);
-    sa(" ");
-    s3(tc1);
-//    s3(tqq);
-//    sa("    ");
-    //s3(v3);
-*/
- //   nn++;
- // }
- // while(1);
-
-
-  /*
-for(long j=0;j<10000;j++){
-   cli();    
-   Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
-   delayMicroseconds(4);  
-   Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
-   //    delayMicroseconds(10);  
-   //    Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
-   //    delayMicroseconds(4);  
-   //    Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
-   sei();
-   delayMicroseconds(1000);  
-   }
-   
-   
-   for(long j=0;j<10000;j++){
-   cli();
-   Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
-   delayMicroseconds(12);  
-   Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
-   delayMicroseconds(10);  
-   Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
-   delayMicroseconds(12);  
-   Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
-   sei();
-   delayMicroseconds(1000);  
-   }*/
-
-
-
-
-
-
-  // inner T
-  // bandgap vs vcc
-
-
-  // 5V    
-  //0ma     816..824    ~820
-  //200ma                   ~831 (+11)
-  //400ma                   ~842 (+22)
-  //600ma                   ~853 (+33)
-  //800ma 864..867    ~864 (+44)
-
-  // 3.3V khaos.......... ACS712 cannot operate. 4.5V minimum as per datasheet
-  // 800ma 847..851 
-  // 0ma 825..839 860..865
-
-  //   Pin2LOW(PORTB,2); //digitalWrite(10,LOW);//work with 4051
-
-
-    // LcdSet(15,5);sa("4");
-
-
-//  delay(4000);
-  //LcdSet(15, 5);
- // sa("z");
 
 
 
@@ -3271,10 +3343,10 @@ if((it&0xFFFF)==0) // measure nap time
 TCNT1=0;
       fastnap();
 fnt=TCNT1;      
-      set_sleep_mode (SLEEP_MODE_IDLE);//// in r24,0x33// andi r24,0xF1// out 0x33,r24
-TCNT1=0;
-      longnap();
-lnt=TCNT1;      
+//      set_sleep_mode (SLEEP_MODE_IDLE);//// in r24,0x33// andi r24,0xF1// out 0x33,r24
+//TCNT1=0;
+//      longnap();
+//lnt=TCNT1;      
 }
 else
 {
@@ -3303,8 +3375,8 @@ if(it==55555)// ultra long nap 8s once  in somewhere  2 minutes
   sei();
 
 }
-else{ln++;longnap();}  
-//else {fn++;fastnap();} 
+//else{ln++;longnap();}  
+else {fn++;fastnap();} 
 //if ((it&0x3)==0){ln++;longnap();}else {fn++;fastnap();} // 1:3
 
 }
