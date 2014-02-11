@@ -13,7 +13,7 @@
 
 #include "AyPa_m.h"
 #include "AyPa_fonts.h"
-#include "AyPa_n.h"
+//#include "AyPa_n.h"
 #include "AyPa_TFT.h"
 #include "AyPa_i2c.h"
 //#include "AyPa_rtc.h"
@@ -205,7 +205,8 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 #define RTC_OFF(DRC,PORT,p1,p2) {Pin2Input(DRC,p1);Pin2LOW(PORT,p1);Pin2Input(DRC,p2);Pin2LOW(PORT,p2);}
 
 // каждый раз перед обращением к часам проверяем их вменяемость
-byte Check_RTC(byte attempts){for(byte n=attempts;n>0;n--){Save_I2C(DS1307_ADDR_W,8,'A');if(Read_I2C(DS1307_ADDR_W,8)=='A'){return n;}}return 0;}
+byte Check_RTC(byte attempts){for(byte n=attempts;n>0;n--){Save_I2C(DS1307_ADDR_W,8,'A',A4,A5);if(Read_I2C(DS1307_ADDR_W,8,A4,A5)=='A'){return n;}}return 0;}
+byte Check_TSL(byte attempts){for(byte n=attempts;n>0;n--){if(Read_I2C(TSL2561_ADDR_LOW_W,TSL2561_REGISTER_ID ,A1,A2)==0x0A){return n;}}return 0;}
 
 word TouchSensor(void)
 {
@@ -229,8 +230,9 @@ word TouchSensor(void)
   char tstr[7];// строка даты и времени
 
 
-#define WHERE_IS_THE_CLOCK 0x1;
-#define STRANGE_CLOCK_DATA 0x2;
+#define WHERE_IS_THE_CLOCK   0b00000001;
+#define STRANGE_CLOCK_DATA  0b00000010;
+#define WHERE_IS_THE_TSL2561 0b00000100;
 byte ERR=0; // ошибки
 byte TFT_IS_ON=0;
 byte CS; // текущая секунда
@@ -1789,7 +1791,30 @@ uint8_t DS1307::_readRegister(uint8_t reg)
 }
 */
 
-//byte bcolours[3][18]={0x}
+void NiceBack(byte x1,byte y1,byte x2,byte y2)
+{
+  byte r,g,b;
+
+  setAddrWindow(y1,x1,y2,x2);
+  
+  Pin2HIGH(PORTD,4); 
+  Pin2LOW(PORTD,1);
+
+  for(byte j=x1;j<x2;j++)
+  {  
+  for(byte i=y2+1;i>0;i--)
+  {
+      r=(i<<4);    g=(i<<3);      b=(i<<4);
+  
+      spiwrite(r);
+      spiwrite(g);
+      spiwrite(b);
+    }
+  }
+  Pin2HIGH(PORTD,1);
+
+}
+
 
 void ShowBars(byte hr)
 {
@@ -1799,19 +1824,23 @@ void ShowBars(byte hr)
   //ta("hr:");t3(hr);
 
   
-  for(byte i=0;i<24;i++){if(Intensity[i]>m){m=Intensity[i];}}
+  for(byte i=0;i<24;i++){if(Intensity[i]>m){m=Intensity[i];}}// find max intensity
   
   // m max=11
   //16
   // *15/m
   
   // gradient background
-  setAddrWindow(30,4,45,123);
+//  setAddrWindow(0,4,15,123);
+NiceBack(0,0,127,15);
+//NiceBack(0,16,127,31);
+/*
+  setAddrWindow(0,0,15,127);
 
   Pin2HIGH(PORTD,4); 
   Pin2LOW(PORTD,1);
 
-  for(byte j=0;j<120;j++)
+  for(byte j=0;j<128;j++)
   {  
   for(byte i=16;i>0;i--)
   {
@@ -1823,7 +1852,7 @@ void ShowBars(byte hr)
     }
   }
   Pin2HIGH(PORTD,1);
-
+*/
   // bars
   for(byte i=0;i<24;i++)
   {
@@ -1831,28 +1860,48 @@ void ShowBars(byte hr)
 
     if(i!=hr){r=0x8c;g=0xac;b=0x8c;}else{r=0x8c;g=0xfc;b=0x4c;}
     
-    setAddrWindow(30+16-gg,4+i*5,45,4+i*5+4);
+    setAddrWindow(0+16-gg,4+i*5,15,4+i*5+4);
 
   Pin2HIGH(PORTD,4); 
   Pin2LOW(PORTD,1);
 
-  for(byte j=0;j<4;j++)
-  {
+//  for(byte j=0;j<4;j++)
+  //{
 
-  for(byte k=0;k<gg;k++)
+  for(byte k=0;k<(gg*4);k++)
   {
       spiwrite(r);
       spiwrite(g);
       spiwrite(b);
   }  
            
-    }
+//    }
   Pin2HIGH(PORTD,1);
   }
   
-  
 }
 
+//TSL2561_START(TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_16X);//delay(14);//res=TSL2561_STOP();
+void  TSL2561_START(byte val)
+{
+  Save_I2C(TSL2561_ADDR_LOW_W,(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL),TSL2561_CONTROL_POWERON,A1,A2); // enable
+  Save_I2C(TSL2561_ADDR_LOW_W,(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING),val,A1,A2);   // set gain and integration time
+}
+
+long  TSL2561_STOP(void)
+{
+    long res;
+    res=Read_I2C(TSL2561_ADDR_LOW_W,(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN1_HIGH),A1,A2);
+    res <<= 8;
+    res|=Read_I2C(TSL2561_ADDR_LOW_W,(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN1_LOW),A1,A2);
+    res <<= 8;
+    res|=Read_I2C(TSL2561_ADDR_LOW_W,(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN0_HIGH),A1,A2);
+    res <<= 8;
+    res|=Read_I2C(TSL2561_ADDR_LOW_W,(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN0_LOW),A1,A2);
+
+    Save_I2C(TSL2561_ADDR_LOW_W,(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL),TSL2561_CONTROL_POWEROFF,A1,A2); // disable
+    return res;
+}
 
   volatile long lvv;// luminous
   volatile word lasttouch,ltp;
@@ -1891,15 +1940,27 @@ if((it&0xFF)==0) // 1 из 256
   if(!Check_RTC(16)){ERR=WHERE_IS_THE_CLOCK;} 
   else
   {
-    if(TFT_IS_ON) {CS=Read_I2C(DS1307_ADDR_W,0); if(CS!=PS){PS=CS; TFT_IS_ON--; if(!TFT_IS_ON){TFT_OFF;}}}// если дисплей включен то проверим не пора ли его выключить
+    //    if(Read_I2C(DS1307_ADDR_W,0)!=2) {  Save_I2C(DS1307_ADDR_W,2,0x02);  Save_I2C(DS1307_ADDR_W,1,0x11);   Save_I2C(DS1307_ADDR_W,0,0x00);  }//set time
+    if(TFT_IS_ON) {CS=Read_I2C(DS1307_ADDR_W,0,A4,A5); if(CS!=PS){PS=CS; TFT_IS_ON--; if(!TFT_IS_ON){TFT_OFF;}}}// если дисплей включен то проверим не пора ли его выключить
     else {ltp=lasttouch;lasttouch=TouchSensor(); if (lasttouch>0x115){TFT_ON(25);InitTFT();}}
-    HR=Read_I2C(DS1307_ADDR_W,2);
+    HR=Read_I2C(DS1307_ADDR_W,2,A4,A5);
     if(HR>=0x20){HR-=12;}else if(HR>=0x10){HR-=6;} //  читаем текущий час и конветируем из упакованного BCD
     if(HR>23) {ERR=STRANGE_CLOCK_DATA; } // не пойми что с часов пришло
     else{ FlashDuration=Intensity[HR]; } 
   }
   RTC_OFF(DDRC,PORTC,4,5);  // переводим лапки часиков в высокоомное состояние 
   rtcl=TCNT1;
+  
+  RTC_ON(DDRC,1,2);
+  if(!Check_TSL(16)){ERR=WHERE_IS_THE_TSL2561;} 
+
+TSL2561_START(TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_16X);//
+delay(14);
+lvv=TSL2561_STOP();
+
+
+  RTC_OFF(DDRC,PORTC,1,2);
+  
 }
 
 // если есть ошибки
@@ -1956,12 +2017,10 @@ word ttt=TCNT1;
 tn(10000,it);ta("LV:");lh(lvv);//t3(val);th('A');th(vv);th(v2);
 ta(" b:");tn(10000,ttt);wh(ttt);
 
+  setAddrWindow(20,0,27,127);
+  ta("Сон:"); tn(1000,fnt);  ta(" Пых:");tn(100,FlashDuration);ta("E");th(ERR);
 
-  setAddrWindow(0,0,7,119);
-  ta("f:"); tn(10000,fnt);  ta(" l:");tn(10000,lnt);
-
-  setAddrWindow(142,0,149,127);
-  tn(100000000,123456789);
+//  setAddrWindow(142,0,149,127);  tn(100000000,123456789);
 
   setAddrWindow(152,0,159,127);
 
@@ -2017,7 +2076,7 @@ long lm;
   word ir, full,lx;
   ir = lm >> 16;
   full = lm & 0xFFFF;
-  setAddrWindow(9,0,16,127);
+  setAddrWindow(40,03,47,127);
   //ta("I");th((ir>>8));th((ir&0xFF));
 //  ta(" F");th((full>>8));th((full&0xFF));
 //  ta(" V");th(((full-ir)>>8));th(((full-ir)&0xFF));

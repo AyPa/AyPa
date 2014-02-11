@@ -354,7 +354,7 @@ for(byte j=0;j<5;j++)  // display char
   }
   while (st[l]!=0);//same same
 
-  PORTD|=(1<<CE);// digitalWrite(CE,HIGH);    
+  Pin2HIGH(PORTD,1); // digitalWrite(CE,HIGH);    
 }
 
 void pushColor(byte r,byte g,byte b)
