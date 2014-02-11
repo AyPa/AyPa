@@ -411,71 +411,36 @@ for(byte j=0;j<3;j++)  // display digit
   Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
 }
 
+void dd(byte ch)
+{
+  byte c;
+  
+  for(byte j=0;j<24;j++)spiwrite(0x00);// 1st space
+  for(byte j=0;j<3;j++)  // display digit
+  {
+    c=pgm_read_byte(&(Dig[ch++]));
+    for(byte i=0;i<8;i++)
+    {
+      if(c&0x01){      spiwrite(0xFC);spiwrite(0xFC);spiwrite(0xFC);}
+      else{      spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);}
+      c=c>>1;
+    }
+  }
+}
 
-void t3(word v)
+void tn(long s, long v)
 {
   byte c,ch;
-  word vv=v;
-  
+  long vv=v;  
   
   Pin2HIGH(PORTD,4); 
   Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
   
-  ch=vv/100;
-  vv-=ch*100;
-  ch*=3;
-
-
-  for(byte j=0;j<24;j++)spiwrite(0x00);// 1st space
-
-for(byte j=0;j<3;j++)  // display digit
-{
-  c=pgm_read_byte(&(Dig[ch++]));
-  for(byte i=0;i<8;i++)
-  {
-    if(c&0x01){      spiwrite(0xFC);spiwrite(0xFC);spiwrite(0xFC);}
-    else{      spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);}
-    c=c>>1;
-  }
-}
-
-  ch=vv/10;
-  vv-=ch*10;
-  ch*=3;
-
-  for(byte j=0;j<24;j++)spiwrite(0x00);// 1st space
-
-//  spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);// 1st space
-
-for(byte j=0;j<3;j++)  // display digit
-{
-  byte c=pgm_read_byte(&(Dig[ch++]));
-  for(byte i=0;i<8;i++)
-  {
-    if(c&0x01){      spiwrite(0xFC);spiwrite(0xFC);spiwrite(0xFC);}
-    else{      spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);}
-    c=c>>1;
-  }
-}
-  
-    ch=vv*3;
-    for(byte j=0;j<24;j++)spiwrite(0x00);// 1st space
-
-//  spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);// 1st space
-  
-for(byte j=0;j<3;j++)  // display digit
-{
-  byte c=pgm_read_byte(&(Dig[ch++]));
-  for(byte i=0;i<8;i++)
-  {
-    if(c&0x01){      spiwrite(0xFC);spiwrite(0xFC);spiwrite(0xFC);}
-    else{      spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);}
-    c=c>>1;
-  }
-}
-  
+  for(long n=s;n>0;n/=10){ch=vv/n;vv-=ch*n;dd(ch+ch+ch);}
+    
   Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
 }
+
 
 void lh(long v)
 {

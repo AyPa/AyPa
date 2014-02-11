@@ -655,6 +655,7 @@ byte ERR=0; // ошибки
 byte TFT_IS_ON=0;
 byte CS; // текущая секунда
 byte PS=0xFF; // предыдущая секунда
+byte PH=0xFF; // предыдущий час
 byte HR; // текущий час (0..23)
 // интенсивность/продолжительность пыхи в микросекундах 0..255
 byte Intensity[24] ={0,0,0,0,0,0, 5,6,7,8,9,10, 11,11,11,11,11,11, 10,9,8,7,6,5};
@@ -2260,17 +2261,9 @@ void ShowBars(byte hr)
 
   for(byte k=0;k<gg;k++)
   {
-
-//      r=((10+j)<<2);    g=((60+j)<<2);      b=((40+j)<<2);
-    
-//      r=(i<<2);
-  //    g=(i<<3);
-    //  b=(i<<4);
-    
       spiwrite(r);
       spiwrite(g);
       spiwrite(b);
-
   }  
            
     }
@@ -2374,19 +2367,26 @@ _writeRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_
 
 //TFT_ON(3); 
 
-ShowBars(HR);
+// 28ms!!! draw them only once in an hour
+TCNT1=0;
+if(HR!=PH){ShowBars(HR); PH=HR;}
+word ttt=TCNT1;
 
   setAddrWindow(60,0,67,127);
-wh(it);ta("LV:");lh(lvv);//t3(val);th('A');th(vv);th(v2);
+tn(10000,it);ta("LV:");lh(lvv);//t3(val);th('A');th(vv);th(v2);
+ta(" b:");tn(10000,ttt);wh(ttt);
 
 
   setAddrWindow(0,0,7,119);
-  ta("f:");wh(fnt);  ta(" l:");wh(lnt);
+  ta("f:"); tn(10000,fnt);  ta(" l:");tn(10000,lnt);
+
+  setAddrWindow(142,0,149,127);
+  tn(100000000,123456789);
 
   setAddrWindow(152,0,159,127);
 
 //th(tstr[2]);ta(":");th(tstr[1]);ta(".");th(tstr[0]);ta(" ");th(tstr[4]);ta("-");th(tstr[5]);ta("-");th(tstr[6]);ta(" ");
-t3(HR);ta(" ");th(FlashDuration);th(TFT_IS_ON);ta(" lt:");wh(lasttouch);ta(" ");wh(ltp);ta(" l:");wh(rtcl);
+tn(10,HR);ta(" ");th(FlashDuration);th(TFT_IS_ON);ta(" lt");wh(lasttouch);ta(" ");wh(ltp);ta(" l:");wh(rtcl);
 
 //long lm;
 //TSL2561
