@@ -658,7 +658,7 @@ byte PS=0xFF; // предыдущая секунда
 byte HR; // текущий час (0..23)
 // интенсивность/продолжительность пыхи в микросекундах 0..255
 byte Intensity[24] ={0,0,0,0,0,0, 5,6,7,8,9,10, 11,11,11,11,11,11, 10,9,8,7,6,5};
-byte CurrentIntensity=0;
+byte FlashDuration=0;
 
 
 
@@ -2187,6 +2187,8 @@ void rtcpoke2(byte reg,byte val)
   }
 */
 
+
+
 /*
 uint8_t DS1307::_readRegister(uint8_t reg)
 {
@@ -2206,13 +2208,86 @@ uint8_t DS1307::_readRegister(uint8_t reg)
 }
 */
 
+//byte bcolours[3][18]={0x}
+
+void ShowBars(byte hr)
+{
+  byte r,g,b,gg,m=0;
+
+//  setAddrWindow(70,4,77,123);
+  //ta("hr:");t3(hr);
+
+  
+  for(byte i=0;i<24;i++){if(Intensity[i]>m){m=Intensity[i];}}
+  
+  // m max=11
+  //16
+  // *15/m
+  
+  // gradient background
+  setAddrWindow(30,4,45,123);
+
+  Pin2HIGH(PORTD,4); 
+  Pin2LOW(PORTD,1);
+
+  for(byte j=0;j<120;j++)
+  {  
+  for(byte i=16;i>0;i--)
+  {
+      r=(i<<4);    g=(i<<3);      b=(i<<4);
+  
+      spiwrite(r);
+      spiwrite(g);
+      spiwrite(b);
+    }
+  }
+  Pin2HIGH(PORTD,1);
+
+  // bars
+  for(byte i=0;i<24;i++)
+  {
+    gg=(word (Intensity[i]+1)*13)/m;
+
+    if(i!=hr){r=0x8c;g=0xac;b=0x8c;}else{r=0x8c;g=0xfc;b=0x4c;}
+    
+    setAddrWindow(30+16-gg,4+i*5,45,4+i*5+4);
+
+  Pin2HIGH(PORTD,4); 
+  Pin2LOW(PORTD,1);
+
+  for(byte j=0;j<4;j++)
+  {
+
+  for(byte k=0;k<gg;k++)
+  {
+
+//      r=((10+j)<<2);    g=((60+j)<<2);      b=((40+j)<<2);
+    
+//      r=(i<<2);
+  //    g=(i<<3);
+    //  b=(i<<4);
+    
+      spiwrite(r);
+      spiwrite(g);
+      spiwrite(b);
+
+  }  
+           
+    }
+  Pin2HIGH(PORTD,1);
+  }
+  
+  
+}
+
+
   volatile long lvv;// luminous
   volatile word lasttouch,ltp;
 
 // the loop routine runs over and over again forever:
 void loop() {
   word t,t1,n;
-  word Temp;
+  word Temp,rtcl;
   char tmps[32];
   
   
@@ -2244,13 +2319,14 @@ if((it&0xFF)==0) // 1 из 256
   else
   {
     if(TFT_IS_ON) {CS=Read_I2C(DS1307_ADDR_W,0); if(CS!=PS){PS=CS; TFT_IS_ON--; if(!TFT_IS_ON){TFT_OFF;}}}// если дисплей включен то проверим не пора ли его выключить
-    else {ltp=lasttouch;lasttouch=TouchSensor(); if (lasttouch>0x115){TFT_ON(9);InitTFT();}}
+    else {ltp=lasttouch;lasttouch=TouchSensor(); if (lasttouch>0x115){TFT_ON(25);InitTFT();}}
     HR=Read_I2C(DS1307_ADDR_W,2);
-    if(HR>0x20){HR-=12;}else if(HR>0x10){HR-=6;} //  читаем текущий час и конветируем из упакованного BCD
+    if(HR>=0x20){HR-=12;}else if(HR>=0x10){HR-=6;} //  читаем текущий час и конветируем из упакованного BCD
     if(HR>23) {ERR=STRANGE_CLOCK_DATA; } // не пойми что с часов пришло
-    else{ CurrentIntensity=Intensity[HR]; } 
+    else{ FlashDuration=Intensity[HR]; } 
   }
   RTC_OFF(DDRC,PORTC,4,5);  // переводим лапки часиков в высокоомное состояние 
+  rtcl=TCNT1;
 }
 
 // если есть ошибки
@@ -2259,7 +2335,7 @@ if (ERR)
   
 }
 
-//  if(!CurrentIntensity){unap();continue;} // определяем продолжительность пыхи в данном часе и спим 8s если нечего делать
+//  if(!FlashDuration){unap();continue;} // определяем продолжительность пыхи в данном часе и спим 8s если нечего делать
 
 if(((it&0x3FF)==0)&&TFT_IS_ON)// once in 1k
 {
@@ -2298,7 +2374,7 @@ _writeRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_
 
 //TFT_ON(3); 
 
-
+ShowBars(HR);
 
   setAddrWindow(60,0,67,127);
 wh(it);ta("LV:");lh(lvv);//t3(val);th('A');th(vv);th(v2);
@@ -2310,7 +2386,7 @@ wh(it);ta("LV:");lh(lvv);//t3(val);th('A');th(vv);th(v2);
   setAddrWindow(152,0,159,127);
 
 //th(tstr[2]);ta(":");th(tstr[1]);ta(".");th(tstr[0]);ta(" ");th(tstr[4]);ta("-");th(tstr[5]);ta("-");th(tstr[6]);ta(" ");
-ta("HR:");t3(HR);ta(" ");th(CurrentIntensity);th(TFT_IS_ON);ta(" lt:");wh(lasttouch);ta(" ");wh(ltp);
+t3(HR);ta(" ");th(FlashDuration);th(TFT_IS_ON);ta(" lt:");wh(lasttouch);ta(" ");wh(ltp);ta(" l:");wh(rtcl);
 
 //long lm;
 //TSL2561
@@ -2384,14 +2460,10 @@ long lm;
   //  t=0;  
 
   //once in 65536
-  if(it==0xFFFF){flashes++;
-
-//    t=Vcc();    // measure with ADC inner voltage
-
-}
+  if(it==0xFFFF){flashes++;}
 
 
-if(CurrentIntensity){Flash(8,CurrentIntensity);} // пыхнем
+if(FlashDuration){Flash(8,FlashDuration);} // пыхнем
 
   
   //
