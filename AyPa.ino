@@ -220,6 +220,19 @@ word TouchSensor(void)
       return cycles;
 }
 
+
+word TouchD[4];
+byte TouchPos=0;
+word Etouch;
+word TouchT(void)
+{
+  word res=0;
+  
+  for(byte i=0;i<4;i++){ res+= TouchD[i]; }
+  res=res+(res>>4); // среднее+ 1/16
+  return (res>>2);
+}
+
 //#define DS1307_I2C_ADDRESS 0x68 // read and write address is different for DS1307 
 
 // use TSL2561_ADDR_LOW (0x29) or TSL2561_ADDR_HIGH (0x49) respectively TSL2561_ADDR_FLOAT)
@@ -240,15 +253,17 @@ byte PS=0xFF; // предыдущая секунда
 byte PH=0xFF; // предыдущий час
 byte HR; // текущий час (0..23)
 // интенсивность/продолжительность пыхи в микросекундах 0..255
-byte Intensity[24] ={0,0,0,0,0,0, 5,6,7,8,9,10, 11,11,11,11,11,11, 10,9,8,7,6,5};
+//byte mi=25; 
+byte mi=0;// максимальная интенсивность или 16 если меньше 
+byte Intensity[24] = {0,0,0,0,0,0, 3,5,7,9,12,14, 15,16,16,16,15,14, 12,9,7,5,3,0};
 byte FlashDuration=0;
 
 
 
-byte pp[10]={
-  5,5,5,5,5,5,5,5,5,5}; //port
-byte pb[10]={
-  1,0,0,0,0,0,0,0,0,0}; // bit in port
+//byte pp[10]={
+//  5,5,5,5,5,5,5,5,5,5}; //port
+//byte pb[10]={
+//  1,0,0,0,0,0,0,0,0,0}; // bit in port
 // the setup routine runs once when you press reset:
 byte v;
 byte   extreset;
@@ -274,6 +289,8 @@ void setup() {
   // TIMSK1 |= (1 << OCIE1A);// no interrupts just counting 1 tick is 1 microsecond
   sei();
 
+for(byte i=0;i<24;i++){if(mi<Intensity[i]){mi=Intensity[i];}} if(mi<16){mi=16;}// множитель для столбиков
+for(byte i=0;i<4;i++){TouchD[i]=TouchSensor();} // calibrate touch sensor
 
 
 //word vvv;
@@ -336,12 +353,12 @@ Wire.begin();
 
 
 
-    Pin2Output(DDRB,pb[0]);
+  /*  Pin2Output(DDRB,pb[0]);
     if(v==1)
     {
 
     }// if 1
-   
+   */
     
 
     __asm__ __volatile__ ("nop\n\t");
@@ -1818,13 +1835,13 @@ void NiceBack(byte x1,byte y1,byte x2,byte y2)
 
 void ShowBars(byte hr)
 {
-  byte r,g,b,gg,m=0;
+  byte r,g,b,gg;
 
 //  setAddrWindow(70,4,77,123);
   //ta("hr:");t3(hr);
 
   
-  for(byte i=0;i<24;i++){if(Intensity[i]>m){m=Intensity[i];}}// find max intensity
+
   
   // m max=11
   //16
@@ -1856,7 +1873,7 @@ NiceBack(0,0,127,15);
   // bars
   for(byte i=0;i<24;i++)
   {
-    gg=(word (Intensity[i]+1)*13)/m;
+    gg=(Intensity[i]*14)/mi;if(!gg){gg=1;}
 
     if(i!=hr){r=0x8c;g=0xac;b=0x8c;}else{r=0x8c;g=0xfc;b=0x4c;}
     
@@ -1903,6 +1920,7 @@ long  TSL2561_STOP(void)
     return res;
 }
 
+
   volatile long lvv;// luminous
   volatile word lasttouch,ltp;
 
@@ -1941,8 +1959,9 @@ if((it&0xFF)==0) // 1 из 256
   else
   {
     //    if(Read_I2C(DS1307_ADDR_W,0)!=2) {  Save_I2C(DS1307_ADDR_W,2,0x02);  Save_I2C(DS1307_ADDR_W,1,0x11);   Save_I2C(DS1307_ADDR_W,0,0x00);  }//set time
-    if(TFT_IS_ON) {CS=Read_I2C(DS1307_ADDR_W,0,A4,A5); if(CS!=PS){PS=CS; TFT_IS_ON--; if(!TFT_IS_ON){TFT_OFF;}}}// если дисплей включен то проверим не пора ли его выключить
-    else {ltp=lasttouch;lasttouch=TouchSensor(); if (lasttouch>0x115){TFT_ON(25);InitTFT();}}
+    if(TFT_IS_ON) {CS=Read_I2C(DS1307_ADDR_W,0,A4,A5); if(CS!=PS){PS=CS; if(--TFT_IS_ON==0){TFT_OFF;}}}// если дисплей включен то проверим не пора ли его выключить
+    else {ltp=lasttouch;lasttouch=TouchSensor();Etouch=TouchT(); if (lasttouch>Etouch){TFT_ON(25);InitTFT();} else{TouchD[TouchPos]=lasttouch;(++TouchPos)&=3;}}
+  
     HR=Read_I2C(DS1307_ADDR_W,2,A4,A5);
     if(HR>=0x20){HR-=12;}else if(HR>=0x10){HR-=6;} //  читаем текущий час и конветируем из упакованного BCD
     if(HR>23) {ERR=STRANGE_CLOCK_DATA; } // не пойми что с часов пришло
@@ -2018,10 +2037,16 @@ tn(10000,it);ta("LV:");lh(lvv);//t3(val);th('A');th(vv);th(v2);
 ta(" b:");tn(10000,ttt);wh(ttt);
 
   setAddrWindow(20,0,27,127);
-  ta("Сон:"); tn(1000,fnt);  ta(" Пых:");tn(100,FlashDuration);ta("E");th(ERR);
+  ta("Сон"); tn(1000,fnt);  ta(" Пых");tn(100,FlashDuration);ta(" E");th(ERR);ta(" T");wh(Etouch);
 
 //  setAddrWindow(142,0,149,127);  tn(100000000,123456789);
+/*
+setAddrWindow(142,0,149,127);  
 
+for(byte e=0;e<4;e++){wh(TouchD[e]);}
+
+ta(" mi");tn(10,mi);
+*/
   setAddrWindow(152,0,159,127);
 
 //th(tstr[2]);ta(":");th(tstr[1]);ta(".");th(tstr[0]);ta(" ");th(tstr[4]);ta("-");th(tstr[5]);ta("-");th(tstr[6]);ta(" ");
