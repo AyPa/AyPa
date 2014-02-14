@@ -2,6 +2,8 @@
 #define TSL2561_ADDR_LOW_W 82
 #define TSL2561_ADDR_LOW_R  83 //(0x29<<1)+1
 
+
+
 #define TSL2561_READBIT           (0x01)
 #define TSL2561_COMMAND_BIT       (0x80)    // Must be 1
 #define TSL2561_CLEAR_BIT         (0x40)    // Clears any pending interrupt (write 1 to clear)
@@ -158,6 +160,7 @@ void writeRegister(uint8_t reg, uint8_t value,byte sda,byte scl)
 	sendStop(sda,scl);
 }
 
+/*
 void _writeRegisterT(uint8_t reg, uint8_t value,byte sda,byte scl)
 {
 	sendStart(TSL2561_ADDR_LOW_W,sda,scl);
@@ -184,7 +187,7 @@ uint8_t _readRegisterT(uint8_t reg,byte sda,byte scl)
 	sendNack(sda,scl);
 	sendStop(sda,scl);
 	return readValue;
-}
+}*/
 
 /*
 uint16_t _readRegister16(uint8_t reg)// not tested
@@ -388,5 +391,32 @@ uint8_t peek2(uint8_t addr)
 //	}
 //	else
 //		return 0;
+}
+
+//TSL2561_START(TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_16X);//delay(14);//res=TSL2561_STOP();
+void  TSL2561_START(byte val)
+{
+  Save_I2C(TSL2561_ADDR_LOW_W,(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL),TSL2561_CONTROL_POWERON,A4,A5); // enable
+  Save_I2C(TSL2561_ADDR_LOW_W,(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING),val,A4,A5);   // set gain and integration time
+}
+
+long  TSL2561_STOP(void)
+{
+    long res;
+    res=Read_I2C(TSL2561_ADDR_LOW_W,(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN1_HIGH),A4,A5);
+    res <<= 8;
+    res|=Read_I2C(TSL2561_ADDR_LOW_W,(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN1_LOW),A4,A5);
+    res <<= 8;
+    res|=Read_I2C(TSL2561_ADDR_LOW_W,(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN0_HIGH),A4,A5);
+    res <<= 8;
+    res|=Read_I2C(TSL2561_ADDR_LOW_W,(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN0_LOW),A4,A5);
+
+
+//res=Read_I2C(TSL2561_ADDR_LOW_W,TSL2561_REGISTER_ID ,A1,A2);// 09
+//res=Read_I2C(TSL2561_ADDR_LOW_W,TSL2561_COMMAND_BIT | TSL2561_REGISTER_ID ,A1,A2); // 0x11
+
+//    if (Read_I2C(TSL2561_ADDR_LOW_W,TSL2561_REGISTER_ID ,A1,A2)!=0x0A){ res=0; }  // дополнительная проверка
+    Save_I2C(TSL2561_ADDR_LOW_W,(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL),TSL2561_CONTROL_POWEROFF,A4,A5); // disable
+    return res;
 }
 
