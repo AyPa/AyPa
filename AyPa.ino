@@ -179,9 +179,9 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 #define tCLK 13
 */
 //tpic6a595
-#define DATAPIN 9
-#define CLOCKPIN 8
-#define LATCHPIN 6
+//#define DATAPIN 9
+//#define CLOCKPIN 8
+//#define LATCHPIN 6
 
 //
 //    Pin2Output(DDRD,1);Pin2LOW(PORTD,1); \ 
@@ -193,24 +193,28 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 #define ERR_BROKEN_SLEEP              0b00001000;
 byte ERR=0; // ошибки
 
+byte TFT_IS_ON=0;
 
-#define TFT_ON(duration){TFT_IS_ON=duration;\
-Pin2Output(DDRD,6);Pin2HIGH(PORTD,6); \
-Pin2Output(DDRB,7); Pin2HIGH(PORTB,7); \
-    Pin2Output(DDRD,4);Pin2LOW(PORTD,4); \ 
-    Pin2Output(DDRB,2);Pin2HIGH(PORTB,2); \ 
-    Pin2Output(DDRB,3);Pin2LOW(PORTB,3); \ 
-    Pin2Input(DDRB,4);Pin2LOW(PORTB,4); \ 
-    Pin2Output(DDRB,5);Pin2LOW(PORTB,5);} // включаем питание  дисплея
+void TFT_ON(byte duration){TFT_IS_ON=duration;
+Pin2Output(DDRD,6);Pin2HIGH(PORTD,6); 
+Pin2Output(DDRB,7); Pin2HIGH(PORTB,7); 
+    Pin2Output(DDRD,4);Pin2LOW(PORTD,4); 
+    Pin2Output(DDRB,2);Pin2HIGH(PORTB,2); // SS(SPI)
+    Pin2Output(DDRB,3);Pin2LOW(PORTB,3); 
+    Pin2Input(DDRB,4);Pin2LOW(PORTB,4); 
+    Pin2Output(DDRB,5);Pin2LOW(PORTB,5);
+delay(5); // time for power pin to stabilize  
+} // включаем питание  дисплея
     
-#define TFT_OFF{ TFT_IS_ON=0; writecommand(ST7735_SLPIN); \
-Pin2LOW(PORTD,6);Pin2Input(DDRD,6);\
-Pin2LOW(PORTB,7); Pin2Input(DDRB,7); \
-    Pin2LOW(PORTD,4); Pin2Input(DDRD,4); \
-    Pin2LOW(PORTB,2); Pin2Input(DDRB,2); \
-    Pin2LOW(PORTB,3); Pin2Input(DDRB,3); \
-    Pin2LOW(PORTB,4); Pin2Input(DDRB,4); \
-    Pin2LOW(PORTB,5); Pin2Input(DDRB,5);}// вЫключаем питание  дисплея
+void TFT_OFF(void){ TFT_IS_ON=0; writecommand(ST7735_SLPIN); 
+    Pin2LOW(PORTD,4); Pin2Input(DDRD,4); 
+    Pin2LOW(PORTB,2); Pin2Input(DDRB,2); 
+    Pin2LOW(PORTB,3); Pin2Input(DDRB,3); 
+    Pin2LOW(PORTB,4); Pin2Input(DDRB,4); 
+    Pin2LOW(PORTD,6);Pin2Input(DDRD,6);
+    Pin2LOW(PORTB,7); Pin2Input(DDRB,7); 
+    Pin2LOW(PORTB,5); Pin2Input(DDRB,5);
+}// вЫключаем питание  дисплея
 
 #define I2C_ON(DRC,p1,p2) {Pin2Output(DRC,p1);Pin2Output(DRC,p2);}
 #define I2C_OFF(DRC,PORT,p1,p2) {Pin2Input(DRC,p1);Pin2LOW(PORT,p1);Pin2Input(DRC,p2);Pin2LOW(PORT,p2);}
@@ -258,7 +262,6 @@ word TouchT(void)
   char tstr[7];// строка даты и времени
 
 
-byte TFT_IS_ON=0;
 byte CS; // текущая секунда
 byte PS=0xFF; // предыдущая секунда
 byte PH=0xFF; // предыдущий час
@@ -307,8 +310,10 @@ for(byte i=0;i<4;i++){TouchD[i]=TouchSensor();} // calibrate touch sensor
 
 
 Pin2Output(DDRD,6);Pin2HIGH(PORTD,6); 
+Pin2Output(DDRB,7);Pin2HIGH(PORTB,7); 
 delay(2000);
 Pin2LOW(PORTD,6);Pin2Input(DDRD,6);
+Pin2LOW(PORTB,7);Pin2Input(DDRB,7);
 delay(2000);
 
 
@@ -522,9 +527,9 @@ Pin2Output(DDRD,7); // pin 7 SRCLR
 
 
 
-  pinMode(DATAPIN,OUTPUT);
-  pinMode(CLOCKPIN,OUTPUT);
-  pinMode(LATCHPIN,OUTPUT);
+//  pinMode(DATAPIN,OUTPUT);
+//  pinMode(CLOCKPIN,OUTPUT);
+//  pinMode(LATCHPIN,OUTPUT);
 
 
 
@@ -1270,8 +1275,8 @@ long FlashM(byte lamps,byte Duration, byte cmd)// измерение интен�
     {
         Pin2HIGH(PORTB,0);Pin2LOW(PORTB,0); // clock pulse 
         Pin2LOW(PORTB,1); // next are zeroes
-        Pin2HIGH(PORTD,6);//digitalWrite(LATCHPIN,HIGH);
-        Pin2LOW(PORTD,6);//digitalWrite(LATCHPIN,LOW);
+//        Pin2HIGH(PORTD,6);//digitalWrite(LATCHPIN,HIGH);
+//        Pin2LOW(PORTD,6);//digitalWrite(LATCHPIN,LOW);
   
          cli();
          TCNT1=0;
@@ -1298,8 +1303,8 @@ void FlashZ(byte lamps,byte Duration)
     {
         Pin2HIGH(PORTB,0);Pin2LOW(PORTB,0); // clock pulse 
         Pin2LOW(PORTB,1); // next are zeroes
-        Pin2HIGH(PORTD,6);//digitalWrite(LATCHPIN,HIGH);
-        Pin2LOW(PORTD,6);//digitalWrite(LATCHPIN,LOW);
+//        Pin2HIGH(PORTD,6);//digitalWrite(LATCHPIN,HIGH);
+  //      Pin2LOW(PORTD,6);//digitalWrite(LATCHPIN,LOW);
   
          cli();
          TCNT2=0;
@@ -1340,9 +1345,9 @@ for(byte z=0;z<lamps;z++)// serie of flashes
   Pin2LOW(PORTB,1); // next 7 are zeroes
 //  delayMicroseconds(2);
 // latch
-  Pin2HIGH(PORTD,6);//digitalWrite(LATCHPIN,HIGH);
+//  Pin2HIGH(PORTD,6);//digitalWrite(LATCHPIN,HIGH);
 //  delayMicroseconds(2);
-  Pin2LOW(PORTD,6);//digitalWrite(LATCHPIN,LOW);
+//  Pin2LOW(PORTD,6);//digitalWrite(LATCHPIN,LOW);
 //  delayMicroseconds(2);
   
 //  if((it==0x0200)&&(z==0)){SetADC(0,14,100);}
@@ -1740,9 +1745,9 @@ Pin2Output(DDRD,5); // pin 5 G
 //Pin2Output(DDRD,6); // pin 6 LATCH
 Pin2Output(DDRD,7); // pin 7 SRCLR
 
-  pinMode(DATAPIN,OUTPUT);
-  pinMode(CLOCKPIN,OUTPUT);
-  pinMode(LATCHPIN,OUTPUT);
+//  pinMode(DATAPIN,OUTPUT);
+//  pinMode(CLOCKPIN,OUTPUT);
+//  pinMode(LATCHPIN,OUTPUT);
 
 
   
@@ -2080,8 +2085,8 @@ if((it&0xFF)==0) // 1 из 256
   else
   {
 //    if(Read_I2C(DS1307_ADDR_W,2,A1,A2)!=0x15) {Save_I2C(DS1307_ADDR_W,2,0x15,A1,A2);Save_I2C(DS1307_ADDR_W,1,0x57,A1,A2);Save_I2C(DS1307_ADDR_W,0,0x00,A1,A2);}//set time
-    if(TFT_IS_ON) {CS=Read_I2C(DS1307_ADDR_W,0,A1,A2); if(CS!=PS){PS=CS; if(--TFT_IS_ON==0){TFT_OFF;}}}// если дисплей включен то проверим не пора ли его выключить
-    else {ltp=lasttouch;lasttouch=TouchSensor();Etouch=TouchT(); if (lasttouch>Etouch){TFT_ON(25);InitTFT();} else{TouchD[TouchPos]=lasttouch;(++TouchPos)&=3;}}
+    if(TFT_IS_ON) {CS=Read_I2C(DS1307_ADDR_W,0,A1,A2); if(CS!=PS){PS=CS; if(--TFT_IS_ON==0){TFT_OFF();}}}// если дисплей включен то проверим не пора ли его выключить
+    else {ltp=lasttouch;lasttouch=TouchSensor();Etouch=TouchT(); if (lasttouch>Etouch){TFT_ON(15);InitTFT();} else{TouchD[TouchPos]=lasttouch;(++TouchPos)&=3;}}
   
     HR=Read_I2C(DS1307_ADDR_W,2,A1,A2);
     if(HR>=0x20){HR-=12;}else if(HR>=0x10){HR-=6;} //  читаем текущий час и конветируем из упакованного BCD
@@ -2131,10 +2136,9 @@ if (ERR)
 {
 
     I2C_ON(DDRC,1,2);
-  Pin2Output(DDRD,6);Pin2HIGH(PORTD,6);
 
   
-  TFT_ON(2);
+  TFT_ON(3);
   
   InitTFT();   // initialize a ST7735S chip, black tab
 
@@ -2150,11 +2154,10 @@ fillScreen(0x000000);
 //  ta("cycles:");tn(10000,cycles);
 
 delay(2000);
-TFT_OFF;
+TFT_OFF();
 
   I2C_OFF(DDRC,PORTC,1,2);  // переводим лапки часиков в высокоомное состояние 
 
-Pin2LOW(PORTD,6);Pin2Input(DDRD,6);
 continue;
 }
 
@@ -2289,7 +2292,9 @@ tn(10,HR);ta(" ");th(FlashDuration);th(TFT_IS_ON);ta(" lt");wh(lasttouch);ta(" "
 if(FlashDuration)
 {
 //    Flash(8,FlashDuration);
-    Flash(16,FlashDuration);
+
+//    Flash(16,FlashDuration);
+
 //    Flash(9,FlashDuration);
 /*    
 //  if(it==1000){lmv=FlashM(8,FlashDuration);}// измерение 0x0D пых=12us
@@ -2598,9 +2603,9 @@ Pin2Output(DDRD,7); // pin 7 SRCLR
 
 
 
-  pinMode(DATAPIN,OUTPUT);
-  pinMode(CLOCKPIN,OUTPUT);
-  pinMode(LATCHPIN,OUTPUT);
+//  pinMode(DATAPIN,OUTPUT);
+//  pinMode(CLOCKPIN,OUTPUT);
+//  pinMode(LATCHPIN,OUTPUT);
 
 //NOP;
 it++;

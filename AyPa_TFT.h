@@ -267,18 +267,22 @@ word colstart,rowstart;
 void commonInit(const uint8_t *cmdList) {
   colstart  = rowstart = 0; // May be overridden in init func
 
-  pinMode(dc, OUTPUT);
-  pinMode(cs, OUTPUT);
-    pinMode(sclk, OUTPUT);
-    pinMode(mosi , OUTPUT);
-      digitalWrite(sclk,LOW);
-        digitalWrite(mosi,LOW);
+//  pinMode(dc, OUTPUT);
+//  pinMode(cs, OUTPUT);
+//    pinMode(sclk, OUTPUT);
+//    pinMode(mosi , OUTPUT);
+
+Pin2LOW(PORTB,5);//        digitalWrite(mosi,LOW);
+Pin2LOW(PORTB,3);//      digitalWrite(sclk,LOW);
+
+
 
   SPSR = (1 << SPI2X);//max speed
 //  SPSR = (0 << SPI2X);//max speed/2
   SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
 
   // toggle RST low to reset; CS low so it'll listen to us
+
 
   digitalWrite(cs,LOW);
   if (rst) {
