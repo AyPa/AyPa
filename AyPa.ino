@@ -1901,7 +1901,7 @@ word SleepTime(void)
     WDsleep=1;// notify WD that we are sleeping (to avoid reboot)
     __asm__ __volatile__("wdr\n\t");//  wdt_reset(); // to avoid WD fire first
     fastnap();
-    if (pin2_interrupt_flag){res=cnt1;}else{ ERR=ERR_BROKEN_SLEEP; }
+    if (pin2_interrupt_flag){res=cnt1;}else { ERR=ERR_BROKEN_SLEEP; }
     return res;
 }
 
