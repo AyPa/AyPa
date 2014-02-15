@@ -308,14 +308,14 @@ void setup() {
 for(byte i=0;i<24;i++){if(mi<Intensity[i]){mi=Intensity[i];}} if(mi<16){mi=16;}// множитель для столбиков
 for(byte i=0;i<4;i++){TouchD[i]=TouchSensor();} // calibrate touch sensor
 
-
+/*
 Pin2Output(DDRD,6);Pin2HIGH(PORTD,6); 
 Pin2Output(DDRB,7);Pin2HIGH(PORTB,7); 
 delay(2000);
 Pin2LOW(PORTD,6);Pin2Input(DDRD,6);
 Pin2LOW(PORTB,7);Pin2Input(DDRB,7);
 delay(2000);
-
+*/
 
 //word vvv;
 
@@ -1568,14 +1568,14 @@ void pin2_isr()
 {
   cnt1=TCNT1;
   detachInterrupt(0);  //INT 0
-  sleep_disable();// a bit later
+//  sleep_disable();// a bit later
   pin2_interrupt_flag = 1;
 }
 void pin3_isr()
 {
   cnt1=TCNT1;
   detachInterrupt(1); //INT 1
-  sleep_disable();// a bit later
+//  sleep_disable();// a bit later
   pin3_interrupt_flag = 1;
 }
 
@@ -1755,188 +1755,30 @@ Pin2Output(DDRD,7); // pin 7 SRCLR
 }
 void fastnap(void)
 {
-//?????????????????
-
-//PORTC=0;
-//PORTB=0;
-//PORTD=0;
-//DDRB=0;// some needed pins are not put to output after wakeup
-//DDRD=0;
-//DDRC=0;// all pins as inputs and low (high impedance state)
-//PORTD=0b00000100; //except 2nd pin (INT0)
-
-
-     // cnt1=0;
-      //tc1=TCNT1;
-//        set_sleep_mode(SLEEP_MODE_PWR_DOWN);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
-//      set_sleep_mode (SLEEP_MODE_IDLE);//// in r24,0x33// andi r24,0xF1// out 0x33,r24
-
-//Pin2Output(DDRD,0);// sleep 2n7000 control
-//Pin2HIGH(PORTD,0);// switch ON sleep control mosfet
 
 Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// charge cap
-delayMicroseconds(2);
+//delayMicroseconds(2);
 
-//            WDhappen=0;
-        sleeps=0;
-      //  tim=TCNT1;
-    //  TCNT1=0;
+      WDhappen=0;
+      sleeps=0;
+      TCNT1=0;
       do{
-
             cli();
-      pin2_interrupt_flag=0;
-      sleep_enable();
-      attachInterrupt(0, pin2_isr, LOW);
+            pin2_interrupt_flag=0;
+            sleep_enable();
+            attachInterrupt(0, pin2_isr, LOW);
 
-      Pin2LOW(PORTD,2);Pin2Input(DDRD,2); // controlled charging (very impurtant set it 2 input (high impedance state))
-        sei();
-        sleep_cpu();
+            Pin2LOW(PORTD,2);Pin2Input(DDRD,2); // controlled charging (very impurtant set it 2 input (high impedance state))
+            sei();
+            sleep_cpu();
 //wake up here
-// check if it us or not
-        sleep_disable();
+            sleep_disable();
   //      if(pin3_interrupt_flag||WDhappen){break;}else{sleeps++;}
-        if(pin2_interrupt_flag||WDhappen){break;}else{sleeps++;} // WD is important in case  RC sleeper went off
-      }while(1);
-  
+            if(pin2_interrupt_flag||WDhappen){break;}else{sleeps++;} // WD is important in case  RC sleeper went off
+          }while(1);
 //  cli();t1111=TCNT1;sei();//atomic read
 }
 
-/*
-uint16_t read16(uint8_t reg)
-{
-  uint16_t x; uint16_t t;
-
-  Wire.beginTransmission(TSL2561_ADDR_LOW);
-  Wire.write(reg);
-  Wire.endTransmission();
-
-  Wire.requestFrom(TSL2561_ADDR_LOW, 2);
-  t = Wire.read();
-  x = Wire.read();
-  x <<= 8;
-  x |= t;
-  return x;
-}
-
-void write8(uint8_t reg, uint8_t value)
-{
-  Wire.beginTransmission(TSL2561_ADDR_LOW);
-  Wire.write(reg);
-  Wire.write(value);
-  Wire.endTransmission();
-}
-
-uint8_t read88(uint8_t reg)
-{
-  uint8_t x;
-
-  Wire.beginTransmission(DS1307_ADDR_W);
-  Wire.write(reg);
-  Wire.endTransmission();
-
-  Wire.requestFrom(DS1307_ADDR_R, 1);
-  x = Wire.read();
-  return x;
-}
-
-void write88(uint8_t reg, uint8_t value)
-{
-  Wire.beginTransmission(DS1307_ADDR_W);
-  Wire.write(reg);
-  Wire.write(value);
-  Wire.endTransmission();  
-}
-
-byte rtcpeek2(byte reg)
-{
-  byte bb;
-  Wire.begin();
-  bb=read88(8);
-  return bb;
-}
-
-void rtcpoke2(byte reg,byte val)
-{
-  Wire.begin();
-  write88(reg,val);
-}
-*/
-/*    
-
-  Wire.beginTransmission(TSL2561_ADDR_LOW);
-  Wire.write(TSL2561_REGISTER_ID);
-  Wire.endTransmission();
-  Wire.requestFrom(TSL2561_ADDR_LOW, 1);
-  int wirex = Wire.read();
-  if (wirex & 0x0A ) {//Found TSL2561"
-    
-    write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);  //  enable();
-  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  TSL2561_INTEGRATIONTIME_402MS |TSL2561_GAIN_16X);    //  // Set default integration time and gain
-
-  // Note: by default, the device is in power down mode on bootup
-  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF);  //  disable();
-  }
-*/
-
-/*
-uint16_t read16(uint8_t reg)
-{
-  uint16_t x; uint16_t t;
-
-  Wire.beginTransmission(TSL2561_ADDR_LOW);
-#if ARDUINO >= 100
-  Wire.write(reg);
-#else
-  Wire.send(reg);
-#endif
-  Wire.endTransmission();
-
-  Wire.requestFrom(TSL2561_ADDR_LOW, 2);
-#if ARDUINO >= 100
-  t = Wire.read();
-  x = Wire.read();
-#else
-  t = Wire.receive();
-  x = Wire.receive();
-#endif
-  x <<= 8;
-  x |= t;
-  return x;
-}
-
-
-
-void write8 (uint8_t reg, uint8_t value)
-{
-  Wire.beginTransmission(TSL2561_ADDR_LOW);
-#if ARDUINO >= 100
-  Wire.write(reg);
-  Wire.write(value);
-#else
-  Wire.send(reg);
-  Wire.send(value);
-#endif
-  Wire.endTransmission();
-}*/
-
-/*
-uint8_t DS1307::_readRegister(uint8_t reg)
-{
-	uint8_t	readValue=0;
-
-	_sendStart(DS1307_ADDR_W);
-	_waitForAck();
-	_writeByte(reg);
-	_waitForAck();
-	_sendStop();
-	_sendStart(DS1307_ADDR_R);
-	_waitForAck();
-	readValue = _readByte();
-	_sendNack();
-	_sendStop();
-	return readValue;
-}
-*/
 
 void NiceBack(byte x1,byte y1,byte x2,byte y2)
 {
@@ -1959,6 +1801,27 @@ void NiceBack(byte x1,byte y1,byte x2,byte y2)
     }
   }
   Pin2HIGH(PORTD,1);
+  
+  setAddrWindow(144,0,167,127);
+  
+  Pin2HIGH(PORTD,4); 
+  Pin2LOW(PORTD,1);
+
+  for(byte j=0;j<128;j++)
+  {  
+  for(byte i=0;i<16;i++)
+  {
+      r=(i<<4);    g=(i<<4);      b=(i<<2);
+  
+      spiwrite(r);
+      spiwrite(g);
+      spiwrite(b);
+    }
+  }
+  Pin2HIGH(PORTD,1);
+  
+//  fillRect(16,32,48,64,0);
+//  fillRect(0,16,128,96,0);
 
 }
 
@@ -1979,7 +1842,7 @@ void ShowBars(byte hr)
   
   // gradient background
 //  setAddrWindow(0,4,15,123);
-NiceBack(0,0,127,15);
+NiceBack(0,0,128,15);
 //NiceBack(0,16,127,31);
 /*
   setAddrWindow(0,0,15,127);
@@ -2034,11 +1897,11 @@ word SleepTime(void)
 {
     word res=0;
 
-    set_sleep_mode (SLEEP_MODE_IDLE);
+    set_sleep_mode(SLEEP_MODE_IDLE);
     WDsleep=1;// notify WD that we are sleeping (to avoid reboot)
-    TCNT1=0;
+    __asm__ __volatile__("wdr\n\t");//  wdt_reset(); // to avoid WD fire first
     fastnap();
-    if (pin2_interrupt_flag){res=TCNT1;}else{ ERR=ERR_BROKEN_SLEEP; }
+    if (pin2_interrupt_flag){res=cnt1;}else{ ERR=ERR_BROKEN_SLEEP; }
     return res;
 }
 
@@ -2153,12 +2016,13 @@ fillScreen(0x000000);
     ta("ER");th(ERR);ta(" RTC:");tn(10,rtc);th(rtc8);ta(" n");tn(10000,naptime);
 //  ta("cycles:");tn(10000,cycles);
 
-delay(2000);
+delay(2500);
 TFT_OFF();
 
   I2C_OFF(DDRC,PORTC,1,2);  // переводим лапки часиков в высокоомное состояние 
 
-continue;
+resetFunc();  // This will call location zero and cause a reboot.
+//continue;
 }
 
 //  if(!FlashDuration){unap();continue;} // определяем продолжительность пыхи в данном часе и спим 8s если нечего делать
@@ -2247,7 +2111,9 @@ _writeRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_
 
 // 33ms!!! draw them only once in an hour
 //TCNT1=0;
-if(HR!=PH){ShowBars(HR); PH=HR;}
+//if(HR!=PH){ShowBars(HR); PH=HR;}
+if(HR!=PH){PH=HR;}
+ShowBars(HR); // every time when display is ON
 //word ttt=TCNT1;
 
   setAddrWindow(60,0,67,127);
