@@ -1796,7 +1796,8 @@ word SleepTime(void)
 
   volatile long lvv,lmv,lm2;// luminous
   volatile long mlvv,mlmv,mlm2;// luminous
-  volatile word lasttouch,ltp;
+  volatile word lasttouch,ltp,CurrentTouch;
+  byte LongTouch=0;
 
 // the loop routine runs over and over again forever:
 void loop() {
@@ -1856,15 +1857,23 @@ if((it&0xFF)==0) // 1 из 256
   {
 //    if(Read_I2C(DS1307_ADDR_W,2,A1,A2)!=0x10) {Save_I2C(DS1307_ADDR_W,2,0x10,A1,A2);Save_I2C(DS1307_ADDR_W,1,0x57,A1,A2);Save_I2C(DS1307_ADDR_W,0,0x00,A1,A2);}//set time
 //            Save_I2C(DS1307_ADDR_W,2,0x12,A1,A2);Save_I2C(DS1307_ADDR_W,1,0x00,A1,A2);Save_I2C(DS1307_ADDR_W,0,0x00,A1,A2); } // set time 12:00:00 and reboot      
-    HR=Read_I2C(DS1307_ADDR_W,2,A1,A2); // before ShowBars
-    if(HR>=0x20){HR-=12;}else if(HR>=0x10){HR-=6;} //  читаем текущий час и конветируем из упакованного BCD
-    if(HR>23) {ERR=ERR_STRANGE_CLOCK_DATA; } // не пойми что с часов пришло
-    else{ FlashDuration=Intensity[HR]; if(HR!=PH){PH=HR;} } // новый час
+      HR=Read_I2C(DS1307_ADDR_W,2,A1,A2); // before ShowBars
+      if(HR>=0x20){HR-=12;}else if(HR>=0x10){HR-=6;} //  читаем текущий час и конветируем из упакованного BCD
+      if(HR>23) {ERR=ERR_STRANGE_CLOCK_DATA; } // не пойми что с часов пришло
+      else{ FlashDuration=Intensity[HR]; if(HR!=PH){PH=HR;} } // новый час
+      
+      CS=Read_I2C(DS1307_ADDR_W,0,A1,A2);if((now-oldnow)>2000){ERR=ERR_STOPPED_CLOCK;Save_I2C(DS1307_ADDR_W,0,CS,A1,A2);}// проверка на остановившиеся часы
+      if(CS!=PS)
+      {
+        PS=CS; // смена секунд
+        CurrentTouch=TouchSensor(); if (CurrentTouch>Etouch){LongTouch++;}else{LongTouch=0;}
+        if(TFT_IS_ON) { if(LongTouch<2){if(--TFT_IS_ON==0){TFT_OFF();}}}  // если дисплей включен то проверим не пора ли его выключить
+        else {ltp=lasttouch;lasttouch=CurrentTouch;Etouch=TouchT(); if (lasttouch>Etouch){TFT_ON(15);ShowBars(HR);}else{TouchD[((TouchPos++)&3)]=lasttouch;}}
+      }
+   }
+ 
 
-    CS=Read_I2C(DS1307_ADDR_W,0,A1,A2);if((now-oldnow)>2000){ERR=ERR_STOPPED_CLOCK;Save_I2C(DS1307_ADDR_W,0,CS,A1,A2);}// проверка на остановившиеся часы
-    if(TFT_IS_ON) {if(CS!=PS){PS=CS; if(--TFT_IS_ON==0){TFT_OFF();}}}  // если дисплей включен то проверим не пора ли его выключить
-    else {ltp=lasttouch;lasttouch=TouchSensor();Etouch=TouchT(); if (lasttouch>Etouch){TFT_ON(10);ShowBars(HR);}else{TouchD[((TouchPos++)&3)]=lasttouch;}}
-  }
+  
   RTC_OFF();  // переводим лапки часиков в высокоомное состояние  и отключаем питание
 //  rtcl=TCNT1;
   
@@ -1897,7 +1906,7 @@ if (ERR)
     setAddrWindow(0,0,7,119);
     byte rtc=Check_RTC(16);
     ta("ERR");th(ERR);ta(" RTC:");tn(10,rtc);th(rtc8);ta(" n");tn(10000,naptime);
-    setAddrWindow(10,01,7,119);
+    setAddrWindow(10,0,17,119);
     ta("cycles:");tn(10000,cycles);
 
     delay(2500);
@@ -1908,7 +1917,7 @@ if (ERR)
 
 //  if(!FlashDuration){unap();continue;} // определяем продолжительность пыхи в данном часе и спим 8s если нечего делать
 
-if(((it&0xFFF)==0)&&TFT_IS_ON)// once in 4k
+if(((it&0x3FF)==0)&&TFT_IS_ON)// once in 1k
 {
 
 //  rtc.poke(10,100);
@@ -2008,6 +2017,10 @@ ta(" 1 ");tn(10000,tt1);ta(" 2 ");tn(10000,tt2);ta(" 3 ");tn(10000,tt3);
 
   setAddrWindow(20,0,27,127);
   ta("Сон"); tn(1000,fnt);  ta(" Пых");tn(100,FlashDuration);ta(" E");th(ERR);ta(" T");wh(Etouch);
+
+    setAddrWindow(30,0,37,119);
+    ta("CT :");tn(10000,CurrentTouch);
+    ta("LT :");tn(100,LongTouch);
 
 //  setAddrWindow(142,0,149,127);  tn(100000000,123456789);
 /*
