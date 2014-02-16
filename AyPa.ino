@@ -196,34 +196,33 @@ byte ERR=0; // ошибки
 
 byte TFT_IS_ON=0;
 
-void TFT_ON(byte duration){TFT_IS_ON=duration;
-Pin2Output(DDRB,0);Pin2HIGH(PORTB,0); 
-Pin2Output(DDRB,7); Pin2HIGH(PORTB,7); 
+void TFT_ON(byte duration){
+    Pin2Output(DDRD,1);Pin2HIGH(PORTD,1); 
     Pin2Output(DDRD,4);Pin2LOW(PORTD,4); 
-    Pin2Output(DDRB,2);Pin2HIGH(PORTB,2); // SS(SPI)
-    Pin2Output(DDRB,2);Pin2LOW(PORTB,2); // SS(SPI) init will put it low 
+    Pin2Output(DDRB,2);Pin2LOW(PORTB,2); // SS(SPI) init will put it low  (reset)
     Pin2Output(DDRB,3);Pin2LOW(PORTB,3); 
-    Pin2Input(DDRB,4);Pin2LOW(PORTB,4); 
     Pin2Output(DDRB,5);Pin2LOW(PORTB,5);
-delay(8); // time for power pin to stabilize  
-InitTFT();
-delay(2);
+    Pin2Output(DDRB,0);Pin2HIGH(PORTB,0); 
+    delay(1); // time for power pin to stabilize  
+    TFT_IS_ON=duration;
+    InitTFT();
+    Pin2LOW(PORTD,1); 
 } // включаем питание  дисплея
     
 void TFT_OFF(void){ writecommand(ST7735_SLPIN); 
-    Pin2LOW(PORTB,0); // sink charge firtst then to input
     Pin2LOW(PORTD,4); Pin2Input(DDRD,4); 
+    Pin2LOW(PORTD,1); Pin2Input(DDRD,1); 
     Pin2LOW(PORTB,2); Pin2Input(DDRB,2); 
     Pin2LOW(PORTB,3); Pin2Input(DDRB,3); 
-    Pin2LOW(PORTB,4); Pin2Input(DDRB,4); 
-    Pin2LOW(PORTB,7); Pin2Input(DDRB,7); 
-    Pin2LOW(PORTB,5); Pin2Input(DDRB,5);
+    Pin2LOW(PORTB,5); Pin2Input(DDRB,5); // need to close all  connected pins before sinking  remaining charge. otherwise it will be suck current from them :)
+    Pin2LOW(PORTB,0); // sink charge first  then to input
+    delayMicroseconds(1);
     Pin2Input(DDRB,0);
     TFT_IS_ON=0; 
 }// вЫключаем питание  дисплея
 
 void RTC_ON(void){Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);Pin2Output(DDRC,1);Pin2Output(DDRC,2);}
-void RTC_OFF(void){Pin2LOW(PORTD,0);Pin2Input(DDRC,1);Pin2Input(DDRC,2);Pin2LOW(PORTC,1);Pin2LOW(PORTC,2);Pin2Input(DDRD,0);}
+void RTC_OFF(void){Pin2LOW(PORTD,0);Pin2Input(DDRC,1);Pin2Input(DDRC,2);Pin2LOW(PORTC,1);Pin2LOW(PORTC,2); delayMicroseconds(1);Pin2Input(DDRD,0);}
 
 //#define I2C_ON(DRC,p1,p2) {Pin2Output(DRC,p1);Pin2Output(DRC,p2);}
 //#define I2C_OFF(DRC,PORT,p1,p2) {Pin2Input(DRC,p1);Pin2LOW(PORT,p1);Pin2Input(DRC,p2);Pin2LOW(PORT,p2);}
@@ -1856,27 +1855,15 @@ if((it&0xFF)==0) // 1 из 256
   else
   {
 //    if(Read_I2C(DS1307_ADDR_W,2,A1,A2)!=0x10) {Save_I2C(DS1307_ADDR_W,2,0x10,A1,A2);Save_I2C(DS1307_ADDR_W,1,0x57,A1,A2);Save_I2C(DS1307_ADDR_W,0,0x00,A1,A2);}//set time
-
+//            Save_I2C(DS1307_ADDR_W,2,0x12,A1,A2);Save_I2C(DS1307_ADDR_W,1,0x00,A1,A2);Save_I2C(DS1307_ADDR_W,0,0x00,A1,A2); } // set time 12:00:00 and reboot      
     HR=Read_I2C(DS1307_ADDR_W,2,A1,A2); // before ShowBars
     if(HR>=0x20){HR-=12;}else if(HR>=0x10){HR-=6;} //  читаем текущий час и конветируем из упакованного BCD
     if(HR>23) {ERR=ERR_STRANGE_CLOCK_DATA; } // не пойми что с часов пришло
     else{ FlashDuration=Intensity[HR]; if(HR!=PH){PH=HR;} } // новый час
 
-    if(TFT_IS_ON) 
-    {
-        CS=Read_I2C(DS1307_ADDR_W,0,A1,A2); 
-        if(CS!=PS){PS=CS; if(--TFT_IS_ON==0){TFT_OFF();}}
-        else{
-        if((now-oldnow)>2000) 
-        { 
-            ERR=ERR_STOPPED_CLOCK;
-            Save_I2C(DS1307_ADDR_W,2,0x12,A1,A2);Save_I2C(DS1307_ADDR_W,1,0x00,A1,A2);Save_I2C(DS1307_ADDR_W,0,0x00,A1,A2); } // set time 12:00:00 and reboot      
-        }// проверка на остановившиеся часы
-        
-    }  // если дисплей включен то проверим не пора ли его выключить
-    else {ltp=lasttouch;lasttouch=TouchSensor();Etouch=TouchT(); if (lasttouch>Etouch){TFT_ON(10);ShowBars(HR);} else{TouchD[TouchPos]=lasttouch;(++TouchPos)&=3;}}
-  
- 
+    CS=Read_I2C(DS1307_ADDR_W,0,A1,A2);if((now-oldnow)>2000){ERR=ERR_STOPPED_CLOCK;Save_I2C(DS1307_ADDR_W,0,CS,A1,A2);}// проверка на остановившиеся часы
+    if(TFT_IS_ON) {if(CS!=PS){PS=CS; if(--TFT_IS_ON==0){TFT_OFF();}}}  // если дисплей включен то проверим не пора ли его выключить
+    else {ltp=lasttouch;lasttouch=TouchSensor();Etouch=TouchT(); if (lasttouch>Etouch){TFT_ON(10);ShowBars(HR);}else{TouchD[((TouchPos++)&3)]=lasttouch;}}
   }
   RTC_OFF();  // переводим лапки часиков в высокоомное состояние  и отключаем питание
 //  rtcl=TCNT1;

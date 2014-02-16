@@ -77,12 +77,14 @@ void spiwritefunc(byte c)
 }
 //void writecommand(byte c) {
 //#define writecommand(c) {Pin2LOW(PORTD,1);Pin2LOW(PORTD,4);spiwrite(c);Pin2HIGH(PORTD,1);}
-#define writecommand(c) {Pin2LOW(PORTD,4);spiwrite(c);}
+#define writecommand(c) {Pin2LOW(PORTD,1);Pin2LOW(PORTD,4);spiwrite(c);}
+//#define writecommand(c) {Pin2LOW(PORTD,4);spiwrite(c);}
 //#define writecommand(c) {PORTD&=0b11101101;spiwrite(c);PORTD|=0b00000010;}
 //void writedata(byte c) {
 //#define writedata(c) {PORTD|=0b00010000;  PORTD&=0b11110101;  spiwrite(c);  PORTD|=0b00000010;}
 //#define writedata(c) {Pin2LOW(PORTD,1);Pin2HIGH(PORTD,4);  spiwrite(c); Pin2HIGH(PORTD,1);}
-#define writedata(c) {Pin2HIGH(PORTD,4);  spiwrite(c);}
+#define writedata(c) {Pin2LOW(PORTD,1);Pin2HIGH(PORTD,4);spiwrite(c);}
+//#define writedata(c) {Pin2HIGH(PORTD,4);  spiwrite(c);}
   // set C/D вынести за скобки
 
 // some flags for initR() :(
@@ -264,41 +266,46 @@ void commandList(const byte *addr) {
   }
 }
 
-word colstart,rowstart;
+//word colstart,rowstart;
 
 void commonInit(const uint8_t *cmdList) {
-  colstart  = rowstart = 0; // May be overridden in init func
+//  colstart  = rowstart = 0; // May be overridden in init func
 
 //  pinMode(dc, OUTPUT);
 //  pinMode(cs, OUTPUT);
 //    pinMode(sclk, OUTPUT);
 //    pinMode(mosi , OUTPUT);
 
-Pin2LOW(PORTB,5);//        digitalWrite(mosi,LOW);
-Pin2LOW(PORTB,3);//      digitalWrite(sclk,LOW);
+
+//Pin2LOW(PORTB,5);//        digitalWrite(mosi,LOW);
+//Pin2LOW(PORTB,3);//      digitalWrite(sclk,LOW);
 
 
 
   SPSR = (1 << SPI2X);//max speed
-//  SPSR = (0 << SPI2X);//max speed/2
   SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
 
   // toggle RST low to reset; CS low so it'll listen to us
 
 
-  digitalWrite(cs,LOW);
+//  digitalWrite(cs,LOW);
+    Pin2LOW(PORTD,1); // some current sinking ability is needed on this CS pin
   if (rst) {
-    pinMode(rst, OUTPUT);
-    digitalWrite(rst, HIGH);
-    delay(1);
-    digitalWrite(rst, LOW);
-    delay(1);
-    digitalWrite(rst, HIGH);
-    delay(1);
+//    pinMode(rst, OUTPUT);
+    Pin2HIGH(PORTB,2); 
+    delayMicroseconds(10);
+//    digitalWrite(rst, HIGH);
+    Pin2LOW(PORTB,2); 
+//    digitalWrite(rst, LOW);
+//    delay(125);
+    delayMicroseconds(10);
+    Pin2HIGH(PORTB,2); 
+//    digitalWrite(rst, HIGH);
+  //  delay(1);
   }
 
-  if(cmdList) commandList(cmdList);
-
+  //if(cmdList) commandList(cmdList);
+  commandList(cmdList);
 }
 
 void InitTFT() {
