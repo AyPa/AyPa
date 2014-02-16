@@ -1755,7 +1755,7 @@ NiceBack(0,0,128,15);
   // bars
   for(byte i=0;i<24;i++)
   {
-    gg=(Intensity[i]*14)/mi;if(!gg){gg=1;}
+    gg=(Intensity[i]*14)/mi;if(!gg){gg=1;} 
 
     if(i!=hr){r=0x8c;g=0xac;b=0x8c;}else{r=0x8c;g=0xfc;b=0x4c;}
     
