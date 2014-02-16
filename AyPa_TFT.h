@@ -76,11 +76,13 @@ void spiwritefunc(byte c)
    
 }
 //void writecommand(byte c) {
-#define writecommand(c) {Pin2LOW(PORTD,1);Pin2LOW(PORTD,4);spiwrite(c);Pin2HIGH(PORTD,1);}
+//#define writecommand(c) {Pin2LOW(PORTD,1);Pin2LOW(PORTD,4);spiwrite(c);Pin2HIGH(PORTD,1);}
+#define writecommand(c) {Pin2LOW(PORTD,4);spiwrite(c);}
 //#define writecommand(c) {PORTD&=0b11101101;spiwrite(c);PORTD|=0b00000010;}
 //void writedata(byte c) {
 //#define writedata(c) {PORTD|=0b00010000;  PORTD&=0b11110101;  spiwrite(c);  PORTD|=0b00000010;}
-#define writedata(c) {Pin2LOW(PORTD,1);Pin2HIGH(PORTD,4);  spiwrite(c); Pin2HIGH(PORTD,1);}
+//#define writedata(c) {Pin2LOW(PORTD,1);Pin2HIGH(PORTD,4);  spiwrite(c); Pin2HIGH(PORTD,1);}
+#define writedata(c) {Pin2HIGH(PORTD,4);  spiwrite(c);}
   // set C/D вынести за скобки
 
 // some flags for initR() :(
@@ -328,7 +330,7 @@ void ta(char *st)
   word ch;
   
   Pin2HIGH(PORTD,4); 
-  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
+//  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
   
     do{
     //    LcdWriteData(0);//space  (start with it - while it is sending can calc address)
@@ -358,19 +360,19 @@ for(byte j=0;j<5;j++)  // display char
   }
   while (st[l]!=0);//same same
 
-  Pin2HIGH(PORTD,1); // digitalWrite(CE,HIGH);    
+//  Pin2HIGH(PORTD,1); // digitalWrite(CE,HIGH);    
 }
 
 void pushColor(byte r,byte g,byte b)
 {
     Pin2HIGH(PORTD,4); 
-  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
+//  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
 
 spiwrite(r);
 spiwrite(g);
 spiwrite(b);
 
-  Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
+//  Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
 
 }
 
@@ -380,7 +382,7 @@ void th(byte v)
   byte c,ch;
 
   Pin2HIGH(PORTD,4); 
-  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
+//  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
 
 
   ch=(v>>4)*3;
@@ -412,7 +414,7 @@ for(byte j=0;j<3;j++)  // display digit
   }
 }
 
-  Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
+//  Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
 }
 
 void dd(byte ch)
@@ -438,11 +440,11 @@ void tn(long s, long v)
   long vv=v;  
   
   Pin2HIGH(PORTD,4); 
-  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
+//  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
   
   for(long n=s;n>0;n/=10){ch=vv/n;vv-=ch*n;dd(ch+ch+ch);}
     
-  Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
+//  Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
 }
 
 
@@ -522,7 +524,7 @@ void fillRect(word y, word x, word h,word w,long color) {
   byte hi = (color >> 8)&0xff, lo = color&0xff,uh=color>>16;
 
 Pin2HIGH(PORTD,4); //    digitalWrite(dc, HIGH);//4
-Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
+//Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
 
   for(y=h; y>0; y--) {
 //    uh+=0x4;
@@ -534,7 +536,7 @@ Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
     }
   }
 
-Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
+//Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
 }
 void fillScreen(long color) {
   fillRect(0, 0,  128, 160, color);
