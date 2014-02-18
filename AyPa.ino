@@ -18,9 +18,35 @@
 #include "AyPa_i2c.h"
 //#include "AyPa_rtc.h"
 
-//#include <Wire.h>
-//#include "TSL2561.h"
-//TSL2561 tsl(TSL2561_ADDR_LOW); 
+#include <Wire.h>
+#include "TSL2561.h"
+TSL2561 tsl(TSL2561_ADDR_LOW); 
+uint16_t read16(uint8_t reg)
+{
+  uint16_t x; uint16_t t;
+
+  Wire.beginTransmission(TSL2561_ADDR_LOW);
+  Wire.write(reg);
+  Wire.endTransmission();
+
+  Wire.requestFrom(TSL2561_ADDR_LOW, 2);
+  t = Wire.read();
+  x = Wire.read();
+  x <<= 8;
+  x |= t;
+  return x;
+}
+
+
+
+void write8 (uint8_t reg, uint8_t value)
+{
+  Wire.beginTransmission(TSL2561_ADDR_LOW);
+  Wire.write(reg);
+  Wire.write(value);
+  Wire.endTransmission();
+}
+
 
 
 //#include <TFT.h> // Hardware-specific library
@@ -224,8 +250,8 @@ void TFT_OFF(void){ writecommand(ST7735_SLPIN);
 void RTC_ON(void){Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);Pin2Output(DDRC,1);Pin2Output(DDRC,2);}
 void RTC_OFF(void){Pin2LOW(PORTD,0);Pin2Input(DDRC,1);Pin2Input(DDRC,2);Pin2LOW(PORTC,1);Pin2LOW(PORTC,2); delayMicroseconds(1);Pin2Input(DDRD,0);}
 
-//#define I2C_ON(DRC,p1,p2) {Pin2Output(DRC,p1);Pin2Output(DRC,p2);}
-//#define I2C_OFF(DRC,PORT,p1,p2) {Pin2Input(DRC,p1);Pin2LOW(PORT,p1);Pin2Input(DRC,p2);Pin2LOW(PORT,p2);}
+#define TSL2561_ON {Pin2Output(DDRC,4);Pin2Output(DDRC,5);}
+#define TSL2561_OFF {Pin2Input(DDRC,4);Pin2LOW(PORTC,4);Pin2Input(DDRC,5);Pin2LOW(PORTC,5);}
 
 byte rtc8;
 
@@ -1260,9 +1286,36 @@ PORTD=0;
 
 
 byte pinmask,prt;
+word max0=0,max1=0,max01=0,max10=0;
 
 void FlashTest(word Duration) // #2 pin used as test
 {
+  word ch0,ch1;
+  
+  DrawBox(16,0,159,1270,0x00,0x00,0x00);    // очистка экрана
+  
+  setAddrWindow(14,0,14+7,127);ta("Тестовый режим / TEST");
+  setAddrWindow(22,0,22+7,127);ta("---------------------");
+
+
+  setAddrWindow(30,0,30+7,127);ta("Сейчас на вывод TEST ");
+  setAddrWindow(40,0,40+7,127);ta("будет подан постоян-"); 
+  setAddrWindow(50,0,50+7,127);ta("ный ток. Используй");
+  setAddrWindow(60,0,60+7,127);ta("подстроечный резистор");
+  setAddrWindow(70,0,70+7,127);ta("для его ограничения.");
+  setAddrWindow(80,0,80+7,127);ta("Максимум 700mA");
+
+  setAddrWindow(95,0,95+7,127);ta("The continious cur-");
+  setAddrWindow(105,0,105+7,127);ta("rent will be applied"); 
+  setAddrWindow(115,0,115+7,127);ta("to TEST output now.");
+  setAddrWindow(125,0,125+7,127);ta("Use adjustment resis-");
+  setAddrWindow(135,0,135+7,127);ta("tor to limit it. Do");
+  setAddrWindow(145,0,145+7,127);ta("not go beyond 700mA.");  
+  
+  delay(3000);
+
+  
+  
   Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light
   Pin2Output(DDRD,5);Pin2HIGH(PORTD,5);  // SRCLR to HIGH. when it is LOW all regs are cleared
   Pin2Output(DDRB,1);
@@ -1272,16 +1325,62 @@ void FlashTest(word Duration) // #2 pin used as test
     Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
     Pin2LOW(PORTB,1); // next data are zeroes
     Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
+    Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
 
-for(word z=1;z<1000;z++)
+    TSL2561_ON;
+
+  
+for(byte n=20;n>0;n--)
 {
+  setAddrWindow(152,120,152+7,127);tn(10,n);
+
+for(word z=0;z<100;z++)
+{
+    if (tsl.begin()) 
+    {
+        tsl.setGain(TSL2561_GAIN_0X);      // set 16x gain (for dim situations)
+//        tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  
+        tsl.setTiming(TSL2561_INTEGRATIONTIME_101MS);  
+        //write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_0X);    //  // Set integration time and gain
+        write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);  // enable();
+
+for(byte q=0;q<103;q++)
+{
+cli();
+TCNT1=0;
+Pin2LOW(PORTD,7);// start lighting
+do{}while(TCNT1<1000);
+Pin2HIGH(PORTD,7);//digitalWrite(G,HIGH); // stop light
+sei();
+}
+  
+  ch1 = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
+  ch0 = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
+  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF);  // disable();
+  if (ch0>max0){max0=ch0;max01=ch1;}
+  if (ch1>max1){max1=ch1;max10=ch0;}
+
+    }      // if begin
+
+
+    }// for 100
+
+  setAddrWindow(2,0,2+7,127);ta("1:");tn(10000,max1);tn(10000,max10);ta(" 0: ");tn(10000,max0);tn(10000,max01);
+//  setAddrWindow(152,0,152+7,127);tn(10000,ch1);ta(" 0: ");tn(10000,ch0);
+  
+  /*
+for(word z=1;z<300;z++)
+{  
 cli();
 TCNT1=0;
 Pin2LOW(PORTD,7);// start lighting
 do{}while(TCNT1<Duration);
 Pin2HIGH(PORTD,7);//digitalWrite(G,HIGH); // stop light
 sei();
-}
+}*/
+
+} //for n 10
+    TSL2561_OFF;
 
   Pin2LOW(PORTD,5);Pin2Input(DDRD,5);  // SRCLR to LOW. Clear regs
   Pin2Input(DDRB,1);  // DATAPIN
@@ -1839,22 +1938,20 @@ void Settings(void)
     {
        
         NiceBack(0,0,128,15);
-        setAddrWindow(16,0,16+7,119);ta("Настройки * Settings");
-        setAddrWindow(24,0,24+7,119);ta("====================");
+        setAddrWindow(16,0,16+7,127);ta("Настройки * Settings");
+        setAddrWindow(24,0,24+7,127);ta("====================");
         
-        setAddrWindow(50,30,50+7,119);ta("Тестовый режим ?");setAddrWindow(70,30,70+7,119);ta("Set test mode ?");
+        setAddrWindow(50,15,50+7,127);ta("Тестовый режим?");setAddrWindow(70,15,70+7,127);ta("Set test mode ?");
         
         // кубики
         if (Touched()){ 
-        setAddrWindow(16,0,16+7,119);
-        ta("Тестовый режим/ Test");
           
         FlashTest(20000);
         DrawBox(16,0,159,1270,0x00,0x00,0x00);    // очистка экрана
      
         return; } // переход в тестовый режим
 
-        setAddrWindow(60,0,60+7,119);ta(" false");
+//        setAddrWindow(60,0,60+7,119);ta(" false");
         delay(5000);
     }
 }

@@ -1,7 +1,9 @@
-
 #define TSL2561_ADDR_LOW_W 82
 #define TSL2561_ADDR_LOW_R  83 //(0x29<<1)+1
 
+
+/*
+#define TSL2561_ADDR_LOW 0x29
 
 
 #define TSL2561_READBIT           (0x01)
@@ -43,6 +45,7 @@ typedef enum
   TSL2561_GAIN_16X                  = 0x10,    // 16x gain
 }
 tsl2561Gain_t;
+*/
 
 //#include <DS1302.h>// cannot sit on SPI pins (leaves pin in input state)
 //#include <DS1307.h>// cannot sit on SPI pins (leaves pin in input state)
@@ -392,7 +395,7 @@ uint8_t peek2(uint8_t addr)
 //	else
 //		return 0;
 }
-
+/*
 //TSL2561_START(TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_16X);//delay(14);//res=TSL2561_STOP();
 void  TSL2561_START(byte val)
 {
@@ -418,5 +421,5 @@ long  TSL2561_STOP(void)
 //    if (Read_I2C(TSL2561_ADDR_LOW_W,TSL2561_REGISTER_ID ,A1,A2)!=0x0A){ res=0; }  // дополнительная проверка
     Save_I2C(TSL2561_ADDR_LOW_W,(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL),TSL2561_CONTROL_POWEROFF,A4,A5); // disable
     return res;
-}
+}*/
 
