@@ -26,8 +26,8 @@
 //Use these pins for the shield!
 #define sclk 13
 #define mosi 11
-#define cs   1
-#define dc   4
+//#define cs   1
+//#define dc   4
 #define rst  10  // you can also connect this to the Arduino reset
 // не работает без reset
 
@@ -76,14 +76,14 @@ void spiwritefunc(byte c)
    
 }
 //void writecommand(byte c) {
-//#define writecommand(c) {Pin2LOW(PORTD,1);Pin2LOW(PORTD,4);spiwrite(c);Pin2HIGH(PORTD,1);}
-#define writecommand(c) {Pin2LOW(PORTD,1);Pin2LOW(PORTD,4);spiwrite(c);}
+//#define writecommand(c) {Pin2LOW(PORTB,1);Pin2LOW(PORTD,4);spiwrite(c);Pin2HIGH(PORTB,1);}
+#define writecommand(c) {Pin2LOW(PORTB,1);Pin2LOW(PORTD,4);spiwrite(c);}
 //#define writecommand(c) {Pin2LOW(PORTD,4);spiwrite(c);}
 //#define writecommand(c) {PORTD&=0b11101101;spiwrite(c);PORTD|=0b00000010;}
 //void writedata(byte c) {
 //#define writedata(c) {PORTD|=0b00010000;  PORTD&=0b11110101;  spiwrite(c);  PORTD|=0b00000010;}
-//#define writedata(c) {Pin2LOW(PORTD,1);Pin2HIGH(PORTD,4);  spiwrite(c); Pin2HIGH(PORTD,1);}
-#define writedata(c) {Pin2LOW(PORTD,1);Pin2HIGH(PORTD,4);spiwrite(c);}
+//#define writedata(c) {Pin2LOW(PORTB,1);Pin2HIGH(PORTD,4);  spiwrite(c); Pin2HIGH(PORTB,1);}
+#define writedata(c) {Pin2LOW(PORTB,1);Pin2HIGH(PORTD,4);spiwrite(c);}
 //#define writedata(c) {Pin2HIGH(PORTD,4);  spiwrite(c);}
   // set C/D вынести за скобки
 
@@ -289,7 +289,7 @@ void commonInit(const uint8_t *cmdList) {
 
 
 //  digitalWrite(cs,LOW);
-    Pin2LOW(PORTD,1); // some current sinking ability is needed on this CS pin
+    Pin2LOW(PORTB,1); // some current sinking ability is needed on this CS pin
   if (rst) {
 //    pinMode(rst, OUTPUT);
     Pin2HIGH(PORTB,2); 
@@ -337,7 +337,7 @@ void ta(char *st)
   word ch;
   
   Pin2HIGH(PORTD,4); 
-//  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
+//  Pin2LOW(PORTB,1); ///digitalWrite(cs, LOW);//3
   
     do{
     //    LcdWriteData(0);//space  (start with it - while it is sending can calc address)
@@ -367,19 +367,19 @@ for(byte j=0;j<5;j++)  // display char
   }
   while (st[l]!=0);//same same
 
-//  Pin2HIGH(PORTD,1); // digitalWrite(CE,HIGH);    
+//  Pin2HIGH(PORTB,1); // digitalWrite(CE,HIGH);    
 }
 
 void pushColor(byte r,byte g,byte b)
 {
     Pin2HIGH(PORTD,4); 
-//  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
+//  Pin2LOW(PORTB,1); ///digitalWrite(cs, LOW);//3
 
 spiwrite(r);
 spiwrite(g);
 spiwrite(b);
 
-//  Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
+//  Pin2HIGH(PORTB,1);//    digitalWrite(cs,HIGH);
 
 }
 
@@ -389,7 +389,7 @@ void th(byte v)
   byte c,ch;
 
   Pin2HIGH(PORTD,4); 
-//  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
+//  Pin2LOW(PORTB,1); ///digitalWrite(cs, LOW);//3
 
 
   ch=(v>>4)*3;
@@ -421,7 +421,7 @@ for(byte j=0;j<3;j++)  // display digit
   }
 }
 
-//  Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
+//  Pin2HIGH(PORTB,1);//    digitalWrite(cs,HIGH);
 }
 
 void dd(byte ch)
@@ -447,11 +447,11 @@ void tn(long s, long v)
   long vv=v;  
   
   Pin2HIGH(PORTD,4); 
-//  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
+//  Pin2LOW(PORTB,1); ///digitalWrite(cs, LOW);//3
   
   for(long n=s;n>0;n/=10){ch=vv/n;vv-=ch*n;dd(ch+ch+ch);}
     
-//  Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
+//  Pin2HIGH(PORTB,1);//    digitalWrite(cs,HIGH);
 }
 
 
@@ -482,7 +482,7 @@ void SQ(byte x0, byte y0, byte x1,byte y1,long color) {
   
 
 Pin2HIGH(PORTD,4); //    digitalWrite(dc, HIGH);//4
-Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
+Pin2LOW(PORTB,1); ///digitalWrite(cs, LOW);//3
 
   for(byte i=0;i<n;i++)
   {
@@ -491,7 +491,7 @@ Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
   spiwrite(lo);
   }
   
-Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
+Pin2HIGH(PORTB,1);//    digitalWrite(cs,HIGH);
   
 }*/
 
@@ -503,7 +503,7 @@ void LcdSet(byte x,byte y)
 }*/
 //CASET x start x end
 //PASET y start y end
-
+/*
 void drawPixel(word x, word y, long color) {
 
 //  if((x < 0) ||(x >= _width) || (y < 0) || (y >= _height)) return;
@@ -520,7 +520,7 @@ void drawPixel(word x, word y, long color) {
 
     digitalWrite(cs,HIGH);
 }
-
+*/
 
 // fill a rectangle
 //void fillRect(word x, word y, word w, word h,long color) {
@@ -531,7 +531,7 @@ void fillRect(word y, word x, word h,word w,long color) {
   byte hi = (color >> 8)&0xff, lo = color&0xff,uh=color>>16;
 
 Pin2HIGH(PORTD,4); //    digitalWrite(dc, HIGH);//4
-//Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
+//Pin2LOW(PORTB,1); ///digitalWrite(cs, LOW);//3
 
   for(y=h; y>0; y--) {
 //    uh+=0x4;
@@ -543,7 +543,7 @@ Pin2HIGH(PORTD,4); //    digitalWrite(dc, HIGH);//4
     }
   }
 
-//Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
+//Pin2HIGH(PORTB,1);//    digitalWrite(cs,HIGH);
 }
 void fillScreen(long color) {
   fillRect(0, 0,  128, 160, color);
