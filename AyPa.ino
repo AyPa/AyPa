@@ -7,8 +7,7 @@
 #include <avr/pgmspace.h>
 
 
-#include <SPI.h> // < declaration ShiftOut etc problem
-
+#include <SPI.h>
 
 
 #include "AyPa_m.h"
@@ -19,8 +18,8 @@
 //#include "AyPa_rtc.h"
 
 #include <Wire.h>
-#include "TSL2561.h"
-TSL2561 tsl(TSL2561_ADDR_LOW); 
+//#include "TSL2561.h"
+//TSL2561 tsl(TSL2561_ADDR_LOW); 
 uint16_t read16(uint8_t reg)
 {
   uint16_t x; uint16_t t;
@@ -37,6 +36,18 @@ uint16_t read16(uint8_t reg)
   return x;
 }
 
+uint8_t read8(uint8_t reg)
+{
+  uint8_t x;
+
+  Wire.beginTransmission(TSL2561_ADDR_LOW);
+  Wire.write(reg);
+  Wire.endTransmission();
+
+  Wire.requestFrom(TSL2561_ADDR_LOW, 1);
+  x = Wire.read();
+  return x;
+}
 
 
 void write8 (uint8_t reg, uint8_t value)
@@ -229,9 +240,10 @@ void TFT_ON(byte duration){
     Pin2Output(DDRB,3);Pin2LOW(PORTB,3); 
     Pin2Output(DDRB,5);Pin2LOW(PORTB,5);
     Pin2Output(DDRB,0);Pin2HIGH(PORTB,0); 
-    delay(1); // time for power pin to stabilize  
+    delay(10); // time for power pin to stabilize  
     TFT_IS_ON=duration;
     InitTFT();
+    delay(120);
     Pin2LOW(PORTB,1); 
 } // включаем питание  дисплея
     
@@ -1288,7 +1300,7 @@ PORTD=0;
 byte pinmask,prt;
 word max0=0,max1=0,max01=0,max10=0;
 
-void FlashTest(word Duration) // #2 pin used as test
+void FlashTest(void) // #2 pin used as test
 {
   word ch0,ch1;
   
@@ -1336,11 +1348,22 @@ for(byte n=20;n>0;n--)
 
 for(word z=0;z<100;z++)
 {
-    if (tsl.begin()) 
-    {
-        tsl.setGain(TSL2561_GAIN_0X);      // set 16x gain (for dim situations)
+//    if (tsl.begin()) 
+  Wire.begin();
+
+ // Initialise I2C
+  Wire.beginTransmission(TSL2561_ADDR_LOW);
+  Wire.write(TSL2561_REGISTER_ID);
+  Wire.endTransmission();
+  Wire.requestFrom(TSL2561_ADDR_LOW, 1);
+  byte x = Wire.read();
+  if (x==0x0A)
+//  if (x & 0x0A )// FF подходит в случае отсутствия датчика
+  {
+        //tsl.setGain(TSL2561_GAIN_0X);      // set 16x gain (for dim situations)
 //        tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  
-        tsl.setTiming(TSL2561_INTEGRATIONTIME_101MS);  
+        //tsl.setTiming(TSL2561_INTEGRATIONTIME_101MS);  
+        write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X);    //  // Set integration time and gain
         //write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_0X);    //  // Set integration time and gain
         write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);  // enable();
 
@@ -1946,7 +1969,7 @@ void Settings(void)
         // кубики
         if (Touched()){ 
           
-        FlashTest(20000);
+        FlashTest();
         DrawBox(16,0,159,1270,0x00,0x00,0x00);    // очистка экрана
      
         return; } // переход в тестовый режим

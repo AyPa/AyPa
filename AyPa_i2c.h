@@ -2,7 +2,7 @@
 #define TSL2561_ADDR_LOW_R  83 //(0x29<<1)+1
 
 
-/*
+
 #define TSL2561_ADDR_LOW 0x29
 
 
@@ -45,7 +45,6 @@ typedef enum
   TSL2561_GAIN_16X                  = 0x10,    // 16x gain
 }
 tsl2561Gain_t;
-*/
 
 //#include <DS1302.h>// cannot sit on SPI pins (leaves pin in input state)
 //#include <DS1307.h>// cannot sit on SPI pins (leaves pin in input state)
