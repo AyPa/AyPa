@@ -76,14 +76,14 @@ void spiwritefunc(byte c)
    
 }
 //void writecommand(byte c) {
-//#define writecommand(c) {Pin2LOW(PORTB,1);Pin2LOW(PORTD,4);spiwrite(c);Pin2HIGH(PORTB,1);}
-#define writecommand(c) {Pin2LOW(PORTB,1);Pin2LOW(PORTD,4);spiwrite(c);}
+//#define writecommand(c) {Pin2LOW(PORTD,1);Pin2LOW(PORTD,4);spiwrite(c);Pin2HIGH(PORTD,1);}
+#define writecommand(c) {Pin2LOW(PORTD,1);Pin2LOW(PORTD,4);spiwrite(c);}
 //#define writecommand(c) {Pin2LOW(PORTD,4);spiwrite(c);}
 //#define writecommand(c) {PORTD&=0b11101101;spiwrite(c);PORTD|=0b00000010;}
 //void writedata(byte c) {
 //#define writedata(c) {PORTD|=0b00010000;  PORTD&=0b11110101;  spiwrite(c);  PORTD|=0b00000010;}
-//#define writedata(c) {Pin2LOW(PORTB,1);Pin2HIGH(PORTD,4);  spiwrite(c); Pin2HIGH(PORTB,1);}
-#define writedata(c) {Pin2LOW(PORTB,1);Pin2HIGH(PORTD,4);spiwrite(c);}
+//#define writedata(c) {Pin2LOW(PORTD,1);Pin2HIGH(PORTD,4);  spiwrite(c); Pin2HIGH(PORTD,1);}
+#define writedata(c) {Pin2LOW(PORTD,1);Pin2HIGH(PORTD,4);spiwrite(c);}
 //#define writedata(c) {Pin2HIGH(PORTD,4);  spiwrite(c);}
   // set C/D вынести за скобки
 
@@ -161,27 +161,27 @@ static const uint8_t PROGMEM
 //    ST7735_SWRESET,   DELAY,  //  1: Software reset, 0 args, w/delay
 
   Rcmd1[] = {                 // Init for 7735R, part 1 (red or green tab)
-    8,                       // 15 commands in list:
+    9,                       // 15 commands in list:
     ST7735_SWRESET,   DELAY,  //  1: Software reset, 0 args, w/delay
       10,                    //   5ms was 150 ms delay
 //      150,                    //   5ms was 150 ms delay
-//    0xB9,3,0xFF,0x83,0x53, // PASSWDENABLE
-    0xBA,0, // PASSWDISABLE
+    0xB9,3,0xFF,0x83,0x53, // PASSWDENABLE
+//    0xBA,0, // PASSWDISABLE
     0xB0,2,0x3C,0x01, // SET INTOSC
 //    0xB0,2,0x00,0x00, // SET INTOSC
-//    0xB6,3,0x94,0x6C,0x50, // VCOM
-    0xB6,3,0x00,0x70,0x0A, // VCOM
+    0xB6,3,0x94,0x6C,0x50, // VCOM
+//    0xB6,3,0x00,0x70,0x0A, // VCOM
 //    0xB1,8,0x00,0x01,0x1B,0x03,0x01,0x08,0x77,0x89,
     0xB1,8,0x00,0x04,0x00,0x0E,0x01,0x00,0x77,0x00, // SETPOWER
-//    0xE0,19,0x50,0x77,0x40,0x08,
-//    0xBF,0x00,0x03,0xFF,
-//    0x00,0x01,0x73,0x00,
-//    0x72,0x03,0xB0,0x0F,
-//    0x08,0x00,0x0F,
+    0xE0,19,0x50,0x77,0x40,0x08,
+    0xBF,0x00,0x03,0xFF,
+    0x00,0x01,0x73,0x00,
+    0x72,0x03,0xB0,0x0F,
+    0x08,0x00,0x0F,
     0x3A,1,0x06,
     0x36,1,0x20, // MADCTL: MXMY=0 MV=1 ML=0 was 0xC0   000  001 010 011 60 100 80 101 A0 110 C0 111 E0
     ST7735_SLPOUT ,   DELAY,  //  2: Out of sleep mode, 0 args, w/delay
-      10,                    //     was 255 500 ms delay
+      120,                    //     was 255 500 ms delay
 //      255,                    //     was 255 500 ms delay
 //    ST7735_FRMCTR1, 3      ,  //  3: Frame rate ctrl - normal mode, 3 args:
 //      0x01, 0x2C, 0x2D,       //     Rate = fosc/(1x2+40) * (LINE+2C+2D)
@@ -293,7 +293,7 @@ void commonInit(const uint8_t *cmdList) {
 
 
 //  digitalWrite(cs,LOW);
-    Pin2LOW(PORTB,1); // some current sinking ability is needed on this CS pin
+    Pin2LOW(PORTD,1); // some current sinking ability is needed on this CS pin
   if (rst) {
 //    pinMode(rst, OUTPUT);
     Pin2HIGH(PORTB,2); 
@@ -301,7 +301,7 @@ void commonInit(const uint8_t *cmdList) {
 //    digitalWrite(rst, HIGH);
     Pin2LOW(PORTB,2); 
 //    digitalWrite(rst, LOW);
-//    delay(125);
+    delay(125);
     delayMicroseconds(10);
     Pin2HIGH(PORTB,2); 
 //    digitalWrite(rst, HIGH);
@@ -341,7 +341,7 @@ void ta(char *st)
   word ch;
   
   Pin2HIGH(PORTD,4); 
-//  Pin2LOW(PORTB,1); ///digitalWrite(cs, LOW);//3
+//  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
   
     do{
     //    LcdWriteData(0);//space  (start with it - while it is sending can calc address)
@@ -371,19 +371,19 @@ for(byte j=0;j<5;j++)  // display char
   }
   while (st[l]!=0);//same same
 
-//  Pin2HIGH(PORTB,1); // digitalWrite(CE,HIGH);    
+//  Pin2HIGH(PORTD,1); // digitalWrite(CE,HIGH);    
 }
 
 void pushColor(byte r,byte g,byte b)
 {
     Pin2HIGH(PORTD,4); 
-//  Pin2LOW(PORTB,1); ///digitalWrite(cs, LOW);//3
+//  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
 
 spiwrite(r);
 spiwrite(g);
 spiwrite(b);
 
-//  Pin2HIGH(PORTB,1);//    digitalWrite(cs,HIGH);
+//  Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
 
 }
 
@@ -393,7 +393,7 @@ void th(byte v)
   byte c,ch;
 
   Pin2HIGH(PORTD,4); 
-//  Pin2LOW(PORTB,1); ///digitalWrite(cs, LOW);//3
+//  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
 
 
   ch=(v>>4)*3;
@@ -425,7 +425,7 @@ for(byte j=0;j<3;j++)  // display digit
   }
 }
 
-//  Pin2HIGH(PORTB,1);//    digitalWrite(cs,HIGH);
+//  Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
 }
 
 void dd(byte ch)
@@ -451,11 +451,11 @@ void tn(long s, long v)
   long vv=v;  
   
   Pin2HIGH(PORTD,4); 
-//  Pin2LOW(PORTB,1); ///digitalWrite(cs, LOW);//3
+//  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
   
   for(long n=s;n>0;n/=10){ch=vv/n;vv-=ch*n;dd(ch+ch+ch);}
     
-//  Pin2HIGH(PORTB,1);//    digitalWrite(cs,HIGH);
+//  Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
 }
 
 
@@ -486,7 +486,7 @@ void SQ(byte x0, byte y0, byte x1,byte y1,long color) {
   
 
 Pin2HIGH(PORTD,4); //    digitalWrite(dc, HIGH);//4
-Pin2LOW(PORTB,1); ///digitalWrite(cs, LOW);//3
+Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
 
   for(byte i=0;i<n;i++)
   {
@@ -495,7 +495,7 @@ Pin2LOW(PORTB,1); ///digitalWrite(cs, LOW);//3
   spiwrite(lo);
   }
   
-Pin2HIGH(PORTB,1);//    digitalWrite(cs,HIGH);
+Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
   
 }*/
 
@@ -535,7 +535,7 @@ void fillRect(word y, word x, word h,word w,long color) {
   byte hi = (color >> 8)&0xff, lo = color&0xff,uh=color>>16;
 
 Pin2HIGH(PORTD,4); //    digitalWrite(dc, HIGH);//4
-//Pin2LOW(PORTB,1); ///digitalWrite(cs, LOW);//3
+//Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
 
   for(y=h; y>0; y--) {
 //    uh+=0x4;
@@ -547,7 +547,7 @@ Pin2HIGH(PORTD,4); //    digitalWrite(dc, HIGH);//4
     }
   }
 
-//Pin2HIGH(PORTB,1);//    digitalWrite(cs,HIGH);
+//Pin2HIGH(PORTD,1);//    digitalWrite(cs,HIGH);
 }
 void fillScreen(long color) {
   fillRect(0, 0,  128, 160, color);

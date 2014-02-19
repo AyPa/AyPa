@@ -73,6 +73,18 @@ void	sendStart(byte addr,byte sda,byte scl)
 	shiftOut(sda, scl, MSBFIRST, addr);
 }
 
+// слишком быстро.... результат - ошибки
+void	sendStart12(byte addr)
+{
+        Pin2Output(DDRC,1);//	pinMode(sda, OUTPUT);
+        Pin2Output(DDRC,2);//	pinMode(scl, OUTPUT);
+	Pin2HIGH(PORTC,1);// digitalWrite(sda, HIGH);
+        Pin2HIGH(PORTC,2);//digitalWrite(scl, HIGH);
+	Pin2LOW(PORTC,1); //	digitalWrite(sda, LOW);
+	Pin2LOW(PORTC,2);//	digitalWrite(scl, LOW);
+	shiftOut(A1,A2, MSBFIRST, addr);
+}
+
 void	sendStop(byte sda,byte scl)
 {
 	pinMode(sda, OUTPUT);
@@ -80,6 +92,16 @@ void	sendStop(byte sda,byte scl)
 	digitalWrite(scl, HIGH);
 	digitalWrite(sda, HIGH);
 	pinMode(sda, INPUT);
+}
+void	sendStop12(void)
+{
+        Pin2Output(DDRC,1);//	pinMode(sda, OUTPUT);
+        Pin2Output(DDRC,2);//	pinMode(scl, OUTPUT);
+
+	Pin2LOW(PORTC,1); //	digitalWrite(sda, LOW);
+        Pin2HIGH(PORTC,2);//digitalWrite(scl, HIGH);
+	Pin2HIGH(PORTC,1);// digitalWrite(sda, HIGH);
+      Pin2Input(DDRC,1);//	pinMode(sda, INPUT);
 }
 
 void	sendNack(byte sda,byte scl)
@@ -104,10 +126,10 @@ void	sendAck(byte sda,byte scl)
 
 void	waitForAck(byte sda,byte scl)
 {
-	pinMode(sda, INPUT);
+  word n=0;
+  	pinMode(sda, INPUT);
 	digitalWrite(scl, HIGH);
-TCNT1=0;
-	while (sda==LOW) {if(TCNT1>100){break;}}
+	while (sda==LOW) {n++;if(!n){break;}}
 	digitalWrite(scl, LOW);
 }
 
@@ -347,27 +369,33 @@ void I2C_WaitForAck(byte clkpin,byte datapin)
 void Save_I2C(byte addr,byte reg,byte val,byte dp,byte cp)
 {
   		sendStart(addr,dp,cp);
+//  		sendStart12(addr);
 		waitForAck(dp,cp);
 		writeByte(reg,dp,cp);
 		waitForAck(dp,cp);
 		writeByte(val,dp,cp);
 		waitForAck(dp,cp);
 		sendStop(dp,cp);
+//		sendStop12();
 }
 
 byte Read_I2C(byte addr,byte reg,byte dp,byte cp)
 {
   byte val;
 	sendStart(addr,dp,cp);
+//	sendStart12(addr);
 	waitForAck(dp,cp);
 	writeByte(reg,dp,cp);
 	waitForAck(dp,cp);
   	sendStop(dp,cp);
+//  	sendStop12();
         sendStart(addr|1,dp,cp);
+//        sendStart12(addr|1);
 	waitForAck(dp,cp);
 	val = readByte(dp,cp);
 	sendNack(dp,cp);
 	sendStop(dp,cp);
+  //	sendStop12();
 	return val;
 }
 

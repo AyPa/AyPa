@@ -221,8 +221,8 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 //#define LATCHPIN 6
 
 //
-//    Pin2Output(DDRB,1);Pin2LOW(PORTB,1); \ 
-//    Pin2LOW(PORTB,1); Pin2Input(DDRB,1); \
+//    Pin2Output(DDRD,1);Pin2LOW(PORTD,1); \ 
+//    Pin2LOW(PORTD,1); Pin2Input(DDRD,1); \
 
 #define ERR_WHERE_IS_THE_CLOCK    0b00000001;
 #define ERR_STRANGE_CLOCK_DATA   0b00000010;
@@ -231,10 +231,10 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 #define ERR_BROKEN_SLEEP              0b00010000;
 byte ERR=0; // ошибки
 
-byte TFT_IS_ON=0;
+word TFT_IS_ON=0;
 
 void TFT_ON(byte duration){
-    Pin2Output(DDRB,1);Pin2HIGH(PORTB,1); 
+    Pin2Output(DDRD,1);Pin2HIGH(PORTD,1); 
     Pin2Output(DDRD,4);Pin2LOW(PORTD,4); 
     Pin2Output(DDRB,2);Pin2LOW(PORTB,2); // SS(SPI) init will put it low  (reset)
     Pin2Output(DDRB,3);Pin2LOW(PORTB,3); 
@@ -243,18 +243,17 @@ void TFT_ON(byte duration){
     delay(10); // time for power pin to stabilize  
     TFT_IS_ON=duration;
     InitTFT();
-    delay(120);
-    Pin2LOW(PORTB,1); 
+//    delay(120);
+    Pin2LOW(PORTD,1); 
 } // включаем питание  дисплея
     
 void TFT_OFF(void){ writecommand(ST7735_SLPIN); 
-    Pin2LOW(PORTD,4); Pin2Input(DDRD,4); 
-    Pin2LOW(PORTB,1); Pin2Input(DDRB,1); 
     Pin2LOW(PORTB,2); Pin2Input(DDRB,2); 
     Pin2LOW(PORTB,3); Pin2Input(DDRB,3); 
     Pin2LOW(PORTB,5); Pin2Input(DDRB,5); // need to close all  connected pins before sinking  remaining charge. otherwise it will be suck current from them :)
     Pin2LOW(PORTB,0); // sink charge first  then to input
-    delayMicroseconds(1);
+    delay(1);
+//    delayMicroseconds(1);
     Pin2Input(DDRB,0);
     TFT_IS_ON=0; 
 }// вЫключаем питание  дисплея
@@ -267,7 +266,44 @@ void RTC_OFF(void){Pin2LOW(PORTD,0);Pin2Input(DDRC,1);Pin2Input(DDRC,2);Pin2LOW(
 
 byte rtc8;
 
+void SetTime(byte h,byte m,byte s){Save_I2C(DS1307_ADDR_W,8,'A',A1,A2);Save_I2C(DS1307_ADDR_W,0,s,A1,A2);Save_I2C(DS1307_ADDR_W,1,m,A1,A2);Save_I2C(DS1307_ADDR_W,2,h,A1,A2);}
+
 // каждый раз перед обращением к часам проверяем их вменяемость
+
+byte cS=0xff; // текущая секунда
+byte pS;   // предыдущая секунда
+word sS=0; // частота опроса часиков
+
+void RTC(void)
+{    
+    Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);Pin2Output(DDRC,1);Pin2Output(DDRC,2);//    RTC_ON();
+    for(byte a=0;a<16;a++)
+    {
+        if (Read_I2C(DS1307_ADDR_W,8,A1,A2)=='A') // часики здесь, можно читать время
+        {
+            ERR&=~ERR_WHERE_IS_THE_CLOCK; // сбрасываем флажок (часики таки прочитались)
+            cS=Read_I2C(DS1307_ADDR_W,0,A1,A2);
+            if(pS==cS) 
+            {
+              
+                sS++;if(!sS){SetTime(0,0,0);ERR=ERR_STOPPED_CLOCK;} // часики залипли
+            }
+            else // смена секунд
+            {
+                pS=cS;
+              
+                sS=0;
+            }
+          
+          
+        }
+        else {ERR=ERR_WHERE_IS_THE_CLOCK;SetTime(0,0,0);} // выставляем флажок и пробуем их сбросить
+    }
+    
+
+    Pin2LOW(PORTD,0);Pin2LOW(PORTC,1);Pin2LOW(PORTC,2);Pin2Input(DDRC,1);Pin2Input(DDRC,2);Pin2Input(DDRD,0);  //    RTC_OFF();
+}
+
 byte Check_RTC(byte attempts){for(byte n=attempts;n>0;n--){Save_I2C(DS1307_ADDR_W,8,'A',A1,A2);
 rtc8=Read_I2C(DS1307_ADDR_W,8,A1,A2);
 if(Read_I2C(DS1307_ADDR_W,8,A1,A2)=='A'){ERR&=~ERR_WHERE_IS_THE_CLOCK;return n;}}return 0;}
@@ -367,12 +403,43 @@ void setup() {
 
 
 
-for(byte i=0;i<16;i++){if(mi<Intensity[i]){mi=Intensity[i];}} if(mi<16){mi=16;}// множитель для столбиков
+//for(byte i=0;i<16;i++){if(mi<Intensity[i]){mi=Intensity[i];}} if(mi<16){mi=16;}// множитель для столбиков
 for(byte i=0;i<4;i++){TouchD[i]=TouchSensor();} // calibrate touch sensor
 
 
-Pin2Output(DDRB,1);
-Pin2Output(DDRD,4);
+//Pin2Output(DDRD,1);
+//Pin2Output(DDRD,4);
+
+/*
+    TFT_ON(5);
+//    fillScreen(0xfcfc00);
+        DrawBox(0,0,159,127,0xfc,0xfc,0x00);    // очистка экрана
+
+    word cycles=TouchSensor();
+    setAddrWindow(0,0,7,119);
+//    byte rtc=Check_RTC(16);
+    ta("SET");//th(ERR);ta(" RTC:");tn(10,rtc);th(rtc8);
+    setAddrWindow(10,0,17,119);
+    ta("cycles:");tn(10000,cycles);
+
+    delay(4500);
+    TFT_OFF(); // close rtft/rtc mosfet
+
+delay(1000);
+    TFT_ON(5);
+//    fillScreen(0xfc00fc);
+        DrawBox(0,0,159,127,0xfc,0x00,0xfc);    // очистка экрана
+
+    cycles=TouchSensor();
+    setAddrWindow(0,0,7,119);
+//    byte rtc=Check_RTC(16);
+    ta("SET");//th(ERR);ta(" RTC:");tn(10,rtc);th(rtc8);
+    setAddrWindow(10,0,17,119);
+    ta("cycles:");tn(10000,cycles);
+
+    delay(4500);
+    TFT_OFF(); // close rtft/rtc mosfet
+*/
 
 /*
 Pin2Output(DDRD,6);Pin2HIGH(PORTD,6); 
@@ -546,7 +613,7 @@ Wire.begin();
 
 
 //Pin2Output(DDRD,0);// sreset mosfet 2n7000 control
-//Pin2Output(DDRB,1);// 3.3/5v mosfet 2n7000 control
+//Pin2Output(DDRD,1);// 3.3/5v mosfet 2n7000 control
 //Pin2Output(DDRD,2);// INT0 line
 
 //Pin2Output(DDRD,3);// INT1 line /TFT CS
@@ -556,7 +623,7 @@ Wire.begin();
 
 
 //Pin2Output(DDRB,0); // CLOCKPIN 8
-//Pin2Output(DDRB,1); // DATAPIN 9
+//Pin2Output(DDRD,1); // DATAPIN 9
 //Pin2Output(DDRB,2);
 //Pin2Output(DDRB,6);
 
@@ -1190,11 +1257,11 @@ void Flash_B(byte mask)
 {
 PORTB=mask;
 ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
-//Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+//Pin2HIGH(PORTD,1); //digitalWrite(9,HIGH);//
         //    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|1;
         //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   // NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
         //    delayMicroseconds(1);  
-        // Pin2LOW(PORTB,1); //digitalWrite(9,LOW//   
+        // Pin2LOW(PORTD,1); //digitalWrite(9,LOW//   
 
 //do{}while(bit_is_set(ADCSRA,ADSC));
   __asm__ __volatile__ ("nop\n\t"
@@ -1216,7 +1283,7 @@ ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
         //    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
 
         //    delayMicroseconds(10);  
-        //  Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+        //  Pin2HIGH(PORTD,1); //digitalWrite(9,HIGH);//
         //   ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
         //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
         //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
@@ -1232,12 +1299,12 @@ PORTB=0;
 void Flash_C(byte mask)
 {
 PORTC=mask;
-//Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+//Pin2HIGH(PORTD,1); //digitalWrite(9,HIGH);//
 ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
         //    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|1;
         //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   // NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
         //    delayMicroseconds(1);  
-        // Pin2LOW(PORTB,1); //digitalWrite(9,LOW//   
+        // Pin2LOW(PORTD,1); //digitalWrite(9,LOW//   
 
 do{}while(bit_is_set(ADCSRA,ADSC));
 
@@ -1245,7 +1312,7 @@ do{}while(bit_is_set(ADCSRA,ADSC));
         //    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
 
         //    delayMicroseconds(10);  
-        //  Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+        //  Pin2HIGH(PORTD,1); //digitalWrite(9,HIGH);//
         //   ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
         //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
         //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
@@ -1269,12 +1336,12 @@ PORTC=0;
 void Flash_D(byte mask)
 {
 PORTD=mask;
-//Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+//Pin2HIGH(PORTD,1); //digitalWrite(9,HIGH);//
 ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
         //    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|1;
         //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   // NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
         //    delayMicroseconds(1);  
-        // Pin2LOW(PORTB,1); //digitalWrite(9,LOW//   
+        // Pin2LOW(PORTD,1); //digitalWrite(9,LOW//   
 
 do{}while(bit_is_set(ADCSRA,ADSC));
 
@@ -1282,7 +1349,7 @@ do{}while(bit_is_set(ADCSRA,ADSC));
         //    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
 
         //    delayMicroseconds(10);  
-        //  Pin2HIGH(PORTB,1); //digitalWrite(9,HIGH);//
+        //  Pin2HIGH(PORTD,1); //digitalWrite(9,HIGH);//
         //   ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
         //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
         //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
@@ -1304,7 +1371,7 @@ void FlashTest(void) // #2 pin used as test
 {
   word ch0,ch1;
   
-  DrawBox(16,0,159,1270,0x00,0x00,0x00);    // очистка экрана
+  DrawBox(16,0,159,127,0x00,0x00,0x00);    // очистка экрана
   
   setAddrWindow(14,0,14+7,127);ta("Тестовый режим / TEST");
   setAddrWindow(22,0,22+7,127);ta("---------------------");
@@ -1330,12 +1397,12 @@ void FlashTest(void) // #2 pin used as test
   
   Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light
   Pin2Output(DDRD,5);Pin2HIGH(PORTD,5);  // SRCLR to HIGH. when it is LOW all regs are cleared
-  Pin2Output(DDRB,1);
+  Pin2Output(DDRD,1);
   Pin2Output(DDRD,6); 
 
-    Pin2HIGH(PORTB,1);  // DATAPIN to HIGH  
+    Pin2HIGH(PORTD,1);  // DATAPIN to HIGH  
     Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
-    Pin2LOW(PORTB,1); // next data are zeroes
+    Pin2LOW(PORTD,1); // next data are zeroes
     Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
     Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
 
@@ -1406,7 +1473,7 @@ sei();
     TSL2561_OFF;
 
   Pin2LOW(PORTD,5);Pin2Input(DDRD,5);  // SRCLR to LOW. Clear regs
-  Pin2Input(DDRB,1);  // DATAPIN
+  Pin2Input(DDRD,1);  // DATAPIN
   Pin2Input(DDRD,6); // CLK&LATCH 
   Pin2LOW(PORTD,7);Pin2Input(DDRD,7);  // detach G control pin (it is pull upped by resistor) --- no so really
 }
@@ -1418,14 +1485,14 @@ void Flash(byte lamps,byte Duration)
   
   Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light
   Pin2Output(DDRD,5);Pin2HIGH(PORTD,5);  // SRCLR to HIGH. when it is LOW all regs are cleared
-  Pin2Output(DDRB,1);
+  Pin2Output(DDRD,1);
   Pin2Output(DDRD,6); 
   
   for(byte n=0;n<Duration;n++)
  {
-    Pin2HIGH(PORTB,1);  // DATAPIN to HIGH  
+    Pin2HIGH(PORTD,1);  // DATAPIN to HIGH  
     Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
-    Pin2LOW(PORTB,1); // next data are zeroes
+    Pin2LOW(PORTD,1); // next data are zeroes
 
 //  Pin2Output(DDRB,6);Pin2LOW(PORTB,6);  // test latch
 
@@ -1441,21 +1508,21 @@ void Flash(byte lamps,byte Duration)
 
 //t=0;
 
-//  if((z&7)==0){Pin2HIGH(PORTB,1);} // 1st bit is "1"
-//  Pin2HIGH(PORTB,1); // 1st bit is "1"
+//  if((z&7)==0){Pin2HIGH(PORTD,1);} // 1st bit is "1"
+//  Pin2HIGH(PORTD,1); // 1st bit is "1"
 
 for(byte z=0;z<lamps;z++)// serie of flashes
 {
-//  if((z&7)==0){Pin2HIGH(PORTB,1);} // 1st bit is "1"
+//  if((z&7)==0){Pin2HIGH(PORTD,1);} // 1st bit is "1"
   Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6); // clock pulse 
-//  Pin2LOW(PORTB,1); // next data are zeroes (just delay)
+//  Pin2LOW(PORTD,1); // next data are zeroes (just delay)
 
 //  Pin2HIGH(PORTB,6);  Pin2LOW(PORTB,6); // latch
 
 //  delayMicroseconds(2);
 
-//  if((z&7)==0){Pin2LOW(PORTB,1);} // next 7 are zeroes
-//  Pin2LOW(PORTB,1); // next data are zeroes
+//  if((z&7)==0){Pin2LOW(PORTD,1);} // next 7 are zeroes
+//  Pin2LOW(PORTD,1); // next data are zeroes
   
 //  delayMicroseconds(2);
 // latch
@@ -1559,7 +1626,7 @@ sei();
 }
 
   Pin2LOW(PORTD,5);Pin2Input(DDRD,5);  // SRCLR to LOW. Clear regs
-  Pin2Input(DDRB,1);  // DATAPIN
+  Pin2Input(DDRD,1);  // DATAPIN
   Pin2Input(DDRD,6); // CLK&LATCH 
   Pin2LOW(PORTD,7);Pin2Input(DDRD,7);  // detach G control pin (it is pull upped by resistor) --- no so really
 //  if(!TFT_IS_ON){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);}
@@ -1740,7 +1807,7 @@ void longnap_old(void)
 */
 
 //Pin2Output(DDRD,0);// sreset mosfet 2n7000 control
-//Pin2Output(DDRB,1);// 3.3/5v mosfet 2n7000 control
+//Pin2Output(DDRD,1);// 3.3/5v mosfet 2n7000 control
 //Pin2Output(DDRD,2);// INT0 line
 
 //Pin2Output(DDRD,3);// INT1 line /TFT CS
@@ -1750,7 +1817,7 @@ void longnap_old(void)
 
 
 //Pin2Output(DDRB,0); // CLOCKPIN 8
-//Pin2Output(DDRB,1); // DATAPIN 9
+//Pin2Output(DDRD,1); // DATAPIN 9
 //Pin2Output(DDRB,2);
 //Pin2Output(DDRB,6);
 
@@ -1825,7 +1892,7 @@ void NiceBack(byte x1,byte y1,byte x2,byte y2)
   setAddrWindow(y1,x1,y2,x2);
   
   Pin2HIGH(PORTD,4); 
-//  Pin2LOW(PORTB,1);
+//  Pin2LOW(PORTD,1);
 
   for(byte j=x1;j<x2;j++)
   {  
@@ -1838,12 +1905,12 @@ void NiceBack(byte x1,byte y1,byte x2,byte y2)
       spiwrite(b);
     }
   }
-//  Pin2HIGH(PORTB,1);
+//  Pin2HIGH(PORTD,1);
   
   setAddrWindow(144,0,167,127);
   
   Pin2HIGH(PORTD,4); 
-//  Pin2LOW(PORTB,1);
+//  Pin2LOW(PORTD,1);
 
   for(byte j=0;j<128;j++)
   {  
@@ -1856,7 +1923,7 @@ void NiceBack(byte x1,byte y1,byte x2,byte y2)
       spiwrite(b);
     }
   }
-//  Pin2HIGH(PORTB,1);
+//  Pin2HIGH(PORTD,1);
   
 //  fillRect(16,32,48,64,0);
 //  fillRect(0,16,128,96,0);
@@ -1891,7 +1958,7 @@ NiceBack(0,0,128,15);
   setAddrWindow(0,0,15,127);
 
   Pin2HIGH(PORTD,4); 
-  Pin2LOW(PORTB,1);
+  Pin2LOW(PORTD,1);
 
   for(byte j=0;j<128;j++)
   {  
@@ -1904,7 +1971,7 @@ NiceBack(0,0,128,15);
       spiwrite(b);
     }
   }
-  Pin2HIGH(PORTB,1);
+  Pin2HIGH(PORTD,1);
 */
   // bars
   for(byte i=0;i<16;i++)
@@ -1970,7 +2037,7 @@ void Settings(void)
         if (Touched()){ 
           
         FlashTest();
-        DrawBox(16,0,159,1270,0x00,0x00,0x00);    // очистка экрана
+        DrawBox(16,0,159,127,0x00,0x00,0x00);    // очистка экрана
      
         return; } // переход в тестовый режим
 
@@ -2027,14 +2094,13 @@ tn(10,HR);ta(" ");th(FlashDuration);th(TFT_IS_ON);ta(" lt");wh(lasttouch);ta(" "
 // the loop routine runs over and over again forever:
 void loop() {
   long now;
-  long oldnow=millis();
+//  long oldnow=millis();
   word t,t1,n;
   word Temp,rtcl;
-  char tmps[32];
-  
+
   
   do{
-    now=millis(); // millis does't count while sleep
+  //  now=millis(); // millis does't count while sleep
     if(it==0){SleepTime();}
 
 //        Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // stop light outputs
@@ -2045,15 +2111,18 @@ void loop() {
 
 
 TCNT1=0;
+RTC();
+rtcl=TCNT1;
 
 if((it&0xFF)==0) // 1 из 256
 {
-  RTC_ON(); // need to open mosfet 
-  if(Check_RTC(16)==0){ERR=ERR_WHERE_IS_THE_CLOCK;} 
-  else
-  {
+  //RTC_ON(); // need to open mosfet 
+  //if(Check_RTC(16)==0){ERR=ERR_WHERE_IS_THE_CLOCK;} 
+  //else
+  //{
 //    if(Read_I2C(DS1307_ADDR_W,2,A1,A2)!=0x10) {Save_I2C(DS1307_ADDR_W,2,0x10,A1,A2);Save_I2C(DS1307_ADDR_W,1,0x57,A1,A2);Save_I2C(DS1307_ADDR_W,0,0x00,A1,A2);}//set time
 //            Save_I2C(DS1307_ADDR_W,2,0x12,A1,A2);Save_I2C(DS1307_ADDR_W,1,0x00,A1,A2);Save_I2C(DS1307_ADDR_W,0,0x00,A1,A2); } // set time 12:00:00 and reboot      
+    /*
       MN=Read_I2C(DS1307_ADDR_W,1,A1,A2);
       MN=((MN>>4)*10+MN&0xF);
       
@@ -2077,15 +2146,34 @@ if((it&0xFF)==0) // 1 из 256
 
       }
             PS=CS;
-            CurrentTouch=TouchSensor(); if (CurrentTouch>Etouch){LongTouch++;if(LongTouch==LONG_TOUCH_THRESHOLD){Settings();} }else{LongTouch=0;}
-            if(TFT_IS_ON) { if(LongTouch<2){if(--TFT_IS_ON==0){TFT_OFF();}else{UpdateScreen();}}}  // если дисплей включен то проверим не пора ли его выключить
-            else {ltp=lasttouch;lasttouch=CurrentTouch;Etouch=TouchT(); if (lasttouch>Etouch){TFT_ON(15);ShowBars(HR);}else{TouchD[((TouchPos++)&3)]=lasttouch;}}
-          }
-   }
+            CurrentTouch=TouchSensor(); Etouch=TouchT();
+*/
+if(!TFT_IS_ON){TFT_ON(3);}
+//    fillScreen(0x000000);
+    DrawBox(0,0,159,127,0x00,0xfc,0x00);    // очистка экрана
+
+//    word cycles=TouchSensor();
+    setAddrWindow(0,0,7,119);
+  //  byte rtc=Check_RTC(16);
+    ta("CurrentTouch");tn(1000,CurrentTouch);
+//    th(rtc8);ta(" fn");tn(10000,fastnaptime);ta(" ln");tn(10000,longnaptime);
+    setAddrWindow(10,0,17,119);
+    
+    ta("Et ");tn(10000,Etouch);ta(" sS ");tn(10000,sS);ta(" l ");tn(10000,rtcl);
+
+    delay(3500);
+    TFT_OFF(); // close rtft/rtc mosfet
+          
+        
+  //          if (CurrentTouch>Etouch){LongTouch++;if(TFT_IS_ON){TFT_IS_ON+=7;} if(LongTouch==LONG_TOUCH_THRESHOLD){Settings();} }else{LongTouch=0;}
+    //        if(TFT_IS_ON) { if(LongTouch<2){if(--TFT_IS_ON==0){TFT_OFF();}else{UpdateScreen();}}}  // если дисплей включен то проверим не пора ли его выключить
+      //      else {ltp=lasttouch;lasttouch=CurrentTouch; if (lasttouch>Etouch){TFT_ON(15);ShowBars(HR);}else{TouchD[((TouchPos++)&3)]=lasttouch;}}
+         // }
+   //}
  
 
   
-  RTC_OFF();  // переводим лапки часиков в высокоомное состояние  и отключаем питание
+  //RTC_OFF();  // переводим лапки часиков в высокоомное состояние  и отключаем питание
 //  rtcl=TCNT1;
   
 //  I2C_ON(DDRC,1,2);
@@ -2109,20 +2197,20 @@ if((it&0xFF)==0) // 1 из 256
 // если есть ошибки
 if (ERR)
 {
-    RTC_ON();
+  //  RTC_ON();
     TFT_ON(3);
-    fillScreen(0x000000);
+//    fillScreen(0x000000);
+    DrawBox(0,0,159,127,0x00,0x00,0xfc);    // очистка экрана
 
     word cycles=TouchSensor();
     setAddrWindow(0,0,7,119);
-    byte rtc=Check_RTC(16);
-    ta("ERR");th(ERR);ta(" RTC:");tn(10,rtc);th(rtc8);ta(" fn");tn(10000,fastnaptime);ta(" ln");tn(10000,longnaptime);
+    ta("ERR");th(ERR);ta(" fn");tn(10000,fastnaptime);ta(" ln");tn(10000,longnaptime);
     setAddrWindow(10,0,17,119);
     ta("cycles:");tn(10000,cycles);
 
-    delay(2500);
+    delay(3500);
+//    RTC_OFF();  // переводим лапки часиков в высокоомное состояние 
     TFT_OFF(); // close rtft/rtc mosfet
-    RTC_OFF();  // переводим лапки часиков в высокоомное состояние 
     resetFunc();  // This will call location zero and cause a reboot.
 }
 
@@ -2215,8 +2303,7 @@ _writeRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_
 if(FlashDuration)
 {
 //    Flash(8,FlashDuration);
-
-    Flash(16,FlashDuration);
+//    Flash(16,FlashDuration);
 //    Flash(16,1);
 
 //    Flash(9,FlashDuration);
@@ -2311,8 +2398,8 @@ if (tsl.begin()) {
   //    Pin2LOW(PORTB,2); //digitalWrite(10,LOW);//
   // Pin2HIGH(PORTB,2);//digitalWrite(10,HIGH//
 
-  //  Pin2LOW(PORTB,1); //digitalWrite(9,LOW//
-  //    Pin2Input(DDRB,1);//  pinMode(9,INPUT);
+  //  Pin2LOW(PORTD,1); //digitalWrite(9,LOW//
+  //    Pin2Input(DDRD,1);//  pinMode(9,INPUT);
 
 //  Pin2LOW(PORTB,5); //SPI SCK pin low
  // Pin2LOW(PORTB,3); //SPI MOSI pin low
@@ -2451,7 +2538,7 @@ else {fn++;fastnap();}
 
 
 //Pin2Output(DDRD,0);// sreset mosfet 2n7000 control
-//Pin2Output(DDRB,1);// 3.3/5v mosfet 2n7000 control
+//Pin2Output(DDRD,1);// 3.3/5v mosfet 2n7000 control
 //Pin2Output(DDRD,2);// INT0 line
 
 //Pin2Output(DDRD,3);// INT1 line /TFT CS
@@ -2463,7 +2550,7 @@ else {fn++;fastnap();}
 
 
 //Pin2Output(DDRB,0); // CLOCKPIN 8
-//Pin2Output(DDRB,1); // DATAPIN 9
+//Pin2Output(DDRD,1); // DATAPIN 9
 //Pin2Output(DDRB,2);
 //Pin2Output(DDRB,6);
 
@@ -2485,7 +2572,7 @@ else {fn++;fastnap();}
 
 //NOP;
 it++;
-oldnow=now;
+//oldnow=now;
   //delay(1000);               // wait for a second
     }while(1); // loop
 }
