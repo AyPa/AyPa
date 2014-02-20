@@ -790,7 +790,6 @@ uint8_t __attribute__ ((noinline)) i2c_read(bool last);
 #ifndef __tmp_reg__
 #define __tmp_reg__ 0
 #endif
-
  
 // Internal delay functions.
 void __attribute__ ((noinline)) i2c_delay_half(void) asm("ass_i2c_delay_half");
@@ -1120,7 +1119,6 @@ uint8_t i2c_read(bool last)
      ); 
   return ' '; // fool the compiler!
 }
-
 #endif
 
 #ifndef _TSL2561_H_
