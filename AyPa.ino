@@ -148,19 +148,6 @@ volatile byte WDhappen;
 volatile word  t1111; // vars updated in ISR should be declared as volatile and accessed with cli()/sei() ie atomic
 volatile boolean WDsleep=false;
 
-ISR(WDT_vect) // Watchdog timer interrupt.
-{ 
-  //resetFunc();  //reboot
-  //  r2=TCNT1;
-  if(WDsleep)
-  {
-  t1111=TCNT1;
-  WDhappen=1;
-  WDsleep=0;
-  }
-  //debug
-//  else{    resetFunc();     }// This will call location zero and cause a reboot.
-}
 
 uint32_t ticks=0;
 uint8_t seconds=0;
@@ -266,23 +253,37 @@ void RTC_OFF(void){Pin2LOW(PORTD,0);Pin2Input(DDRC,1);Pin2Input(DDRC,2);Pin2LOW(
 
 byte rtc8;
 
-void SetTime(byte h,byte m,byte s){Save_I2C(DS1307_ADDR_W,8,'A',A1,A2);Save_I2C(DS1307_ADDR_W,0,s,A1,A2);Save_I2C(DS1307_ADDR_W,1,m,A1,A2);Save_I2C(DS1307_ADDR_W,2,h,A1,A2);}
+void SetTime(byte h,byte m,byte s){
+Save_I2C(DS1307_ADDR_W,7,0x10,A1,A2);
+Save_I2C(DS1307_ADDR_W,2,h,A1,A2);
+Save_I2C(DS1307_ADDR_W,1,m,A1,A2);
+Save_I2C(DS1307_ADDR_W,0,s,A1,A2);
+}
 
 // каждый раз перед обращением к часам проверяем их вменяемость
 
+byte pH; // предыдущий час
+byte cH; // текущий час
+byte pM; // предыдущая минута
+byte cM; // текущая минута
 byte cS=0xff; // текущая секунда
 byte pS;   // предыдущая секунда
 word sS=0; // частота опроса часиков
+
+byte CS; // текущая секунда
+byte CM; // текущая минута
+byte CH; // текущий час (0..23)
 
 void RTC(void)
 {    
     Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);Pin2Output(DDRC,1);Pin2Output(DDRC,2);//    RTC_ON();
     for(byte a=0;a<16;a++)
     {
-        if (Read_I2C(DS1307_ADDR_W,8,A1,A2)=='A') // часики здесь, можно читать время
+        if (Read_I2C(DS1307_ADDR_W,7,A1,A2)==0x10) // часики здесь, можно читать время
         {
             ERR&=~ERR_WHERE_IS_THE_CLOCK; // сбрасываем флажок (часики таки прочитались)
-            cS=Read_I2C(DS1307_ADDR_W,0,A1,A2);
+            cS=Read_I2C(DS1307_ADDR_W,0,A1,A2); CS=(cS>>4)*10;CS|=(cS&0xF);
+
             if(pS==cS) 
             {
               
@@ -291,14 +292,21 @@ void RTC(void)
             else // смена секунд
             {
                 pS=cS;
+//                cM=Read_I2C(DS1307_ADDR_W,1,A1,A2);CM=(cM>>4)*10;CM|=(cM&0xF);
+  //              cH=Read_I2C(DS1307_ADDR_W,2,A1,A2);CH=(cH>>4)*10;CH|=(cH&0xF);
+                if(pM!=cM){pM=cM;} // смена минут
+                if(pH!=cH){pH=cH;} // смена часов
+                
+                
               
                 sS=0;
             }
           
           
         }
-        else {ERR=ERR_WHERE_IS_THE_CLOCK;SetTime(0,0,0);} // выставляем флажок и пробуем их сбросить
+        else {ERR=ERR_WHERE_IS_THE_CLOCK;} 
     }
+    if(ERR){SetTime(0,0,0);}// пробуем сбросить часы
     
 
     Pin2LOW(PORTD,0);Pin2LOW(PORTC,1);Pin2LOW(PORTC,2);Pin2Input(DDRC,1);Pin2Input(DDRC,2);Pin2Input(DDRD,0);  //    RTC_OFF();
@@ -319,6 +327,52 @@ word TouchSensor(void)
       Pin2Output(DDRC,3);Pin2LOW(PORTC,3); // discharge sensor  pin
       Pin2Input(DDRC,3);Pin2LOW(PORTC,3); // sensor pin
       return cycles;
+}
+
+byte sleeps=0;
+
+#ifndef cbi
+#define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
+#endif
+#ifndef sbi
+#define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
+#endif
+
+#define T16MS 0
+#define T32MS 1
+#define T64MS 2
+#define T128MS 3
+#define T250MS 4
+#define T500MS 5
+#define T1S 6
+#define T2S 7
+#define T4S 8
+#define T8S 9
+ 
+#define system_sleep(mode,flags) { set_sleep_mode(mode); sleeps=0;do{sleep_enable();sleep_cpu();sleep_disable();if(flags){break;}else{sleeps++;}}while(1);}
+ 
+// Watchdog timeout values
+// 0=16ms, 1=32ms, 2=64ms, 3=128ms, 4=250ms, 5=500ms, 6=1sec, 7=2sec, 8=4sec, 9=8sec
+#define setup_watchdog(timeout){cli(); __asm__ __volatile__("wdr\n\t"); MCUSR&=~(1<<WDRF);WDTCSR|=(1<<WDCE)|(1<<WDE);WDTCSR=((1<<WDIE)|timeout);sei();}
+ 
+// Turn off the Watchdog
+// Watchdog sleep function - combines all the above functions into one
+#define watchdogSleep(mode,timeout){setup_watchdog(timeout);system_sleep(mode,WDhappen);wdt_disable();}
+ 
+ volatile word  cnt1; // vars updated in ISR should be declared as volatile and accessed with cli()/sei() ie atomic
+
+ISR(WDT_vect) // Watchdog timer interrupt.
+{ 
+  //resetFunc();  //reboot
+  //  r2=TCNT1;
+  if(WDsleep)
+  {
+  cnt1=TCNT1;
+  WDhappen=1;
+  WDsleep=0;
+  }
+  //debug
+//  else{    resetFunc();     }// This will call location zero and cause a reboot.
 }
 
 
@@ -344,12 +398,11 @@ word TouchT(void)
   char tstr[7];// строка даты и времени
 
 
-byte CS; // текущая секунда
 byte PS=0xFF; // предыдущая секунда
 byte PH=0xFF; // предыдущий час
 byte HR; // текущий час (0..23)
 byte PM; // предыдущая минута
-byte MN; // текущая минута
+byte MN;
 byte CHAS,LEFT;
 // интенсивность/продолжительность пыхи в микросекундах 0..255
 //byte mi=25; 
@@ -397,6 +450,9 @@ void setup() {
 //  ICR2=0x00;
   OCR2A=0xFF;
 
+// every 1/2 second interrupt from RTC
+Pin2Input(DDRC,0);Pin2HIGH(PORTC,0); // pull up on A0
+PCICR |= 1<<PCIE1;PCMSK1 = 1<<PCINT8; // A0
 
   sei();
 
@@ -405,6 +461,8 @@ void setup() {
 
 //for(byte i=0;i<16;i++){if(mi<Intensity[i]){mi=Intensity[i];}} if(mi<16){mi=16;}// множитель для столбиков
 for(byte i=0;i<4;i++){TouchD[i]=TouchSensor();} // calibrate touch sensor
+
+//Pin2Input(DDRC,0);Pin2HIGH(PORTC,0); // pull up on A0
 
 
 //Pin2Output(DDRD,1);
@@ -830,9 +888,12 @@ ta(nam);
 
 
 
+//PCICR |= (1 << PCIE0);     // set PCIE0 to enable PCMSK0 scan
+  //  PCMSK0 |= (1 << PCINT0);   // set PCINT0 to trigger an interrupt on state change 
 
 
   // Setup the WDT  (16ms or reboot)
+  /*
   cli();
 //  NOP;
   __asm__ __volatile__("wdr\n\t");//  wdt_reset();
@@ -849,7 +910,7 @@ WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280
  // WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);//2s
   // WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
 //     WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
-  sei();
+  sei();*/
 
 }
 
@@ -1644,8 +1705,28 @@ sei();
 
 byte pin2_interrupt_flag=0;
 byte pin3_interrupt_flag=0;
+byte pin0_interrupt_flag=0;
+byte pin7_interrupt_flag=0;
 
-volatile word  cnt1; // vars updated in ISR should be declared as volatile and accessed with cli()/sei() ie atomic
+volatile long sss=0;
+volatile long bbb=0;
+
+ISR (PCINT1_vect)  // A0
+{ 
+//    cnt1=TCNT1;
+//    pin0_interrupt_flag=1;
+//NOP;
+    sss++;
+  //  NOP;
+} 
+ISR (PCINT0_vect) // B7
+{ 
+//    cnt1=TCNT1;
+//    pin0_interrupt_flag=1;
+//NOP;
+    bbb++;
+  //  NOP;
+} 
 
 void pin2_isr()
 {
@@ -1700,7 +1781,6 @@ word Tmp(void)
 word tc1;
 word sc[16];
 word mn=5555,mx=5000;
-word sleeps;
 uint16_t t1,t2,tt1,tt2,tt3,ttt1,ttt2;
 
 word it=0;
@@ -1833,6 +1913,71 @@ void longnap_old(void)
   
   //cli();t1111=TCNT1;sei();//atomic read
 }
+
+void nextnap(void)
+{
+
+//Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// charge cap
+//delayMicroseconds(2);
+Pin2Input(DDRC,0);Pin2HIGH(PORTC,0); // pull up on A0
+PCICR |= 1<<PCIE1;
+PCMSK1 = 1<<PCINT8; // A0
+
+
+      sleeps=0;
+      TCNT1=0;
+//      do{
+    //        cli();
+            pin0_interrupt_flag=0;
+            sleep_enable();
+//            attachInterrupt(0, pin2_isr, LOW);
+
+  //          Pin2LOW(PORTD,2);Pin2Input(DDRD,2); // controlled charging (very impurtant set it 2 input (high impedance state))
+      //      sei();
+            sleep_cpu();
+//wake up here
+            sleep_disable();
+//break;  
+//      if(pin3_interrupt_flag||WDhappen){break;}else{sleeps++;}
+//            if(pin0_interrupt_flag||WDhappen){break;}else{sleeps++;} // WD is important in case  RC sleeper went off
+  //        }while(1);
+//  cli();t1111=TCNT1;sei();//atomic read
+PCICR&=~(1<<PCIE1);
+Pin2LOW(PORTC,0); // pull up off A0
+}
+
+void b7nap(void) // дрыхнет богатырским сном!
+{
+
+Pin2Output(DDRB,7);Pin2HIGH(PORTB,7);// charge cap
+//delayMicroseconds(2);
+//Pin2Input(DDRB,7);Pin2HIGH(PORTB,7); // pull up on B7
+PCICR |= 1<<PCIE0;
+PCMSK0 = 1<<PCINT6; // B7
+
+
+      sleeps=0;
+      TCNT1=0;
+    //  do{
+            cli();
+            pin7_interrupt_flag=0;
+            sleep_enable();
+//            attachInterrupt(0, pin2_isr, LOW);
+
+            Pin2LOW(PORTB,7);Pin2Input(DDRB,7); // controlled charging (very impurtant set it 2 input (high impedance state))
+      //      sei();
+            sleep_cpu();
+//wake up here
+            sleep_disable();
+//break;  
+//      if(pin3_interrupt_flag||WDhappen){break;}else{sleeps++;}
+  //          if(pin7_interrupt_flag||WDhappen){break;}else{sleeps++;} // WD is important in case  RC sleeper went off
+//          }while(1);
+//  cli();t1111=TCNT1;sei();//atomic read
+PCICR&=~(1<<PCIE0);
+//Pin2LOW(PORTC,0); // pull up off A0
+}
+
 void fastnap(void)
 {
 
@@ -1988,22 +2133,32 @@ NiceBack(0,0,128,15);
 
 word fastnaptime;
 word longnaptime;
+word nextnaptime;
+
+long sssn;
+long sssb;
 
 void SleepTime(void)
 {
     fastnaptime=0;
     longnaptime=0;
+    nextnaptime=0;
     
     set_sleep_mode(SLEEP_MODE_IDLE);
     WDsleep=1;// notify WD that we are sleeping (to avoid reboot)
-    __asm__ __volatile__("wdr\n\t");//  wdt_reset(); // to avoid WD fire first
+//    __asm__ __volatile__("wdr\n\t");//  wdt_reset(); // to avoid WD fire first
     fastnap();
     if (pin2_interrupt_flag){fastnaptime=cnt1;}else { ERR=ERR_BROKEN_SLEEP; }
 
     WDsleep=1;// notify WD that we are sleeping (to avoid reboot)
-    __asm__ __volatile__("wdr\n\t");//  wdt_reset(); // to avoid WD fire first
+  //  __asm__ __volatile__("wdr\n\t");//  wdt_reset(); // to avoid WD fire first
     longnap();
     if (pin3_interrupt_flag){longnaptime=cnt1;}else { ERR=ERR_BROKEN_SLEEP; }
+
+//    WDsleep=1;// notify WD that we are sleeping (to avoid reboot)
+    //__asm__ __volatile__("wdr\n\t");//  wdt_reset(); // to avoid WD fire first
+  //  nextnap();
+    //if (pin0_interrupt_flag){nextnaptime=cnt1;}else { ERR=ERR_BROKEN_SLEEP; }
 }
 
 boolean Touched(void)
@@ -2057,7 +2212,7 @@ void Settings(void)
 void UpdateScreen(void)
 {
     setAddrWindow(60,0,67,127);
-tn(10000,it);ta(" fn");tn(10000,fastnaptime);ta(" ln");tn(10000,longnaptime);
+tn(10000,it);ta(" f");tn(1000,fastnaptime);ta(" l");tn(1000,longnaptime);ta(" n");tn(1000,nextnaptime);
   setAddrWindow(70,0,77,127);
   ta("MN");tn(100,MN);
   ta(" CHAS");tn(1000,CHAS);  ta(" LEFT");tn(1000,LEFT);
@@ -2100,8 +2255,8 @@ void loop() {
 
   
   do{
-  //  now=millis(); // millis does't count while sleep
-    if(it==0){SleepTime();}
+//        __asm__ __volatile__("wdr\n\t");//  wdt_reset();
+        if(it==0){SleepTime();}
 
 //        Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // stop light outputs
 //        Pin2HIGH(PORTB,6);//power supply to tpic6a595  (add caps?)
@@ -2114,8 +2269,8 @@ TCNT1=0;
 RTC();
 rtcl=TCNT1;
 
-if((it&0xFF)==0) // 1 из 256
-{
+//if((it&0xFF)==0) // 1 из 256
+//{
   //RTC_ON(); // need to open mosfet 
   //if(Check_RTC(16)==0){ERR=ERR_WHERE_IS_THE_CLOCK;} 
   //else
@@ -2148,20 +2303,85 @@ if((it&0xFF)==0) // 1 из 256
             PS=CS;
             CurrentTouch=TouchSensor(); Etouch=TouchT();
 */
+
+pin0_interrupt_flag=0;
+pin2_interrupt_flag=0;
+pin3_interrupt_flag=0;
+WDhappen=0;
+
+//    set_sleep_mode(SLEEP_MODE_PWR_DOWN);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
+//    set_sleep_mode(SLEEP_MODE_IDLE);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
+  //  sss=0;nextnap();sssn=sss;delay(100);sssb=sss;
+
+//        set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+       sss=0;
+//       wdt_disable();
+  //      longnap();
+     set_sleep_mode(SLEEP_MODE_PWR_DOWN); 
+    set_sleep_mode(SLEEP_MODE_IDLE);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
+sss=0;sleeps=0;
+  TCNT1=0;
+  //longnap();//4845us 3 sleeps
+//  fastnap();// 237us
+//b7nap();//522us
+//  watchdogSleep(SLEEP_MODE_IDLE,T16MS); // 8 sleeps - прерывания TCNT0
+//  watchdogSleep(SLEEP_MODE_IDLE,T32MS); // 17 sleeps
+//  watchdogSleep(SLEEP_MODE_IDLE,T1S); // 14 sleeps - 2 sleeps from PCINT8 - PCINT 
+//  watchdogSleep(SLEEP_MODE_IDLE,T2S); // 28 sleeps - 4-5 sleeps from PCINT8 - PCINT 
+//  watchdogSleep(SLEEP_MODE_IDLE,T2S); // 30 sleeps - 5 sleeps from PCINT8 - PCINT 
+//  watchdogSleep(SLEEP_MODE_PWR_DOWN,T2S); // 4 sleeps - PCINT8 - PCINT  works only in active or pwr_down mode
+  watchdogSleep(SLEEP_MODE_PWR_DOWN,T1S); // 2 sleeps - PCINT8
+//  watchdogSleep(SLEEP_MODE_PWR_DOWN,T500MS); // 1 sleeps - PCINT8
+//  watchdogSleep(SLEEP_MODE_PWR_DOWN,T4S); // PCINT сам спит  на 4 и 8 секундных таймаутах :)
+
+// nextnap();// 16-52us  (wakeups from power down also)
+//delay(5000); // 10 interrupts (every 1/2 second) - 
+  rtcl=TCNT1;
+  
+        
+       // fastnap();
+        sssn=sss;
+//        nextnap(); // never wakeup (RTC is OFF  >> SQW is present
+        sssb=bbb;
+
+
 if(!TFT_IS_ON){TFT_ON(3);}
 //    fillScreen(0x000000);
-    DrawBox(0,0,159,127,0x00,0xfc,0x00);    // очистка экрана
+    DrawBox(0,0,159,127,0x00,0x3c,0x00);    // очистка экрана
 
 //    word cycles=TouchSensor();
-    setAddrWindow(0,0,7,119);
+    setAddrWindow(0,0,7,127);
   //  byte rtc=Check_RTC(16);
     ta("CurrentTouch");tn(1000,CurrentTouch);
 //    th(rtc8);ta(" fn");tn(10000,fastnaptime);ta(" ln");tn(10000,longnaptime);
-    setAddrWindow(10,0,17,119);
+    setAddrWindow(10,0,17,127);
     
-    ta("Et ");tn(10000,Etouch);ta(" sS ");tn(10000,sS);ta(" l ");tn(10000,rtcl);
+    ta("Et");tn(10000,Etouch);ta(" sS");tn(10000,sS);ta(" rtcl");tn(10000,rtcl);
 
-    delay(3500);
+    setAddrWindow(20,0,27,127);
+    tn(100,CH);ta(":");tn(100,CM);ta(":");tn(100,CS);
+    ta(" ");th(cH);th(cM);th(cS);
+    setAddrWindow(30,0,37,127);
+    ta("sss=");tn(100000,sss);
+
+
+    delay(3000);
+
+    setAddrWindow(40,0,47,127);
+    ta("sss=");tn(100000,sss); 
+    ta("sleeps=");tn(100,sleeps); 
+
+    setAddrWindow(50,0,57,127);
+    
+    ta(" b=");tn(10000,sssb);    
+    ta(" n=");tn(10000,sssn);    
+    ta(" if=");th((pin0_interrupt_flag<<5)|(pin2_interrupt_flag<2)|(pin3_interrupt_flag<<1)|(WDhappen));
+//    ta(" slp=");tn(10000,sleeps);    
+    setAddrWindow(60,0,67,127);
+
+ta(" f");tn(10000,fastnaptime);ta(" l");tn(10000,longnaptime);   ta(" n");tn(10000,nextnaptime);   
+    
+    delay(9000);
     TFT_OFF(); // close rtft/rtc mosfet
           
         
@@ -2188,7 +2408,7 @@ if(!TFT_IS_ON){TFT_ON(3);}
 //}
   //I2C_OFF(DDRC,PORTC,1,2);
   
-}
+//}
 
 /*
 */
@@ -2447,7 +2667,7 @@ NOP;NOP;
 
 
 //if(rnd==0){break;}// long sleep. 8s?
-
+/*
 if((it&0xFFFF)==0)
 {
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
@@ -2475,11 +2695,14 @@ if((it==55555)&&(!TFT_IS_ON))// ultra long nap 8s once  in somewhere  2 minutes
   sei();
 
 }
-//else{ln++;longnap();}  
-else {fn++;fastnap();} 
+else{ln++;longnap();fn++;fastnap();}  
+//else {fn++;fastnap();} 
+//else {sss=0;unap();} 
 //if ((it&0x3)==0){ln++;longnap();}else {fn++;fastnap();} // 1:3
 
-}
+}*/
+
+
 /*  
         Pin2Output(DDRD,2);
       Pin2HIGH(PORTD,2);// start charging timeout capacitor
