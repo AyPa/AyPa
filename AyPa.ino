@@ -13,22 +13,13 @@
 #define SCL_PORT PORTC 
 #define SDA_PIN 1
 #define SDA_PORT PORTC 
-/*If you are changing the CPU frequency dynamically using the clock prescale register CLKPR and intend to call the I2C functions with a frequency different from F_CPU, then define this constant with the correct frequency. For instance, if you used a prescale factor of 8, then the following definition would be adequate: 
-*/
 //#define I2C_CPUFREQ (F_CPU/8)
 #define I2C_FASTMODE 1 
-//The standard I2C bus frequency is 100kHz. Often, however, devices permit for faster transfers up to 400kHz. If you want to allow for the higher frequency, then the above definition should be used.
 //#define I2C_SLOWMODE 1 
-  /*                                    	1MHz	2MHz	4MHz	8MHz	16MHz20MHz
-I2C slow mode kbit/sec	          25	25	25	25	25	25
-I2C standard mode kbit/sec	40	80	100	100	100	100
-I2C fast mode kbit/sec      	40	80	150	300	400	400
-*/
-//In case you want to slow down the transfer to 25kHz, you can use this definition (in this case, do not define I2C_FASTMODE).
 #define I2C_TIMEOUT 2
 #define I2C_NOINTERRUPT 1 
 
-#include <SoftI2CMaster.h>
+//#include <SoftI2CMaster.h>
 
 #include "AyPa_m.h"
 #include "AyPa_fonts.h"
@@ -110,11 +101,6 @@ int freeRam(void)
   int v;
   return (int)&v-(__brkval==0?(int)&__heap_start:(int)__brkval);
 }
-
-//DS1302_RAM ramBuffer;
-//DS1302 rtc(A0,A1,A2);//ce data clk
-//DS1307_RAM ramBuffer;
-//DS1307 rtc(a1,a2);
 
 
 
@@ -237,6 +223,7 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 #define ERR_WHERE_IS_THE_TSL2561 0b00001000;
 #define ERR_BROKEN_SLEEP              0b00010000;
 #define ERR_NO_SQW                        0b00100000;  
+#define ERR_SET_CLOCK                    0b01000000;
 byte ERR=0; // ошибки
 
 word TFT_IS_ON=0;
@@ -274,11 +261,18 @@ void RTC_OFF(void){Pin2LOW(PORTD,0);Pin2Input(DDRC,1);Pin2Input(DDRC,2);Pin2LOW(
 
 byte rtc8;
 
-void SetTime(byte h,byte m,byte s){
-Save_I2C(DS1307_ADDR_W,7,0x10,A1,A2);
-Save_I2C(DS1307_ADDR_W,2,h,A1,A2);
-Save_I2C(DS1307_ADDR_W,1,m,A1,A2);
-Save_I2C(DS1307_ADDR_W,0,s,A1,A2);
+byte DateTime[8]={0,0,0,0x05,0x01,0x03,0x14,0x10}; // 1 марта 14 SQW 1s
+
+boolean SetTime(void)
+{
+  for(byte i=0;i<8;i++)
+  {
+      if (!i2c_start((0x68<<1) | I2C_WRITE)) return false;
+      if (!i2c_write(i)) return false;
+      if (!i2c_write(DateTime[i])) return false;
+      i2c_stop();
+  }
+  return true;
 }
 
 // каждый раз перед обращением к часам проверяем их вменяемость
@@ -295,84 +289,33 @@ byte CS; // текущая секунда
 byte CM; // текущая минута
 byte CH; // текущий час (0..23)
 
-byte xxx;
-
-int readOneVal(boolean last)
-{
-  uint8_t msb, lsb;
-  lsb = i2c_read(false);
-  msb = i2c_read(last);
-  return (int)((msb<<8)|lsb)/64;
-}
-
 boolean RTC(void)
-{    
+{  
+    byte n=0;
+    boolean r=false;
+    boolean f=false;
+    
     Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);Pin2Output(DDRC,1);Pin2Output(DDRC,2);//    RTC_ON();
 
-//delayMicroseconds(5);
-
-if (!i2c_init()) return false;
-
-  if (!i2c_start((0x68<<1) | I2C_WRITE)) return false;
-  if (!i2c_write(0x07)) return false;
-  if (!i2c_rep_start((0x68<<1) | I2C_READ)) return false;
-//  xval = readOneVal(false);
-//  xxx = readOneVal(true);
-//  xxx = i2c_read(false);
-  xxx = i2c_read(true);
-//  msb = i2c_read(last);
-
-  i2c_stop();
-
-  if (!i2c_start((0x68<<1) | I2C_WRITE)) return false;
-  if (!i2c_write(0x00)) return false;
-  if (!i2c_rep_start((0x68<<1) | I2C_READ)) return false;
-  cS = i2c_read(false);//readOneVal(false);
-  cM = i2c_read(false);//readOneVal(false);
-  cH = i2c_read(true);//readOneVal(true);
-  i2c_stop();
-
-  
-       
-       //   xxx=soft_i2c_read_byte(0x68,7);
-/*
-    for(byte a=0;a<16;a++)
+    while(1)        // try to read regs 0..7
     {
-//        if (Read_I2C(DS1307_ADDR_W,7,A1,A2)==0x10) // часики здесь, можно читать время
-        if (soft_i2c_read_byte(0x68,7)==0x10) // часики здесь, можно читать время
+        if (i2c_start((0x68<<1) | I2C_WRITE)) 
         {
-    xxx=soft_i2c_read_byte(0x68,7);
-
-            ERR&=~ERR_WHERE_IS_THE_CLOCK; // сбрасываем флажок (часики таки прочитались)
-            cS=Read_I2C(DS1307_ADDR_W,0,A1,A2); CS=(cS>>4)*10;CS|=(cS&0xF);
-
-            if(pS==cS) 
+            if (i2c_write(0x00))
             {
-              
-                sS++;if(!sS){SetTime(0,0,0);ERR|=ERR_STOPPED_CLOCK;} // часики залипли
+                if (i2c_rep_start((0x68<<1) | I2C_READ))
+                {
+                      for(byte x=0;x<8;x++){if(x==7){f=true;} DateTime[x]=i2c_read(f);}
+                      i2c_stop();
+                      if(DateTime[7]==0x10){r=true; break;}
+                 }
             }
-            else // смена секунд
-            {
-                pS=cS;
-//                cM=Read_I2C(DS1307_ADDR_W,1,A1,A2);CM=(cM>>4)*10;CM|=(cM&0xF);
-  //              cH=Read_I2C(DS1307_ADDR_W,2,A1,A2);CH=(cH>>4)*10;CH|=(cH&0xF);
-                if(pM!=cM){pM=cM;} // смена минут
-                if(pH!=cH){pH=cH;} // смена часов
-                
-                
-              
-                sS=0;
-            }
-          
-          
         }
-        else {ERR|=ERR_WHERE_IS_THE_CLOCK;} 
+        if(++n==16){ERR|=ERR_WHERE_IS_THE_CLOCK; if(!SetTime()){ERR|=ERR_SET_CLOCK;} break;}  
     }
-    if(ERR){SetTime(0,0,0);}// пробуем сбросить часы
-    
-*/
+
     Pin2LOW(PORTD,0);Pin2LOW(PORTC,1);Pin2LOW(PORTC,2);Pin2Input(DDRC,1);Pin2Input(DDRC,2);Pin2Input(DDRD,0);  //    RTC_OFF();
-    return true;
+    return r;
 }
 
 byte Check_RTC(byte attempts){for(byte n=attempts;n>0;n--){Save_I2C(DS1307_ADDR_W,8,'A',A1,A2);
@@ -2441,8 +2384,8 @@ if(!TFT_IS_ON){TFT_ON(3);}
     tn(100,CH);ta(":");tn(100,CM);ta(":");tn(100,CS);
     ta(" ");th(cH);th(cM);th(cS);
     setAddrWindow(30,0,37,127);
-    ta("sss=");tn(100000,sss);
-    ta("xxx=");th(xxx);
+    //ta("sss=");tn(100000,sss);
+    for(byte w=0;w<8;w++){th(DateTime[w]);}
     
 
 
