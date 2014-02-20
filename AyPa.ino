@@ -9,6 +9,26 @@
 
 #include <SPI.h>
 
+#define SCL_PIN 2 
+#define SCL_PORT PORTC 
+#define SDA_PIN 1
+#define SDA_PORT PORTC 
+/*If you are changing the CPU frequency dynamically using the clock prescale register CLKPR and intend to call the I2C functions with a frequency different from F_CPU, then define this constant with the correct frequency. For instance, if you used a prescale factor of 8, then the following definition would be adequate: 
+*/
+//#define I2C_CPUFREQ (F_CPU/8)
+#define I2C_FASTMODE 1 
+//The standard I2C bus frequency is 100kHz. Often, however, devices permit for faster transfers up to 400kHz. If you want to allow for the higher frequency, then the above definition should be used.
+//#define I2C_SLOWMODE 1 
+  /*                                    	1MHz	2MHz	4MHz	8MHz	16MHz20MHz
+I2C slow mode kbit/sec	          25	25	25	25	25	25
+I2C standard mode kbit/sec	40	80	100	100	100	100
+I2C fast mode kbit/sec      	40	80	150	300	400	400
+*/
+//In case you want to slow down the transfer to 25kHz, you can use this definition (in this case, do not define I2C_FASTMODE).
+#define I2C_TIMEOUT 2
+#define I2C_NOINTERRUPT 1 
+
+#include <SoftI2CMaster.h>
 
 #include "AyPa_m.h"
 #include "AyPa_fonts.h"
@@ -216,6 +236,7 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 #define ERR_STOPPED_CLOCK            0b00000100;
 #define ERR_WHERE_IS_THE_TSL2561 0b00001000;
 #define ERR_BROKEN_SLEEP              0b00010000;
+#define ERR_NO_SQW                        0b00100000;  
 byte ERR=0; // ошибки
 
 word TFT_IS_ON=0;
@@ -274,20 +295,61 @@ byte CS; // текущая секунда
 byte CM; // текущая минута
 byte CH; // текущий час (0..23)
 
-void RTC(void)
+byte xxx;
+
+int readOneVal(boolean last)
+{
+  uint8_t msb, lsb;
+  lsb = i2c_read(false);
+  msb = i2c_read(last);
+  return (int)((msb<<8)|lsb)/64;
+}
+
+boolean RTC(void)
 {    
     Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);Pin2Output(DDRC,1);Pin2Output(DDRC,2);//    RTC_ON();
+
+//delayMicroseconds(5);
+
+if (!i2c_init()) return false;
+
+  if (!i2c_start((0x68<<1) | I2C_WRITE)) return false;
+  if (!i2c_write(0x07)) return false;
+  if (!i2c_rep_start((0x68<<1) | I2C_READ)) return false;
+//  xval = readOneVal(false);
+//  xxx = readOneVal(true);
+//  xxx = i2c_read(false);
+  xxx = i2c_read(true);
+//  msb = i2c_read(last);
+
+  i2c_stop();
+
+  if (!i2c_start((0x68<<1) | I2C_WRITE)) return false;
+  if (!i2c_write(0x00)) return false;
+  if (!i2c_rep_start((0x68<<1) | I2C_READ)) return false;
+  cS = i2c_read(false);//readOneVal(false);
+  cM = i2c_read(false);//readOneVal(false);
+  cH = i2c_read(true);//readOneVal(true);
+  i2c_stop();
+
+  
+       
+       //   xxx=soft_i2c_read_byte(0x68,7);
+/*
     for(byte a=0;a<16;a++)
     {
-        if (Read_I2C(DS1307_ADDR_W,7,A1,A2)==0x10) // часики здесь, можно читать время
+//        if (Read_I2C(DS1307_ADDR_W,7,A1,A2)==0x10) // часики здесь, можно читать время
+        if (soft_i2c_read_byte(0x68,7)==0x10) // часики здесь, можно читать время
         {
+    xxx=soft_i2c_read_byte(0x68,7);
+
             ERR&=~ERR_WHERE_IS_THE_CLOCK; // сбрасываем флажок (часики таки прочитались)
             cS=Read_I2C(DS1307_ADDR_W,0,A1,A2); CS=(cS>>4)*10;CS|=(cS&0xF);
 
             if(pS==cS) 
             {
               
-                sS++;if(!sS){SetTime(0,0,0);ERR=ERR_STOPPED_CLOCK;} // часики залипли
+                sS++;if(!sS){SetTime(0,0,0);ERR|=ERR_STOPPED_CLOCK;} // часики залипли
             }
             else // смена секунд
             {
@@ -304,12 +366,13 @@ void RTC(void)
           
           
         }
-        else {ERR=ERR_WHERE_IS_THE_CLOCK;} 
+        else {ERR|=ERR_WHERE_IS_THE_CLOCK;} 
     }
     if(ERR){SetTime(0,0,0);}// пробуем сбросить часы
     
-
+*/
     Pin2LOW(PORTD,0);Pin2LOW(PORTC,1);Pin2LOW(PORTC,2);Pin2Input(DDRC,1);Pin2Input(DDRC,2);Pin2Input(DDRD,0);  //    RTC_OFF();
+    return true;
 }
 
 byte Check_RTC(byte attempts){for(byte n=attempts;n>0;n--){Save_I2C(DS1307_ADDR_W,8,'A',A1,A2);
@@ -412,6 +475,8 @@ byte mi=0;// максимальная интенсивность или 16 ес�
 byte Intensity[16] = {0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15};
 byte FlashDuration=0;
 
+volatile long sss=0;
+volatile long bbb=0;
 
 
 //byte pp[10]={
@@ -429,6 +494,13 @@ void setup() {
      // Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// start charging timeout capacitor (default state)
 
   extreset=MCUSR;
+
+    Pin2Input(DDRD,2);Pin2HIGH(PORTD,2);// pinMode(1,INPUT_PULLUP);      
+    attachInterrupt(0, pin2_isr, RISING);
+//sss=0;
+//      watchdogSleep(SLEEP_MODE_PWR_DOWN,T2S); // 2 sleeps - INT0 every second
+//delay(2000);      if(!sss){ERR=ERR_NO_SQW;}
+
 
   //setup timer1
   cli();
@@ -451,8 +523,10 @@ void setup() {
   OCR2A=0xFF;
 
 // every 1/2 second interrupt from RTC
-Pin2Input(DDRC,0);Pin2HIGH(PORTC,0); // pull up on A0
-PCICR |= 1<<PCIE1;PCMSK1 = 1<<PCINT8; // A0
+//Pin2Input(DDRC,0);Pin2HIGH(PORTC,0); // pull up on A0
+//PCICR |= 1<<PCIE1;PCMSK1 = 1<<PCINT8; // A0
+
+
 
   sei();
 
@@ -1708,8 +1782,6 @@ byte pin3_interrupt_flag=0;
 byte pin0_interrupt_flag=0;
 byte pin7_interrupt_flag=0;
 
-volatile long sss=0;
-volatile long bbb=0;
 
 ISR (PCINT1_vect)  // A0
 { 
@@ -1731,7 +1803,8 @@ ISR (PCINT0_vect) // B7
 void pin2_isr()
 {
   cnt1=TCNT1;
-  detachInterrupt(0);  //INT 0
+  sss++;
+//  detachInterrupt(0);  //INT 0
 //  sleep_disable();// a bit later
   pin2_interrupt_flag = 1;
 }
@@ -1853,7 +1926,8 @@ void longnap_old(void)
 //.. по кнопке пробуем
 
 // instead of charging cap we must set internal pullup resistor to get SQW from DS1307
-    Pin2Input(DDRD,3);Pin2HIGH(PORTD,3);// pinMode(3,INPUT_PULLUP);
+    Pin2Input(DDRD,3);Pin2HIGH(PORTD,3);// pinMode(3,INPUT_PULLUP);      attachInterrupt(1, pin3_isr, RISING);
+
 
 //            WDhappen=0;
         sleeps=0;
@@ -2145,10 +2219,10 @@ void SleepTime(void)
     nextnaptime=0;
     
     set_sleep_mode(SLEEP_MODE_IDLE);
-    WDsleep=1;// notify WD that we are sleeping (to avoid reboot)
+  //  WDsleep=1;// notify WD that we are sleeping (to avoid reboot)
 //    __asm__ __volatile__("wdr\n\t");//  wdt_reset(); // to avoid WD fire first
-    fastnap();
-    if (pin2_interrupt_flag){fastnaptime=cnt1;}else { ERR=ERR_BROKEN_SLEEP; }
+//    fastnap();
+  //  if (pin2_interrupt_flag){fastnaptime=cnt1;}else { ERR=ERR_BROKEN_SLEEP; }
 
     WDsleep=1;// notify WD that we are sleeping (to avoid reboot)
   //  __asm__ __volatile__("wdr\n\t");//  wdt_reset(); // to avoid WD fire first
@@ -2266,7 +2340,7 @@ void loop() {
 
 
 TCNT1=0;
-RTC();
+boolean rrr=RTC();
 rtcl=TCNT1;
 
 //if((it&0xFF)==0) // 1 из 256
@@ -2316,13 +2390,15 @@ WDhappen=0;
 //        set_sleep_mode(SLEEP_MODE_PWR_DOWN);
        sss=0;
 //       wdt_disable();
-  //      longnap();
      set_sleep_mode(SLEEP_MODE_PWR_DOWN); 
-    set_sleep_mode(SLEEP_MODE_IDLE);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
+  //  set_sleep_mode(SLEEP_MODE_IDLE);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
 sss=0;sleeps=0;
+
+//    attachInterrupt(0, pin2_isr, LOW);
+
   TCNT1=0;
-  //longnap();//4845us 3 sleeps
-//  fastnap();// 237us
+  longnap();//4845us 3 sleeps
+//  fastnap();// 237us - 
 //b7nap();//522us
 //  watchdogSleep(SLEEP_MODE_IDLE,T16MS); // 8 sleeps - прерывания TCNT0
 //  watchdogSleep(SLEEP_MODE_IDLE,T32MS); // 17 sleeps
@@ -2330,14 +2406,16 @@ sss=0;sleeps=0;
 //  watchdogSleep(SLEEP_MODE_IDLE,T2S); // 28 sleeps - 4-5 sleeps from PCINT8 - PCINT 
 //  watchdogSleep(SLEEP_MODE_IDLE,T2S); // 30 sleeps - 5 sleeps from PCINT8 - PCINT 
 //  watchdogSleep(SLEEP_MODE_PWR_DOWN,T2S); // 4 sleeps - PCINT8 - PCINT  works only in active or pwr_down mode
-  watchdogSleep(SLEEP_MODE_PWR_DOWN,T1S); // 2 sleeps - PCINT8
+  watchdogSleep(SLEEP_MODE_PWR_DOWN,T2S); // 2 sleeps - INT0 every second
+//  watchdogSleep(SLEEP_MODE_PWR_DOWN,T1S); // 2 sleeps - PCINT8
 //  watchdogSleep(SLEEP_MODE_PWR_DOWN,T500MS); // 1 sleeps - PCINT8
 //  watchdogSleep(SLEEP_MODE_PWR_DOWN,T4S); // PCINT сам спит  на 4 и 8 секундных таймаутах :)
 
 // nextnap();// 16-52us  (wakeups from power down also)
 //delay(5000); // 10 interrupts (every 1/2 second) - 
   rtcl=TCNT1;
-  
+
+//detachInterrupt(0);  Pin2LOW(PORTD,2);//
         
        // fastnap();
         sssn=sss;
@@ -2353,16 +2431,19 @@ if(!TFT_IS_ON){TFT_ON(3);}
     setAddrWindow(0,0,7,127);
   //  byte rtc=Check_RTC(16);
     ta("CurrentTouch");tn(1000,CurrentTouch);
+    ta("rrr");tn(10,rrr);
 //    th(rtc8);ta(" fn");tn(10000,fastnaptime);ta(" ln");tn(10000,longnaptime);
     setAddrWindow(10,0,17,127);
     
-    ta("Et");tn(10000,Etouch);ta(" sS");tn(10000,sS);ta(" rtcl");tn(10000,rtcl);
+    ta("Et");tn(1000,Etouch);ta(" sS");tn(10000,sS);ta(" rtcl");tn(10000,rtcl);
 
     setAddrWindow(20,0,27,127);
     tn(100,CH);ta(":");tn(100,CM);ta(":");tn(100,CS);
     ta(" ");th(cH);th(cM);th(cS);
     setAddrWindow(30,0,37,127);
     ta("sss=");tn(100000,sss);
+    ta("xxx=");th(xxx);
+    
 
 
     delay(3000);
