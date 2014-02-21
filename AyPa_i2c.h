@@ -62,7 +62,7 @@ tsl2561Gain_t;
 //#define _scl_pin A5
 
 
-
+/*
 void	sendStart(byte addr,byte sda,byte scl)
 {
 	pinMode(sda, OUTPUT);
@@ -183,7 +183,7 @@ void writeRegister(uint8_t reg, uint8_t value,byte sda,byte scl)
 	waitForAck(sda,scl);
 	sendStop(sda,scl);
 }
-
+*/
 /*
 void _writeRegisterT(uint8_t reg, uint8_t value,byte sda,byte scl)
 {
@@ -257,7 +257,7 @@ void _burstRead()
 	}
 	_sendStop();
 }*/
-
+/*
 void poke2(uint8_t addr, uint8_t value)
 {
 //	if ((addr >=0) && (addr<=55+8))
@@ -271,7 +271,7 @@ void poke2(uint8_t addr, uint8_t value)
 		waitForAck(A4,A5);
 		sendStop(A4,A5);
 //	}
-}
+}*/
 
 //CLKrtc IOrtc
 //#define CLKrtc 5
@@ -365,7 +365,7 @@ void I2C_WaitForAck(byte clkpin,byte datapin)
 	while (PORTC&(1<<clkpin)==0) {if(maxcycles--==0){break;}}
         Pin2LOW(PORTC,clkpin);//		digitalWrite(_scl_pin, LOW);
 }*/
-
+/*
 void Save_I2C(byte addr,byte reg,byte val,byte dp,byte cp)
 {
   		sendStart(addr,dp,cp);
@@ -421,7 +421,7 @@ uint8_t peek2(uint8_t addr)
 //	}
 //	else
 //		return 0;
-}
+}*/
 /*
 //TSL2561_START(TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_16X);//delay(14);//res=TSL2561_STOP();
 void  TSL2561_START(byte val)
@@ -449,7 +449,7 @@ long  TSL2561_STOP(void)
     Save_I2C(TSL2561_ADDR_LOW_W,(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL),TSL2561_CONTROL_POWEROFF,A4,A5); // disable
     return res;
 }*/
-
+/*
 #define TWI_SDA_PIN 1
 #define TWI_SCL_PIN 2
 //#define EEPROM_ADDR 0x50
@@ -610,11 +610,25 @@ bool soft_i2c_write_byte(uint8_t deviceAddr, uint16_t writeAddress, byte writeBy
  
   return true;
 }
+*/
 
 
 
 
 //============================= monumental lib
+
+#define SCL_PIN 4 
+#define SCL_PORT PORTC
+#define SDA_PIN 5
+#define SDA_PORT PORTC 
+//#define I2C_CPUFREQ (F_CPU/8)
+//#define I2C_CPUFREQ F_CPU
+//#define I2C_DELAY_COUNTER (((I2C_CPUFREQ/25000L)/2-19)/3)// normal mode
+#define I2C_FASTMODE 1
+//#define I2C_SLOWMODE 1
+#define I2C_TIMEOUT 1  // без этого i2c может зависнуть напрочь 
+//#define I2C_NOINTERRUPT 1 
+
 
 /* Arduino SoftI2C library. 
  *
@@ -759,6 +773,9 @@ uint8_t __attribute__ ((noinline)) i2c_read(bool last);
 #endif
 #endif
 
+
+//#define I2C_DELAY_COUNTER (((I2C_CPUFREQ/400000L)/2-19)/3)
+/*
 #if I2C_FASTMODE
 #define I2C_DELAY_COUNTER (((I2C_CPUFREQ/400000L)/2-19)/3)
 #else
@@ -768,6 +785,8 @@ uint8_t __attribute__ ((noinline)) i2c_read(bool last);
 #define I2C_DELAY_COUNTER (((I2C_CPUFREQ/100000L)/2-19)/3)
 #endif
 #endif
+*/
+#define I2C_DELAY_COUNTER 7 //  normal
 
 // Table of I2C bus speed in kbit/sec:
 // CPU clock:           1MHz   2MHz    4MHz   8MHz   16MHz   20MHz
@@ -790,6 +809,7 @@ uint8_t __attribute__ ((noinline)) i2c_read(bool last);
 #ifndef __tmp_reg__
 #define __tmp_reg__ 0
 #endif
+
  
 // Internal delay functions.
 void __attribute__ ((noinline)) i2c_delay_half(void) asm("ass_i2c_delay_half");
@@ -803,12 +823,15 @@ void  i2c_delay_half(void)
 #else
   __asm__ __volatile__ 
     (
-     " ldi      r25, %[DELAY]           ;load delay constant   ;; 4C \n\t"
+//     " ldi      r25, %[DELAY]           ;load delay constant   ;; 4C \n\t"
+     " ldi      r25, 7         ;load delay constant   ;; 4C \n\t"
+//     " ldi      r25, 47         ;load delay constant   ;; 4C \n\t"
      "_Lidelay: \n\t"
      " dec r25                          ;decrement counter     ;; 4C+xC \n\t"
      " brne _Lidelay                                           ;;5C+(x-1)2C+xC\n\t"
      " ret                                                     ;; 9C+(x-1)2C+xC = 7C+xC" 
-     : : [DELAY] "M" I2C_DELAY_COUNTER : "r25");
+//     : : [DELAY] "M" I2C_DELAY_COUNTER : "r25");
+     : : : "r25");
   // 7 cycles + 3 times x cycles
 #endif
 }
@@ -1119,167 +1142,8 @@ uint8_t i2c_read(bool last)
      ); 
   return ' '; // fool the compiler!
 }
-#endif
-
-#ifndef _TSL2561_H_
-#define _TSL2561_H_
-
-#define TSL2561_VISIBLE 2                   // channel 0 - channel 1
-#define TSL2561_INFRARED 1                  // channel 1
-#define TSL2561_FULLSPECTRUM 0              // channel 0
-
-#define TSL2561_LUX_LUXSCALE      (14)      // Scale by 2^14
-#define TSL2561_LUX_RATIOSCALE    (9)       // Scale ratio by 2^9
-#define TSL2561_LUX_CHSCALE       (10)      // Scale channel values by 2^10
-#define TSL2561_LUX_CHSCALE_TINT0 (0x7517)  // 322/11 * 2^TSL2561_LUX_CHSCALE
-#define TSL2561_LUX_CHSCALE_TINT1 (0x0FE7)  // 322/81 * 2^TSL2561_LUX_CHSCALE
-
-// T, FN and CL package values
-#define TSL2561_LUX_K1T           (0x0040)  // 0.125 * 2^RATIO_SCALE
-#define TSL2561_LUX_B1T           (0x01f2)  // 0.0304 * 2^LUX_SCALE
-#define TSL2561_LUX_M1T           (0x01be)  // 0.0272 * 2^LUX_SCALE
-#define TSL2561_LUX_K2T           (0x0080)  // 0.250 * 2^RATIO_SCALE
-#define TSL2561_LUX_B2T           (0x0214)  // 0.0325 * 2^LUX_SCALE
-#define TSL2561_LUX_M2T           (0x02d1)  // 0.0440 * 2^LUX_SCALE
-#define TSL2561_LUX_K3T           (0x00c0)  // 0.375 * 2^RATIO_SCALE
-#define TSL2561_LUX_B3T           (0x023f)  // 0.0351 * 2^LUX_SCALE
-#define TSL2561_LUX_M3T           (0x037b)  // 0.0544 * 2^LUX_SCALE
-#define TSL2561_LUX_K4T           (0x0100)  // 0.50 * 2^RATIO_SCALE
-#define TSL2561_LUX_B4T           (0x0270)  // 0.0381 * 2^LUX_SCALE
-#define TSL2561_LUX_M4T           (0x03fe)  // 0.0624 * 2^LUX_SCALE
-#define TSL2561_LUX_K5T           (0x0138)  // 0.61 * 2^RATIO_SCALE
-#define TSL2561_LUX_B5T           (0x016f)  // 0.0224 * 2^LUX_SCALE
-#define TSL2561_LUX_M5T           (0x01fc)  // 0.0310 * 2^LUX_SCALE
-#define TSL2561_LUX_K6T           (0x019a)  // 0.80 * 2^RATIO_SCALE
-#define TSL2561_LUX_B6T           (0x00d2)  // 0.0128 * 2^LUX_SCALE
-#define TSL2561_LUX_M6T           (0x00fb)  // 0.0153 * 2^LUX_SCALE
-#define TSL2561_LUX_K7T           (0x029a)  // 1.3 * 2^RATIO_SCALE
-#define TSL2561_LUX_B7T           (0x0018)  // 0.00146 * 2^LUX_SCALE
-#define TSL2561_LUX_M7T           (0x0012)  // 0.00112 * 2^LUX_SCALE
-#define TSL2561_LUX_K8T           (0x029a)  // 1.3 * 2^RATIO_SCALE
-#define TSL2561_LUX_B8T           (0x0000)  // 0.000 * 2^LUX_SCALE
-#define TSL2561_LUX_M8T           (0x0000)  // 0.000 * 2^LUX_SCALE
-
-// Auto-gain thresholds
-#define TSL2561_AGC_THI_13MS      (4850)    // Max value at Ti 13ms = 5047
-#define TSL2561_AGC_TLO_13MS      (100)
-#define TSL2561_AGC_THI_101MS     (36000)   // Max value at Ti 101ms = 37177
-#define TSL2561_AGC_TLO_101MS     (200)
-#define TSL2561_AGC_THI_402MS     (63000)   // Max value at Ti 402ms = 65535
-#define TSL2561_AGC_TLO_402MS     (500)
-
-// Clipping thresholds
-#define TSL2561_CLIPPING_13MS     (4900)
-#define TSL2561_CLIPPING_101MS    (37000)
-#define TSL2561_CLIPPING_402MS    (65000)
 
 #endif
-
-/*
-// Sketch to explore the luminosity sensor TSL2561 (breakout board by Adafruit)
-
-#define SDA_PORT PORTD
-#define SDA_PIN 3
-#define SCL_PORT PORTD
-#define SCL_PIN 5
-
-#include <SoftI2CMaster.h>
-#include "TSL2561Soft.h"
-
-#define ADDR 0x72
-
-//------------------------------------------------------------------------------
-unsigned long computeLux(unsigned long channel0, unsigned long channel1){
-  
-  // Make sure the sensor isn't saturated! 
-  uint16_t clipThreshold = TSL2561_CLIPPING_402MS;;
-
-  // Return 0 lux if the sensor is saturated 
-  if ((channel0 > clipThreshold) || (channel1 > clipThreshold))
-  {
-    Serial.println(F("Sensor is saturated"));
-    return 32000;
-  }
-
-  // Find the ratio of the channel values (Channel1/Channel0) 
-  unsigned long ratio1 = 0;
-  if (channel0 != 0) ratio1 = (channel1 << (TSL2561_LUX_RATIOSCALE+1)) / channel0;
-
-  // round the ratio value 
-  unsigned long ratio = (ratio1 + 1) >> 1;
-
-  unsigned int b, m;
-
-  if ((ratio >= 0) && (ratio <= TSL2561_LUX_K1T))
-    {b=TSL2561_LUX_B1T; m=TSL2561_LUX_M1T;}
-  else if (ratio <= TSL2561_LUX_K2T)
-    {b=TSL2561_LUX_B2T; m=TSL2561_LUX_M2T;}
-  else if (ratio <= TSL2561_LUX_K3T)
-    {b=TSL2561_LUX_B3T; m=TSL2561_LUX_M3T;}
-  else if (ratio <= TSL2561_LUX_K4T)
-    {b=TSL2561_LUX_B4T; m=TSL2561_LUX_M4T;}
-  else if (ratio <= TSL2561_LUX_K5T)
-    {b=TSL2561_LUX_B5T; m=TSL2561_LUX_M5T;}
-  else if (ratio <= TSL2561_LUX_K6T)
-    {b=TSL2561_LUX_B6T; m=TSL2561_LUX_M6T;}
-  else if (ratio <= TSL2561_LUX_K7T)
-    {b=TSL2561_LUX_B7T; m=TSL2561_LUX_M7T;}
-  else if (ratio > TSL2561_LUX_K8T)
-    {b=TSL2561_LUX_B8T; m=TSL2561_LUX_M8T;}
-
-  unsigned long temp;
-  temp = ((channel0 * b) - (channel1 * m));
-
-  // Do not allow negative lux value 
-  if (temp < 0) temp = 0;
-
-  // Round lsb (2^(LUX_SCALE-1)) 
-  temp += (1 << (TSL2561_LUX_LUXSCALE-1));
-
-  // Strip off fractional portion 
-  uint32_t lux = temp >> TSL2561_LUX_LUXSCALE;
-
-  return lux;
-}
-
-void setup(void) {
-
-  Serial.begin(19200);
-  Serial.println("Initializing ...");
-  i2c_init();
-
-  if (!i2c_start(ADDR | I2C_WRITE)) Serial.println(F("Device does not respond"));
-  if (!i2c_write(0x80)) Serial.println(F("Cannot address reg 0"));
-  if (!i2c_write(0x03)) Serial.println(F("Cannot wake up"));
-  i2c_stop();
-}  
-
-void loop (void) {
-  unsigned int low0, high0, low1, high1;
-  unsigned int chan0, chan1;
-  unsigned int lux;
-
-  delay(1000);
-  i2c_start(ADDR | I2C_WRITE);
-  i2c_write(0x8C);
-  i2c_rep_start(ADDR | I2C_READ);
-  low0 = i2c_read(false);
-  high0 = i2c_read(false);
-  low1 = i2c_read(false);
-  high1 = i2c_read(true);
-  i2c_stop();
-  Serial.print(F("Raw values: chan0="));
-  Serial.print(chan0=(low0+(high0<<8)));
-  Serial.print(F(" / chan1="));
-  Serial.println(chan1=(low1+(high1<<8)));
-  lux = computeLux(chan0,chan1);
-  Serial.print(F("Lux value="));
-  Serial.println(lux);
-}
-*/
-
-
-
 
 
 
