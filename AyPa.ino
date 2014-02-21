@@ -303,7 +303,59 @@ boolean TSLstart(void)
     byte v;
     boolean r=false;
     
+    
+    
+    
     Wire.begin();
+   /* 
+    Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2HIGH(PORTC,4);Pin2HIGH(PORTC,5);   // activate internal pullups for twi.
+    TWSR&=~((1<<TWPS0)|(1<<TWPS1));
+    TWBR=32; //  TWBR = ((F_CPU / TWI_FREQ) - 16) / 2;
+    TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA);  // enable twi module, acks, and twi interrupt
+    
+
+    TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA) | _BV(TWINT) | _BV(TWSTA);        // send start condition
+
+  if(ack){   TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWINT) | _BV(TWEA); }else{	  TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWINT);  }  // transmit master read ready signal, with or without ack
+
+  // send stop condition
+  TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA) | _BV(TWINT) | _BV(TWSTO);
+
+  // wait for stop condition to be exectued on bus  (TWINT is not set after a stop condition!)
+  while(TWCR & _BV(TWSTO)){    continue;  }
+
+  TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA) | _BV(TWINT);  // release bus
+
+//ISR(TWI_vect){}
+
+
+*/
+/*
+void twi_init(void)
+{
+  // initialize state
+  twi_state = TWI_READY;
+  twi_sendStop = true;		// default value
+  twi_inRepStart = false;
+  
+  // activate internal pullups for twi.
+  digitalWrite(SDA, 1);
+  digitalWrite(SCL, 1);
+
+  // initialize twi prescaler and bit rate
+  cbi(TWSR, TWPS0);
+  cbi(TWSR, TWPS1);
+  TWBR = ((F_CPU / TWI_FREQ) - 16) / 2;
+
+  // twi bit rate formula from atmega128 manual pg 204
+//  SCL Frequency = CPU Clock Frequency / (16 + (2 * TWBR))
+//  note: TWBR should be 10 or higher for master mode
+//  It is 72 for a 16mhz Wiring board with 100kHz TWI 
+
+  // enable twi module, acks, and twi interrupt
+  TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA);
+}*/
+
   Wire.beginTransmission(0x29);
   Wire.write(TSL2561_REGISTER_ID);
   Wire.endTransmission();
@@ -419,7 +471,7 @@ boolean TSLstop(void)
           }
     }  
     */
-    Pin2LOW(PORTC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,4);Pin2Input(DDRC,5);  
+    
     return r;
 }
 
@@ -2506,6 +2558,9 @@ boolean rrr=false;
 rrr=i2cHIGH();
 //if (rrr)
 //{
+  
+      Pin2Output(DDRC,0);Pin2HIGH(PORTC,0); // "power on"
+  
 TCNT1=0;
 rrr=RTC();
 rtcl=TCNT1;
@@ -2514,6 +2569,9 @@ if(TSLstart())
 delay(103);
 rrr=TSLstop();
 }
+
+    Pin2LOW(PORTC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2LOW(PORTC,0);Pin2Input(DDRC,0);  // "power off"
+
 //rtcl=TCNT1;
 //}
 //else { ERR=ERR_I2C; }
@@ -2596,9 +2654,9 @@ PCICR |= 1<<PCIE1;
 //  watchdogSleep(SLEEP_MODE_PWR_DOWN,T500MS); // 1 sleeps - PCINT8
 //  watchdogSleep(SLEEP_MODE_PWR_DOWN,T4S); // PCINT сам спит  на 4 и 8 секундных таймаутах :)
 
-delay(2000);
-unap();// 66 sleeps IDLE
-//unap();// 0 sleeps PWR_DOWN
+delay(1000);
+//unap();// 66 sleeps IDLE
+//unap();// 17 sleeps PWR_DOWN
    //   wdt_disable();
       
 // nextnap();// 16-52us  (wakeups from power down also)
