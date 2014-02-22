@@ -21,9 +21,10 @@
 #include "AyPa_i2c.h"
 //#include "AyPa_rtc.h"
 
-#include <Wire.h>
+//#include <Wire.h>
 //#include "TSL2561.h"
 //TSL2561 tsl(TSL2561_ADDR_LOW); 
+/*
 uint16_t read16(uint8_t reg,int addr)
 {
   uint16_t x; uint16_t t;
@@ -61,7 +62,7 @@ void write8 (uint8_t reg, uint8_t value,byte addr)
   Wire.write(value);
   Wire.endTransmission();
 }
-
+*/
 
 
 //#include <TFT.h> // Hardware-specific library
@@ -210,15 +211,15 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 //    Pin2Output(DDRD,1);Pin2LOW(PORTD,1); \ 
 //    Pin2LOW(PORTD,1); Pin2Input(DDRD,1); \
 
-#define ERR_WHERE_IS_THE_CLOCK    0b00000001;
-#define ERR_STRANGE_CLOCK_DATA   0b00000010;
+#define ERR_WHERE_IS_THE_CLOCK    0x20;
+#define ERR_STRANGE_CLOCK_DATA   0x28;
 #define ERR_STOPPED_CLOCK            0b00000100;
-#define ERR_WHERE_IS_THE_TSL2561 0b00001000;
+#define ERR_WHERE_IS_THE_TSL2561 0x10;
 #define ERR_BROKEN_SLEEP              0b00010000;
 #define ERR_NO_SQW                        0b00100000;  
-#define ERR_SET_CLOCK                    0b01000000;
-#define ERR_I2C                                0b10000000; // линии SDA и/или SCL в низком состоянии
-word ERR=0; // ошибки
+#define ERR_SET_CLOCK                    0x2F;
+#define ERR_I2C                                0x30;
+byte ERR=0; // ошибки (255)
 
 word TFT_IS_ON=0;
 
@@ -253,25 +254,8 @@ void TFT_OFF(void){ writecommand(ST7735_SLPIN);
 //#define TSL2561_ON {Pin2Output(DDRC,4);Pin2Output(DDRC,5);}
 //#define TSL2561_OFF {Pin2Input(DDRC,4);Pin2LOW(PORTC,4);Pin2Input(DDRC,5);Pin2LOW(PORTC,5);}
 
-byte rtc8;
 
-byte TimeS[8]={0,0,0,0x05,0x01,0x03,0x22,0x10}; // 1 марта 7522 SQW 1s
 
-boolean SetTime(void)
-{
-  for(byte i=0;i<8;i++)
-  {
-      Wire.beginTransmission(0x68);
-      Wire.write(i);
-      Wire.write(TimeS[i]);
-      Wire.endTransmission();
-//      if (!i2c_start((0x68<<1) | I2C_WRITE)) { return false; }
-//      if (!i2c_write(i)) { return false; }
-//      if (!i2c_write(TimeS[i])) { return false; }
-//      i2c_stop();
-  }
-  return true;
-}
 
 // каждый раз перед обращением к часам проверяем их вменяемость
 
@@ -292,21 +276,260 @@ byte CH; // текущий час (0..23)
   //CLKPR = _BV(CLKPCE);
 //  CLKPR = _BV(CLKPS1) | _BV(CLKPS0);
 //}
+
 byte grr,grr2;
+
+/*
+  if (!i2c_start(ADDR | I2C_WRITE)) Serial.println(F("Device does not respond"));
+  if (!i2c_write(0x80)) Serial.println(F("Cannot address reg 0"));
+  if (!i2c_write(0x03)) Serial.println(F("Cannot wake up"));
+  i2c_stop();
+}  
+
+void loop (void) {
+  unsigned int low0, high0, low1, high1;
+  unsigned int chan0, chan1;
+  unsigned int lux;
+
+  delay(1000);
+  i2c_start(ADDR | I2C_WRITE);
+  i2c_write(0x8C);
+  i2c_rep_start(ADDR | I2C_READ);
+  low0 = i2c_read(false);
+  high0 = i2c_read(false);
+  low1 = i2c_read(false);
+  high1 = i2c_read(true);
+  i2c_stop();
+  Serial.print(F("Raw values: chan0="));
+  Serial.print(chan0=(low0+(high0<<8)));
+  Serial.print(F(" / chan1="));
+  Serial.println(chan1=(low1+(high1<<8)));
+  lux = computeLux(chan0,chan1);
+
+*/
+/*
+boolean i2cHIGH(void)
+{
+    boolean r=false;
+    byte s;
+
+    Pin2LOW(PORTC,4);Pin2Input(DDRC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,5);
+    s=PINC&0b000110000;
+    if(s==0b000110000){r=true;}
+    return r;
+}
+*/
+
+
+void __attribute__ ((noinline)) wait4int(void)
+{
+    byte n=0;
+    do{if(TWCR&(1<<TWINT)){  return; }}while(--n);  // linited wait for TWINT bit    
+    ERR=ERR_I2C;
+}
+
+byte TimeS[9]={0,0,0,0,0x05,0x01,0x03,0x22,0x10}; // 1 марта 7522 SQW 1s
+
+void SetTime(void)
+{
+    TWSR&=~((1<<TWPS0)|(1<<TWPS1));
+    TWBR=4; 
+
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send start condition
+    wait4int();//    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limiting waiting
+    TWDR=(0x68<<1); // SLA+W
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
+    wait4int();
+    for(byte v=0;v<9;v++)
+    {
+        TWDR=TimeS[v];
+        TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with data
+        wait4int();
+        if (TWSR!=0x28){ ERR=ERR_SET_CLOCK; break; } // got ack?
+    }
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);        // send stop and forget     // wait for stop condition to be exectued on bus  (TWINT is not set after a stop condition!)
+}
+
+void RTC(void)
+{  
+  //  byte n=0;
+//    byte v;
+//    boolean r=false;
+    
+//    NOP;    NOP;
+    
+    TWSR&=~((1<<TWPS0)|(1<<TWPS1));
+//    TWBR=40; // 1215
+//    TWBR=32; //  TWBR = ((F_CPU / TWI_FREQ) - 16) / 2;   // 1023
+//    TWBR=24; // 833
+//    TWBR=20; // 741
+//    TWBR=16; // 649
+//    TWBR=12; // 558
+//    TWBR=8; // 475
+    TWBR=4; // 403
+//    TWBR=2; // 370 unstable
+//    TWBR=1; // unstable
+    
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send start condition
+    wait4int();//    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limiting waiting
+    if (TWSR!=0x08){ ERR=ERR_WHERE_IS_THE_CLOCK; return;}
+    TWDR=(0x68<<1); // SLA+W
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
+    wait4int();//    if (TWSR!=0x18){return false;} // got ack
+    TWDR=0x07;
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with reg number
+    wait4int();//    if (TWSR!=0x28){return false;} // got ack
+    
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send repeated start condition
+    wait4int();//    if (TWSR!=0x10){return false;}
+    TWDR=(0x68<<1)|1; // SLA+R
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+R
+    wait4int();  //  if (TWSR!=0x40){return false;} // got ack
+    TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + send ack
+    wait4int();//    if (TWSR!=0x50){ ERR=ERR_I2C; return;} // ack sent
+    if ((TWSR!=0x50)||(TWDR!=0x10)) { TWCR=(1<<TWEN)|(1<<TWINT)|(1<<TWSTO);  ERR=ERR_WHERE_IS_THE_CLOCK; SetTime();   return;}
+    
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send repeated start condition
+    wait4int();//    if (TWSR!=0x10){return false;}
+    TWDR=(0x68<<1); // SLA+W
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
+    wait4int();//    if (TWSR!=0x18){return false;} // got ack
+    TWDR=0x00;
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with reg number
+    wait4int();  //  if (TWSR!=0x28){return false;} // got ack
+
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send repeated start condition
+    wait4int();//    if (TWSR!=0x10){return false;}
+    TWDR=(0x68<<1)|1; // SLA+R
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+R
+    wait4int();//    if (TWSR!=0x40){return false;} // got ack
+    TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + ack
+    wait4int();//    if (TWSR!=0x50){return false;} // ack sent
+    TimeS[3]=TWDR;
+    TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + ack
+    wait4int();  //  if (TWSR!=0x50){return false;} // ack sent
+    TimeS[2]=TWDR;
+    TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + nack
+    wait4int();
+    if (TWSR!=0x58){ERR=ERR_WHERE_IS_THE_CLOCK; } // nack sent
+    TimeS[1]=TWDR;
+    
+  
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);        // send stop and forget     // wait for stop condition to be exectued on bus  (TWINT is not set after a stop condition!)
+}
+
+typedef union{byte B[4];word W[2];long L[1];} Data4;
+Data4 Light;
 byte low0, high0, low1, high1;
 word chan0, chan1;
 
-  
-
-boolean TSLstart(void)
+void TSLstart(void)
 {
-    byte v;
-    boolean r=false;
+    
+    TWSR&=~((1<<TWPS0)|(1<<TWPS1));
+    TWBR=4;
+    
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send start condition
+    wait4int();//    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limiting waiting
+
+    if (TWSR!=0x08){ ERR=ERR_WHERE_IS_THE_TSL2561; return;}
+    TWDR=(0x29<<1); // SLA+W
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
+    wait4int();    
+  if (TWSR!=0x18){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} // got ack
+//    wait4int();//    if (TWSR!=0x20){return false;} // got nack (tsl2561)
+
+//    TWDR=TSL2561_REGISTER_ID;
+//    TWDR=(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING);
+
+    TWDR=(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING);
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with reg number
+    wait4int();    if (TWSR!=0x28){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} 
+
+    TWDR=TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X;
+    TWCR = (1<<TWEN) | (1<<TWINT)|(1<<TWEA);         // proceed with reg number
+    wait4int();    if (TWSR!=0x28){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} 
+
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send start condition
+    wait4int();//    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limiting waiting
+ 
+
+    TWDR=(0x29<<1); // SLA+W
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
+    wait4int();    
+
+    TWDR=(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL);
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with reg number
+    wait4int();    if (TWSR!=0x28){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} 
+
+    // grr=TWSR;//return;
+  
+    TWDR=TSL2561_CONTROL_POWERON;
+    TWCR = (1<<TWEN) | (1<<TWINT)|(1<<TWEA);        // proceed with reg number
+    wait4int();    if (TWSR!=0x28){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} 
+
+  //   grr2=TWSR;//return;
+ 
+//    grr2=TWSR;//return;
+
+
+  TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);   
+  //delayMicroseconds(20);
+
+
+//  grr=TWSR;//return;
+
+
+//    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send repeated start condition
+  //  wait4int();//    if (TWSR!=0x10){return false;}
+//grr2=TWSR;
+
+/*
+    TWDR=(0x29<<1)|1; // SLA+R
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+R
+    wait4int();  //  if (TWSR!=0x40){return false;} // got ack 
+
+
+    TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + send nack (last)
+    wait4int();//    if (TWSR!=0x50){ ERR=ERR_I2C; return;} // ack sent
+
+
+    if ((TWSR!=0x50)||((TWDR&0xF)!=0x0A)) { TWCR=(1<<TWEN)|(1<<TWINT)|(1<<TWSTO);  ERR=ERR_WHERE_IS_THE_TSL2561;   return;}
+    
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send repeated start condition
+    wait4int();//    if (TWSR!=0x10){return false;}
+    TWDR=(0x29<<1); // SLA+W
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
+    wait4int();//    if (TWSR!=0x18){return false;} // got ack
+    TWDR=TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING;
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with reg number
+    wait4int();//    if (TWSR!=0x28){return false;} // got ack
+    TWDR=TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X;
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with reg number
+    wait4int();//    if (TWSR!=0x28){return false;} // got ack
+grr2=TWSR;
+
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send repeated start condition
+    wait4int();//    if (TWSR!=0x10){return false;}
+    TWDR=(0x29<<1); // SLA+W
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
+    wait4int();//    if (TWSR!=0x18){return false;} // got ack
+    TWDR=TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL;
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with reg number
+    wait4int();//    if (TWSR!=0x28){return false;} // got ack
+    TWDR=TSL2561_CONTROL_POWERON;
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with reg number
+    wait4int();//    if (TWSR!=0x28){return false;} // got ack
+ 
+    grr=TWSR;
     
     
-    
-    
-    Wire.begin();
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);        // send stop and forget     // wait for stop condition to be exectued on bus  (TWINT is not set after a stop condition!)
+*/
+
+//delay(1);
+
+  //  Wire.begin();
 
 /*
 void twi_init(void)
@@ -334,23 +557,24 @@ void twi_init(void)
   TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA);
 }*/
 
-  Wire.beginTransmission(0x29);
-  Wire.write(TSL2561_REGISTER_ID);
-  Wire.endTransmission();
-  Wire.requestFrom(0x29,1);
-  v = Wire.read(); // 0x3A
-  if(v&0xF!=0xA) {ERR=ERR_WHERE_IS_THE_TSL2561; return false;}
+//  Wire.beginTransmission(0x29);
+//  Wire.write(TSL2561_REGISTER_ID);
+//  Wire.endTransmission();
+//  Wire.requestFrom(0x29,1);
+  //  byte v = Wire.read(); // 0x3A
+//  grr=v;
+//  if(v&0xF!=0xA) {ERR=ERR_WHERE_IS_THE_TSL2561; return;}
 
-      Wire.beginTransmission(0x29);
-      Wire.write(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING);
-      Wire.write(TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X);
-      Wire.endTransmission();
-      Wire.beginTransmission(0x29);
-      Wire.write(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL);
-      Wire.write(TSL2561_CONTROL_POWERON);
-      Wire.endTransmission();
+//      Wire.beginTransmission(0x29);
+  //    Wire.write(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING);
+    //  Wire.write(TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X);
+      //Wire.endTransmission();
+   //   Wire.beginTransmission(0x29);
+//      Wire.write(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL);
+//      Wire.write(TSL2561_CONTROL_POWERON);
+//      Wire.endTransmission();
 
-    r=true;    
+//    r=true;    
     /*
     if(i2c_init())
     {
@@ -384,16 +608,86 @@ r=true;
           }
     }
 */
-    return r;
 }
 
-boolean TSLstop(void)
+void TSLstop(void)
 {
-    byte v;
-    boolean r=false;
+//    byte v;
+  //  boolean r=false;
 
+
+    TWSR&=~((1<<TWPS0)|(1<<TWPS1));
+    TWBR=4; // 403
+    
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send start condition
+    wait4int();//    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limiting waiting
+
+    if (TWSR!=0x08){ ERR=ERR_WHERE_IS_THE_TSL2561; return;}
+
+    TWDR=(0x29<<1); // SLA+W
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
+    wait4int();      if (TWSR!=0x18){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} // got ack
+
+//    TWDR=(TSL2561_COMMAND_BIT | TSL2561_BLOCK_BIT | TSL2561_REGISTER_CHAN0_LOW);
+    TWDR=(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
+    TWCR = (1<<TWEN) | (1<<TWINT)|(1<<TWEA);        // proceed with reg number
+    wait4int();    if (TWSR!=0x28){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} 
+
+//  TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);   
+//  delayMicroseconds(20);
+
+//grr=TWSR;    
+
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send start condition
+    wait4int();//    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limiting waiting
+
+//grr2=TWSR;
+
+    TWDR=(0x29<<1)|1; // SLA+R
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+R
+    wait4int();    
+
+
+    TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + ack
+    wait4int();//    if (TWSR!=0x50){return false;} // ack sent
+    Light.B[0]=TWDR;
+    TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + ack
+    wait4int();//    if (TWSR!=0x50){return false;} // ack sent
+    Light.B[1]=TWDR;
+    
+
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send start condition
+    wait4int();//    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limiting waiting
+
+
+    TWDR=(0x29<<1); // SLA+W
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
+    wait4int();      if (TWSR!=0x18){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} // got ack
+
+//grr2=TWSR;    
+
+    TWDR=(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
+    TWCR = (1<<TWEN) | (1<<TWINT)|(1<<TWEA);        // proceed with reg number
+    wait4int();    if (TWSR!=0x28){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} 
+
+
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send start condition
+    wait4int();//    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limiting waiting
+    
+
+    TWDR=(0x29<<1)|1; // SLA+R
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+R
+    wait4int();    
 
     
+    TWCR = (1<<TWEN) | (1<<TWINT)|(1<<TWEA);         // proceed with reading + ack
+    wait4int();//    if (TWSR!=0x50){return false;} // ack sent
+    Light.B[2]=TWDR;
+    TWCR = (1<<TWEN) | (1<<TWINT) |(0<<TWEA);         // proceed with reading + ack
+    wait4int();//    if (TWSR!=0x50){return false;} // ack sent
+    Light.B[3]=TWDR;  if (TWSR!=0x58){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} 
+
+  TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);   
 
    /* 
     Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2HIGH(PORTC,4);Pin2HIGH(PORTC,5);   // activate internal pullups for twi.
@@ -425,10 +719,10 @@ boolean TSLstop(void)
   Wire.write(TSL2561_REGISTER_ID);
   Wire.endTransmission();
   Wire.requestFrom(0x29,1);
-  v = Wire.read(); // 0x3A 0x0A*/
+  v = Wire.read(); // 0x3A 0x0A
 //  Wire.endTransmission();
   if(v&0xF!=0xA) {ERR=ERR_WHERE_IS_THE_TSL2561; return false;}
-/*
+
       Wire.beginTransmission(0x29);
 //      Wire.write(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
       Wire.write(TSL2561_COMMAND_BIT | TSL2561_BLOCK_BIT | TSL2561_REGISTER_CHAN0_LOW);
@@ -443,11 +737,11 @@ boolean TSLstop(void)
       Wire.write(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL);
       Wire.write(TSL2561_CONTROL_POWEROFF);
       Wire.endTransmission();
-      */
+      
       chan0=(high0<<8)|low0;
       chan1=(high1<<8)|low1;
     r=true;
-
+*/
 
 //  chan1 = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW,0x29);
 //  chan0 = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW,0x29);
@@ -479,177 +773,9 @@ boolean TSLstop(void)
     }  
     */
     
-    return r;
 }
 
-/*
-  if (!i2c_start(ADDR | I2C_WRITE)) Serial.println(F("Device does not respond"));
-  if (!i2c_write(0x80)) Serial.println(F("Cannot address reg 0"));
-  if (!i2c_write(0x03)) Serial.println(F("Cannot wake up"));
-  i2c_stop();
-}  
 
-void loop (void) {
-  unsigned int low0, high0, low1, high1;
-  unsigned int chan0, chan1;
-  unsigned int lux;
-
-  delay(1000);
-  i2c_start(ADDR | I2C_WRITE);
-  i2c_write(0x8C);
-  i2c_rep_start(ADDR | I2C_READ);
-  low0 = i2c_read(false);
-  high0 = i2c_read(false);
-  low1 = i2c_read(false);
-  high1 = i2c_read(true);
-  i2c_stop();
-  Serial.print(F("Raw values: chan0="));
-  Serial.print(chan0=(low0+(high0<<8)));
-  Serial.print(F(" / chan1="));
-  Serial.println(chan1=(low1+(high1<<8)));
-  lux = computeLux(chan0,chan1);
-
-*/
-
-boolean i2cHIGH(void)
-{
-    boolean r=false;
-    byte s;
-
-    Pin2LOW(PORTC,4);Pin2Input(DDRC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,5);
-    s=PINC&0b000110000;
-    if(s==0b000110000){r=true;}
-    return r;
-}
-
-boolean RTC(void)
-{  
-    byte n=0;
-    byte v;
-//    boolean r=false;
-    
-    
-    Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2HIGH(PORTC,4);Pin2HIGH(PORTC,5);   // activate internal pullups for twi.
-    TWSR&=~((1<<TWPS0)|(1<<TWPS1));
-    TWBR=32; //  TWBR = ((F_CPU / TWI_FREQ) - 16) / 2;
-    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send start condition
-    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limit wait
-    if (TWSR!=0x08){return false;}
-    TWDR=(0x68<<1); // SLA+W
-    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
-    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
-    if (TWSR!=0x18){return false;} // got ack
-    TWDR=0x07;
-    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with reg number
-    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
-    if (TWSR!=0x28){return false;} // got ack
-    
-    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send repeated start condition
-    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limit wait
-    if (TWSR!=0x10){return false;}
-    TWDR=(0x68<<1)|1; // SLA+R
-    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+R
-    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
-    if (TWSR!=0x40){return false;} // got ack
-    TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + send ack
-    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
-    if (TWSR!=0x50){return false;} // ack sent
-    if (TWDR!=0x10) {TWCR=(1<<TWEN)|(1<<TWINT)|(1<<TWSTO);  ERR=ERR_WHERE_IS_THE_CLOCK; SetTime();   return false;}
-    
-    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send repeated start condition
-    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limit wait
-    if (TWSR!=0x10){return false;}
-    TWDR=(0x68<<1); // SLA+W
-    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
-    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
-    if (TWSR!=0x18){return false;} // got ack
-    TWDR=0x00;
-    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with reg number
-    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
-    if (TWSR!=0x28){return false;} // got ack
-
-    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send repeated start condition
-    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limit wait
-    if (TWSR!=0x10){return false;}
-    TWDR=(0x68<<1)|1; // SLA+R
-    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+R
-    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
-    if (TWSR!=0x40){return false;} // got ack
-    TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + ack
-    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
-    if (TWSR!=0x50){return false;} // ack sent
-    TimeS[0]=TWDR;
-    TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + ack
-    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
-    if (TWSR!=0x50){return false;} // ack sent
-    TimeS[1]=TWDR;
-    TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + nack
-    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
-    if (TWSR!=0x58){return false;} // nack sent
-    TimeS[2]=TWDR;
-    
-  
-    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);        // send stop and forget     // wait for stop condition to be exectued on bus  (TWINT is not set after a stop condition!)
-
-
-  
-//    grr2=TWCR;    
-  //  grr=TWSR;
-/*
-return true;
-    
-//    Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);//Pin2Output(DDRC,1);Pin2Output(DDRC,2);//    RTC_ON();
-    Wire.begin();
-  Wire.beginTransmission(0x68);
-  Wire.write(7);
-  Wire.endTransmission();
-  Wire.requestFrom(0x68,1);
-  v = Wire.read();
-  if(v!=0x10) {ERR=ERR_WHERE_IS_THE_CLOCK; SetTime(); return false;}
-
-  Wire.beginTransmission(0x68);
-  Wire.write(0);
-  Wire.endTransmission();
-
-  Wire.requestFrom(0x68, 3);
-  TimeS[0]=Wire.read();
-  TimeS[1]=Wire.read();
-  TimeS[2]=Wire.read();
-*/
-//r=true;
-/*
-    while(1)        // try to read 
-    {
-        if(i2c_init())
-        {
-            if (i2c_start((0x68<<1) | I2C_WRITE)) 
-            {
-                if (i2c_write(0x07))
-                {
-                    if (i2c_rep_start((0x68<<1) | I2C_READ))
-                    {
-                          v=i2c_read(true);i2c_stop();
-                          if(v==0x10) // read time
-                          {
-                              if (i2c_start((0x68<<1) | I2C_WRITE)) 
-                              {
-                                  if (i2c_write(0x00))
-                                  {
-                                      if (i2c_rep_start((0x68<<1) | I2C_READ)){TimeS[0]=i2c_read(false);TimeS[1]=i2c_read(false);TimeS[2]=i2c_read(true);i2c_stop();r=true;break;}
-                                  }
-                              }
-                          }
-                     }
-                }
-            }
-        }
-        if(++n==16){ERR|=ERR_WHERE_IS_THE_CLOCK; if(!SetTime()){ERR|=ERR_SET_CLOCK;} break;}  
-    }
-*/
-    //Pin2LOW(PORTD,0);
-    Pin2LOW(PORTC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,4);Pin2Input(DDRC,5);//Pin2Input(DDRD,0);  //    RTC_OFF();
-    return true;
-}
 
 //byte Check_RTC(byte attempts){for(byte n=attempts;n>0;n--){Save_I2C(DS1307_ADDR_W,8,'A',A1,A2);
 //rtc8=Read_I2C(DS1307_ADDR_W,8,A1,A2);
@@ -2632,22 +2758,34 @@ PCICR |= 1<<PCIE2;
 PCMSK2 = 1<<PCINT16; // D0
 
 boolean rrr=false;
-rrr=i2cHIGH();
+//rrr=i2cHIGH();
 //if (rrr)
 //{
+cli();
   
-      Pin2Output(DDRC,0);Pin2HIGH(PORTC,0); // "power on"
-  
+//      Pin2Output(DDRC,0);Pin2HIGH(PORTC,0); // "power on" TSL2561   (bad idea)
+      Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2HIGH(PORTC,4);Pin2HIGH(PORTC,5);   // activate internal pullups for twi.
+
+RTC(); // if(ERR)
+//delay(5);
 TCNT1=0;
-rrr=RTC();
+
+if(!ERR){TSLstart();}
 rtcl=TCNT1;
-if(TSLstart())
+if(!ERR){delay(103);TSLstop();}
+
+
+    Pin2LOW(PORTC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,4);Pin2Input(DDRC,5);
+//    Pin2LOW(PORTC,0);Pin2Input(DDRC,0);  // "power off"
+
+
+sei();
+/*if(TSLstart())
 {
 delay(103);
 rrr=TSLstop();
-}
+}*/
 
-    Pin2LOW(PORTC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2LOW(PORTC,0);Pin2Input(DDRC,0);  // "power off"
 
 //rtcl=TCNT1;
 //}
@@ -2768,7 +2906,7 @@ TFT_ON(3);//}
     ta(" ");th(cH);th(cM);th(cS);
     setAddrWindow(30,0,37,127);
     //ta("sss=");tn(100000,sss);
-    for(byte w=0;w<8;w++){th(TimeS[w]);}
+    for(byte w=0;w<9;w++){th(TimeS[w]);}
     
 
 
@@ -2789,14 +2927,15 @@ TFT_ON(3);//}
 ta(" f");tn(10000,fastnaptime);ta(" l");tn(10000,longnaptime);   ta(" n");tn(10000,nextnaptime);   
 
     setAddrWindow(70,0,77,127);
-    ta("ch0=");tn(1000,chan0);ta("ch1=");tn(1000,chan1);
+//    ta("ch0=");tn(1000,chan0);ta("ch1=");tn(1000,chan1);
+    ta("ch0=");tn(1000,Light.W[0]);ta("ch1=");tn(1000,Light.W[1]);
 
     setAddrWindow(80,0,87,127);
   
    ta("grr ");tn(100,grr);  ta(" ");th(grr);ta(" ");th(grr2);
   //  ta("FCPU ");tn(1000000,I2C_CPUFREQ);
 //    ta("DC ");lh(I2C_DELAY_COUNTER);
-    delay(4000);
+    delay(5000);
     TFT_OFF(); // close rtft/rtc mosfet
           
 //          continue;
