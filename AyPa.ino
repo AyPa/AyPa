@@ -558,13 +558,22 @@ boolean RTC(void)
 //  TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send repeated start condition
 //    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limit wait
   
-    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);        // send stop
-//    {}while(!(TWCR&(1<<TWSTO)));  // wait for TWISTO bit
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);        // send stop and forget     // wait for stop condition to be exectued on bus  (TWINT is not set after a stop condition!)
+
+    if(v!=0x10) {ERR=ERR_WHERE_IS_THE_CLOCK; SetTime(); return false;}
+
+/*    
+  delayMicroseconds(50);  
+  
+  TWSR&=~((1<<TWPS0)|(1<<TWPS1));
+    TWBR=32; //  TWBR = ((F_CPU / TWI_FREQ) - 16) / 2;
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send start condition
+    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limit wait
     
-  delayMicroseconds(5);  
+  
     grr2=TWCR;    
     grr=TWSR;
-    
+   */ 
 return true;
     
 //    Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);//Pin2Output(DDRC,1);Pin2Output(DDRC,2);//    RTC_ON();
