@@ -526,7 +526,7 @@ boolean RTC(void)
 {  
     byte n=0;
     byte v;
-    boolean r=false;
+//    boolean r=false;
     
     
     Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2HIGH(PORTC,4);Pin2HIGH(PORTC,5);   // activate internal pullups for twi.
@@ -554,26 +554,48 @@ boolean RTC(void)
     TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + send ack
     {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
     if (TWSR!=0x50){return false;} // ack sent
-    v=TWDR;
-//  TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send repeated start condition
-//    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limit wait
+    if (TWDR!=0x10) {TWCR=(1<<TWEN)|(1<<TWINT)|(1<<TWSTO);  ERR=ERR_WHERE_IS_THE_CLOCK; SetTime();   return false;}
+    
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send repeated start condition
+    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limit wait
+    if (TWSR!=0x10){return false;}
+    TWDR=(0x68<<1); // SLA+W
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
+    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
+    if (TWSR!=0x18){return false;} // got ack
+    TWDR=0x00;
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with reg number
+    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
+    if (TWSR!=0x28){return false;} // got ack
+
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send repeated start condition
+    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limit wait
+    if (TWSR!=0x10){return false;}
+    TWDR=(0x68<<1)|1; // SLA+R
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+R
+    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
+    if (TWSR!=0x40){return false;} // got ack
+    TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + ack
+    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
+    if (TWSR!=0x50){return false;} // ack sent
+    TimeS[0]=TWDR;
+    TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + ack
+    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
+    if (TWSR!=0x50){return false;} // ack sent
+    TimeS[1]=TWDR;
+    TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + nack
+    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
+    if (TWSR!=0x58){return false;} // nack sent
+    TimeS[2]=TWDR;
+    
   
     TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);        // send stop and forget     // wait for stop condition to be exectued on bus  (TWINT is not set after a stop condition!)
 
-    if(v!=0x10) {ERR=ERR_WHERE_IS_THE_CLOCK; SetTime(); return false;}
 
-/*    
-  delayMicroseconds(50);  
   
-  TWSR&=~((1<<TWPS0)|(1<<TWPS1));
-    TWBR=32; //  TWBR = ((F_CPU / TWI_FREQ) - 16) / 2;
-    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send start condition
-    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limit wait
-    
-  
-    grr2=TWCR;    
-    grr=TWSR;
-   */ 
+//    grr2=TWCR;    
+  //  grr=TWSR;
+/*
 return true;
     
 //    Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);//Pin2Output(DDRC,1);Pin2Output(DDRC,2);//    RTC_ON();
@@ -593,8 +615,8 @@ return true;
   TimeS[0]=Wire.read();
   TimeS[1]=Wire.read();
   TimeS[2]=Wire.read();
-
-r=true;
+*/
+//r=true;
 /*
     while(1)        // try to read 
     {
@@ -626,7 +648,7 @@ r=true;
 */
     //Pin2LOW(PORTD,0);
     Pin2LOW(PORTC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,4);Pin2Input(DDRC,5);//Pin2Input(DDRD,0);  //    RTC_OFF();
-    return r;
+    return true;
 }
 
 //byte Check_RTC(byte attempts){for(byte n=attempts;n>0;n--){Save_I2C(DS1307_ADDR_W,8,'A',A1,A2);
