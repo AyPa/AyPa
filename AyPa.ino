@@ -307,29 +307,7 @@ boolean TSLstart(void)
     
     
     Wire.begin();
-   /* 
-    Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2HIGH(PORTC,4);Pin2HIGH(PORTC,5);   // activate internal pullups for twi.
-    TWSR&=~((1<<TWPS0)|(1<<TWPS1));
-    TWBR=32; //  TWBR = ((F_CPU / TWI_FREQ) - 16) / 2;
-    TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA);  // enable twi module, acks, and twi interrupt
-    
 
-    TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA) | _BV(TWINT) | _BV(TWSTA);        // send start condition
-
-  if(ack){   TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWINT) | _BV(TWEA); }else{	  TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWINT);  }  // transmit master read ready signal, with or without ack
-
-  // send stop condition
-  TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA) | _BV(TWINT) | _BV(TWSTO);
-
-  // wait for stop condition to be exectued on bus  (TWINT is not set after a stop condition!)
-  while(TWCR & _BV(TWSTO)){    continue;  }
-
-  TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA) | _BV(TWINT);  // release bus
-
-//ISR(TWI_vect){}
-
-
-*/
 /*
 void twi_init(void)
 {
@@ -414,15 +392,43 @@ boolean TSLstop(void)
     byte v;
     boolean r=false;
 
+
+    
+
+   /* 
+    Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2HIGH(PORTC,4);Pin2HIGH(PORTC,5);   // activate internal pullups for twi.
+    TWSR&=~((1<<TWPS0)|(1<<TWPS1));
+    TWBR=32; //  TWBR = ((F_CPU / TWI_FREQ) - 16) / 2;
+    TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA);  // enable twi module, acks, and twi interrupt
+    
+
+    TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA) | _BV(TWINT) | _BV(TWSTA);        // send start condition
+
+  if(ack){   TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWINT) | _BV(TWEA); }else{	  TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWINT);  }  // transmit master read ready signal, with or without ack
+
+  // send stop condition
+  TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA) | _BV(TWINT) | _BV(TWSTO);
+
+  // wait for stop condition to be exectued on bus  (TWINT is not set after a stop condition!)
+  while(TWCR & _BV(TWSTO)){    continue;  }
+
+  TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA) | _BV(TWINT);  // release bus
+
+//ISR(TWI_vect){}
+
+
+*/
+
+/*
   Wire.begin();
   Wire.beginTransmission(0x29);
   Wire.write(TSL2561_REGISTER_ID);
   Wire.endTransmission();
   Wire.requestFrom(0x29,1);
-  v = Wire.read(); // 0x3A 0x0A
+  v = Wire.read(); // 0x3A 0x0A*/
 //  Wire.endTransmission();
   if(v&0xF!=0xA) {ERR=ERR_WHERE_IS_THE_TSL2561; return false;}
-
+/*
       Wire.beginTransmission(0x29);
 //      Wire.write(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
       Wire.write(TSL2561_COMMAND_BIT | TSL2561_BLOCK_BIT | TSL2561_REGISTER_CHAN0_LOW);
@@ -437,6 +443,7 @@ boolean TSLstop(void)
       Wire.write(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL);
       Wire.write(TSL2561_CONTROL_POWEROFF);
       Wire.endTransmission();
+      */
       chan0=(high0<<8)|low0;
       chan1=(high1<<8)|low1;
     r=true;
@@ -520,6 +527,45 @@ boolean RTC(void)
     byte n=0;
     byte v;
     boolean r=false;
+    
+    
+    Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2HIGH(PORTC,4);Pin2HIGH(PORTC,5);   // activate internal pullups for twi.
+    TWSR&=~((1<<TWPS0)|(1<<TWPS1));
+    TWBR=32; //  TWBR = ((F_CPU / TWI_FREQ) - 16) / 2;
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send start condition
+    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limit wait
+    if (TWSR!=0x08){return false;}
+    TWDR=(0x68<<1); // SLA+W
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
+    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
+    if (TWSR!=0x18){return false;} // got ack
+    TWDR=0x07;
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with reg number
+    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
+    if (TWSR!=0x28){return false;} // got ack
+    
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send repeated start condition
+    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limit wait
+    if (TWSR!=0x10){return false;}
+    TWDR=(0x68<<1)|1; // SLA+R
+    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+R
+    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
+    if (TWSR!=0x40){return false;} // got ack
+    TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + send ack
+    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit
+    if (TWSR!=0x50){return false;} // ack sent
+    v=TWDR;
+//  TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send repeated start condition
+//    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limit wait
+  
+    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);        // send stop
+//    {}while(!(TWCR&(1<<TWSTO)));  // wait for TWISTO bit
+    
+  delayMicroseconds(5);  
+    grr2=TWCR;    
+    grr=TWSR;
+    
+return true;
     
 //    Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);//Pin2Output(DDRC,1);Pin2Output(DDRC,2);//    RTC_ON();
     Wire.begin();
