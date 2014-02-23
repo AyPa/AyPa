@@ -21,6 +21,9 @@
 //#include "AyPa_i2c.h"
 //#include "AyPa_rtc.h"
 
+
+#define reboot {__asm__ __volatile__ ("rcall 0\n\t" );}
+
 //#include <Wire.h>
 //#include "TSL2561.h"
 //TSL2561 tsl(TSL2561_ADDR_LOW); 
@@ -337,6 +340,8 @@ byte FlashIntensity=0;
 long volatile ticks; // 172800 в день 1/2с
 byte HR;
 
+byte __attribute__ ((noinline)) unBCD(byte bcd){return (((bcd>>4)*10)+(bcd&0xF)); }
+
 void RTC(void)
 {  
     RequestFrom((0x68<<1),7);
@@ -356,7 +361,7 @@ void RTC(void)
         if (TWSR!=0x58){ERR=ERR_WHERE_IS_THE_CLOCK; } // nack sent
         TimeS[1]=TWDR;
         
-        ticks=TimeS[1]*7200L+TimeS[2]*120L+TimeS[3]*2L; 
+        ticks=unBCD(TimeS[1])*7200L+unBCD(TimeS[2])*120L+unBCD(TimeS[3])*2;
         HR=ticks/10800L;//90*120;
         FlashIntensity=Intensity[HR];
         
@@ -514,7 +519,7 @@ byte sleeps=0;
 
 ISR(WDT_vect) // Watchdog timer interrupt.
 { 
-  //resetFunc();  //reboot
+  //reboot();  //reboot
   //  r2=TCNT1;
   if(WDsleep)
   {
@@ -523,7 +528,7 @@ ISR(WDT_vect) // Watchdog timer interrupt.
   WDsleep=0;
   }
   //debug
-//  else{    resetFunc();     }// This will call location zero and cause a reboot.
+//  else{    reboot();     }// This will call location zero and cause a reboot.
 }
 
 
@@ -1888,7 +1893,7 @@ byte pin7_interrupt_flag=0;
 
 ISR (PCINT1_vect)  // A3
 { 
-    if(++ticks==172800){ticks=0;}
+    if(++ticks>=172800){ticks=0;reboot;}
     // alarms ?
 } 
 
@@ -1970,7 +1975,7 @@ void unap(byte timeout)
   sei();
 
             WDhappen=0;
-            WDsleep=1;// notify WD that we are sleeping (to avoid rebbot)
+            WDsleep=1;// notify WD that we are sleeping (to avoid reboot)
         sleeps=0;
       do{
         sleep_enable();
@@ -2628,7 +2633,6 @@ ta(" f");tn(10000,fastnaptime);ta(" l");tn(10000,longnaptime);   ta(" n");tn(100
          // }
    //}
  
-
   
   //RTC_OFF();  // переводим лапки часиков в высокоомное состояние  и отключаем питание
 //  rtcl=TCNT1;
@@ -2668,7 +2672,7 @@ if (ERR)
     delay(5500);
 //    RTC_OFF();  // переводим лапки часиков в высокоомное состояние 
     TFT_OFF(); // close rtft/rtc mosfet
-    resetFunc();  // This will call location zero and cause a reboot.
+    reboot;  // This will call location zero and cause a reboot.
 }
 
 //continue;
