@@ -142,8 +142,8 @@ void(* resetFunc) (void) = 0; //declare reset function @ address 0
 
 //byte odd=0;
 //long r1=0,r2;
-word VccN[8][8];
-word Vcc1;
+//word VccN[8][8];
+//word Vcc1;
 
 
 
@@ -501,12 +501,11 @@ void TSLstop(void)
     Pin2LOW(PORTC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,4);Pin2Input(DDRC,5); // если STOP не успевает - поставь задержку
 }
 
-word TouchSensor(void)
+word TouchSensor(void) // 
 {
       word cycles=30000;
       Pin2Output(DDRC,0);Pin2LOW(PORTC,0); // discharge sensor  pin
-//      delay(1);//???
-      delayMicroseconds(50);
+//      delayMicroseconds(50); // works fine without
       Pin2Input(DDRC,0);
       for(int i=0;i<cycles;i++){if (PINC&0b00000001){cycles=i;break;}}
       Pin2Output(DDRC,0);Pin2LOW(PORTC,0); // discharge sensor  pin
@@ -562,8 +561,9 @@ ISR(WDT_vect) // Watchdog timer interrupt.
 
 
 word TouchD[4];
-byte TouchPos=0;
+//byte TouchPos=0;
 word Etouch;
+void TouchSample(void){for(byte i=0;i<4;i++){TouchD[i]=TouchSensor();} Etouch=TouchT(); } // calibrate touch sensor
 word TouchT(void)
 {
   word res=0;
@@ -666,13 +666,9 @@ void setup() {
 
 
 //for(byte i=0;i<16;i++){if(mi<Intensity[i]){mi=Intensity[i];}} if(mi<16){mi=16;}// множитель для столбиков
-for(byte i=0;i<4;i++){TouchD[i]=TouchSensor();} // calibrate touch sensor
-
-//Pin2Input(DDRC,0);Pin2HIGH(PORTC,0); // pull up on A0
 
 
-//Pin2Output(DDRD,1);
-//Pin2Output(DDRD,4);
+  TouchSample();
 
 /*
     TFT_ON(5);
@@ -1117,6 +1113,12 @@ WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280
   // WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
 //     WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
   sei();*/
+
+
+
+    Pin2Input(DDRC,3);Pin2HIGH(PORTC,3); // pull up on A0
+    PCMSK1 = 1<<PCINT11; // setup pin change interrupt on A3 pin (SQuareWave from RTC)
+    PCICR |= 1<<PCIE1; 
 
 }
 
@@ -1920,9 +1922,15 @@ byte pin7_interrupt_flag=0;
 //  bbb++;
 //}
 
+boolean volatile UpdateRTC=true; // Update RTC at least once (to reset it if needed)
+boolean volatile Update500=true; // Update once in 500ms
+
 ISR (PCINT1_vect)  // A3
 { 
     if(++ticks>=172800){ticks=0;reboot;}
+    if(ticks&1){UpdateRTC=true;}// update clock every second
+    Update500=true;
+    
     // alarms ?
 } 
 
@@ -1941,6 +1949,10 @@ void pin3_isr()
 //  sleep_disable();// a bit later
   pin3_interrupt_flag = 1;
 }
+
+word VccN;
+word VccH=1023;
+word VccL=0;
 
 word Vcc(void)
 {
@@ -2414,8 +2426,9 @@ void Settings(void)
   volatile word lasttouch,ltp,CurrentTouch;
   byte LongTouch=0;
 word rtcl;
-long NextScreen;
-long NextTouch;
+//long NextScreen;
+//long NextTouch;
+//long NextTouchSample;
 
 void UpdateScreen(void)
 {
@@ -2432,24 +2445,30 @@ void UpdateScreen(void)
     ta("Et");tn(1000,Etouch);ta(" rtcl");tn(10000,rtcl);ta(" Fi");th(FlashIntensity);
 
     setAddrWindow(40,0,47,127);
-    ta(" it");tn(10000,it);ta(" LT");th(LongTouch);
+    ta(" it");tn(10000,it);ta(" LT");th(LongTouch);   ta("sleeps ");tn(10,sleeps); 
+
     setAddrWindow(50,0,57,127);
     //ta("sss=");tn(100000,sss);
     for(byte w=1;w<9;w++){th(TimeS[w]);ta(":");}
     
 
-
+//3.61v - 319 3.93v -291     5v~190
 
     setAddrWindow(60,0,67,127);
-//    ta("sss=");tn(10000,sss); 
-    ta("sleeps=");tn(100,sleeps); 
-
-    setAddrWindow(70,0,77,127);
     
 //    ta(" sss=");tn(1000,sss);    
 //    ta(" bbb=");tn(1000,bbb);    
     ta(" if=");th((pin0_interrupt_flag<<5)|(pin2_interrupt_flag<2)|(pin3_interrupt_flag<<1)|(WDhappen));
-//    ta(" slp=");tn(10000,sleeps);    
+    ta("Vcc");tn(100,VccN);ta(" L");tn(100,VccL);ta(" H");tn(100,VccH);
+    
+    
+    setAddrWindow(70,0,77,127);
+
+TCNT1=0;
+    ta("Vcc");tn(100,114000L/VccN);ta(" L");tn(100,114000L/VccL);ta(" H");tn(100,114000L/VccH); // 1125300L
+rtcl=TCNT1; 
+    
+
     setAddrWindow(80,0,87,127);
 
 ta(" f");tn(10000,fastnaptime);ta(" l");tn(10000,longnaptime);   ta(" n");tn(10000,nextnaptime);   
@@ -2464,10 +2483,37 @@ ta(" f");tn(10000,fastnaptime);ta(" l");tn(10000,longnaptime);   ta(" n");tn(100
   //  ta("FCPU ");tn(1000000,I2C_CPUFREQ);
 //    ta("DC ");lh(I2C_DELAY_COUNTER);
 
+//    setAddrWindow(110,0,110+24-1,42-1);
+    // 42x24
+
+    setAddrWindow(100,100,141,123);
+
+   // setAddrWindow(x,y,x2,y2);
+    Pin2HIGH(PORTD,4);
+//  for (word k=0;k<((x2-x+1)*(y2-y+1)*3);k++){spiwrite(r);spiwrite(g);spiwrite(b);}             
+word pos=0x36;
+do
+//for(word z=0;z<42*24*3;z++)
+{
+  for(byte z=0;z<42;z++)
+  {
+      byte b=pgm_read_byte(&(Bat[pos++]));     
+      byte g=pgm_read_byte(&(Bat[pos++]));     
+      byte r=pgm_read_byte(&(Bat[pos++]));     
+       spiwrite(r);
+        spiwrite(g);
+         spiwrite(b);
+  }
+  pos+=2;// row padding
+}
+while(pos<(42*24*3+0x36));
+
+    
+    
+
     setAddrWindow(152,0,159,127);ta("-----==<АУРА>==-----3");
 
 }
-
 
 // the loop routine runs over and over again forever:
 void loop() {
@@ -2491,14 +2537,64 @@ void loop() {
 //PCICR |= 1<<PCIE2;
 //PCMSK2 = 1<<PCINT16; // D0
 
-Pin2Input(DDRC,3);Pin2HIGH(PORTC,3); // pull up on A0
-PCICR |= 1<<PCIE1; PCMSK1 = 1<<PCINT11; // A3
+  if (Update500) // every 500ms
+  {
+      Update500=false;
+
+      VccN=Vcc(); if (VccN<VccH){VccH=VccN;} if (VccN>VccL){VccL=VccN;} //280us
+   
+    
+  }
+
+  if (UpdateRTC) // every second
+  {
+      UpdateRTC=false;
+      RTC(); // 500us
 
 
+      CurrentTouch=TouchSensor();  //337-440us
+      
+      // update screen?
+      if(LCD)
+      {
+           if (LCD<=ticks){LCD_OFF();}
+           else
+           {    
+                if(!ERR){TSLstart();} // 192us
+                if(!ERR){delay(103);TSLstop();}//322us
+
+                UpdateScreen();          
+           }
+       }
+       else
+       {
+
+               if (CurrentTouch>=Etouch){
+         LCD=ticks+30;// 15sec
+      LCD_ON();
+     
+     // draw backgrounds
+     ShowBars();
+               }
+       }
+
+      if (CurrentTouch>=Etouch){ if ((++LongTouch==LONG_TOUCH_THRESHOLD)&&(LCD)){Settings();LCD+=20;} }
+      else{ LongTouch=0; TouchSample(); }
+
+  
+
+ }
+
+
+
+/*
 
 if(ticks>=NextTouch)
 {
-    CurrentTouch=TouchSensor();  //1450us
+TCNT1=0;
+    CurrentTouch=TouchSensor();  //337-440us
+rtcl=TCNT1; 
+
 //    if (CurrentTouch<Etouch)
   //  {
         Etouch=TouchT(); //7us
@@ -2513,7 +2609,6 @@ if(ticks>=NextTouch)
   else
   {
       LongTouch=0;
-      TouchD[((TouchPos++)&3)]=CurrentTouch;
   }
 
 if (!LCD)
@@ -2528,34 +2623,14 @@ if (!LCD)
      ShowBars();
      
   }
+
+    if(ticks>=NextTouchSample){TouchSample();NextTouchSample=ticks+100;}// подстройка раз в 50 секунд при выключенном экране
 }
 
-if(LCD)
-{
-  if (LCD<=ticks){LCD_OFF();}
-  else// update screen every 1/2 s?
-  {
-    
-      if (NextScreen<=ticks)  
-      { 
-          if(!ERR){TSLstart();} // 192us
-          if(!ERR){delay(103);TSLstop();}//322us
-
-    
-          UpdateScreen();NextScreen=ticks+1; 
-      }
-
-  }
-}
 
     NextTouch=ticks+1;
 }
-
-  //cli();  
-TCNT1=0;
-RTC(); // 500us
-rtcl=TCNT1; 
-//sei();
+*/
 
 
 //    set_sleep_mode(SLEEP_MODE_PWR_DOWN);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
