@@ -22,7 +22,7 @@
 //#include "AyPa_rtc.h"
 
 
-#define reboot {__asm__ __volatile__ ("rcall 0\n\t" );}
+#define reboot {__asm__ __volatile__ ("rcall 0\n\t" );} //void(* resetFunc) (void) = 0; //declare reset function @ address 0
 
 //#include <Wire.h>
 //#include "TSL2561.h"
@@ -256,6 +256,35 @@ void TFT_OFF(void){ writecommand(ST7735_SLPIN);
     TFT_IS_ON=0; 
 }// вЫключаем питание  дисплея
 
+long LCD;
+
+void LCD_ON(void){
+  Pin2Output(DDRB,0);Pin2HIGH(PORTB,0); 
+//    Pin2Output(DDRB,7);Pin2HIGH(PORTB,7);
+  
+    Pin2Output(DDRD,1);Pin2HIGH(PORTD,1); 
+    Pin2Output(DDRD,4);Pin2LOW(PORTD,4); 
+    Pin2Output(DDRB,2);Pin2LOW(PORTB,2); // SS(SPI) init will put it low  (reset)
+    Pin2Output(DDRB,3);Pin2LOW(PORTB,3); 
+    Pin2Output(DDRB,5);Pin2LOW(PORTB,5);
+    delay(11); // time for power pin to stabilize  
+    InitTFT();//    delay(120);
+    Pin2LOW(PORTD,1); 
+} // включаем питание  дисплея
+    
+void LCD_OFF(void){ writecommand(ST7735_SLPIN); 
+    Pin2LOW(PORTB,2); Pin2Input(DDRB,2); 
+    Pin2LOW(PORTB,3); Pin2Input(DDRB,3); 
+    Pin2LOW(PORTB,5); Pin2Input(DDRB,5); // need to close all  connected pins before sinking  remaining charge. otherwise it will be suck current from them :)
+    Pin2LOW(PORTB,0); // sink charge first  then to input
+    Pin2LOW(PORTB,7); // sink charge first  then to input
+//    delay(1);
+//    delayMicroseconds(1);
+    Pin2Input(DDRB,0);
+  //  Pin2Input(DDRB,7);
+    LCD=0; 
+}// вЫключаем питание  дисплея
+
 //void RTC_ON(void){Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);Pin2Output(DDRC,1);Pin2Output(DDRC,2);}
 //void RTC_OFF(void){Pin2LOW(PORTD,0);Pin2Input(DDRC,1);Pin2Input(DDRC,2);Pin2LOW(PORTC,1);Pin2LOW(PORTC,2); delayMicroseconds(1);Pin2Input(DDRD,0);}
 
@@ -344,6 +373,8 @@ byte __attribute__ ((noinline)) unBCD(byte bcd){return (((bcd>>4)*10)+(bcd&0xF))
 
 void RTC(void)
 {  
+    Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2HIGH(PORTC,4);Pin2HIGH(PORTC,5);   // activate internal pullups for twi.
+ 
     RequestFrom((0x68<<1),7);
     TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + send ack
     wait4int();//    if (TWSR!=0x50){ ERR=ERR_I2C; return;} // ack sent
@@ -368,6 +399,8 @@ void RTC(void)
     }
     else{ ERR=ERR_WHERE_IS_THE_CLOCK; SetTime(); ticks=0;}
     TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);        // send stop and forget     // wait for stop condition to be exectued on bus  (TWINT is not set after a stop condition!)
+
+    Pin2LOW(PORTC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,4);Pin2Input(DDRC,5); // если STOP не успевает - поставь задержку
 }
 
 typedef union{byte B[4];word W[2];long L[1];} Data4;
@@ -434,6 +467,7 @@ tsl2561Gain_t;
 
 void TSLstart(void)
 {    
+    Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2HIGH(PORTC,4);Pin2HIGH(PORTC,5);   // activate internal pullups for twi.  
     WriteByte((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING), (TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X));
     WriteByte((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL), TSL2561_CONTROL_POWERON);
     if (TWSR!=0x28){ ERR=ERR_WHERE_IS_THE_TSL2561; } 
@@ -464,20 +498,15 @@ void TSLstop(void)
 //  if (TWSR!=0x28){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} 
   
     TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);   // send stop condition
+    Pin2LOW(PORTC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,4);Pin2Input(DDRC,5); // если STOP не успевает - поставь задержку
 }
-
-
-
-//byte Check_RTC(byte attempts){for(byte n=attempts;n>0;n--){Save_I2C(DS1307_ADDR_W,8,'A',A1,A2);
-//rtc8=Read_I2C(DS1307_ADDR_W,8,A1,A2);
-//if(Read_I2C(DS1307_ADDR_W,8,A1,A2)=='A'){ERR&=~ERR_WHERE_IS_THE_CLOCK;return n;}}return 0;}
-//byte Check_TSL(byte attempts){for(byte n=attempts;n>0;n--){if(Read_I2C(TSL2561_ADDR_LOW_W,TSL2561_REGISTER_ID ,A4,A5)==0x0A){return n;}}return 0;}
 
 word TouchSensor(void)
 {
       word cycles=30000;
       Pin2Output(DDRC,0);Pin2LOW(PORTC,0); // discharge sensor  pin
-      delay(1);//???
+//      delay(1);//???
+      delayMicroseconds(50);
       Pin2Input(DDRC,0);
       for(int i=0;i<cycles;i++){if (PINC&0b00000001){cycles=i;break;}}
       Pin2Output(DDRC,0);Pin2LOW(PORTC,0); // discharge sensor  pin
@@ -1901,8 +1930,7 @@ ISR (PCINT1_vect)  // A3
 void pin2_isr()
 {
   cnt1=TCNT1;
-//  sss++;
-//  detachInterrupt(0);  //INT 0
+  detachInterrupt(0);  //INT 0
 //  sleep_disable();// a bit later
   pin2_interrupt_flag = 1;
 }
@@ -2257,7 +2285,7 @@ void DrawBox(byte x,byte y, byte x2,byte y2,byte r,byte g,byte b)
     setAddrWindow(x,y,x2,y2); Pin2HIGH(PORTD,4); for (word k=0;k<((x2-x+1)*(y2-y+1)*3);k++){spiwrite(r);spiwrite(g);spiwrite(b);}             
 }
 
-void ShowBars(byte hr)
+void ShowBars(void)
 {
   byte r,g,b;
 
@@ -2300,10 +2328,10 @@ NiceBack(0,0,128,15);
 //    gg=(Intensity[i]*14)/mi;if(!gg){gg=1;} 
     byte gg=Intensity[i];//if(!gg){gg=1;} 
 
-    if(i!=hr){r=0x8c;g=0xac;b=0x8c;}else{r=0x8c;g=0xfc;b=0x4c;}
-    DrawBox(16-gg,i*8,15,i*8+7,r,g,b);    
+    if(i!=HR){r=0x8c;g=0xac;b=0x8c;}else{r=0x8c;g=0xfc;b=0x4c;}
+    DrawBox(16-gg,i*8,15,i*8+6,r,g,b);    
   }
-    DrawBox(17,hr*8,17,hr*8+7,0x8c,0xfc,0x4c);    
+    DrawBox(17,HR*8,17,HR*8+6,0x8c,0xfc,0x4c);    
 
 }
 
@@ -2321,10 +2349,10 @@ void SleepTime(void)
     nextnaptime=0;
     
     set_sleep_mode(SLEEP_MODE_IDLE);
-  //  WDsleep=1;// notify WD that we are sleeping (to avoid reboot)
-//    __asm__ __volatile__("wdr\n\t");//  wdt_reset(); // to avoid WD fire first
-//    fastnap();
-  //  if (pin2_interrupt_flag){fastnaptime=cnt1;}else { ERR=ERR_BROKEN_SLEEP; }
+    WDsleep=1;// notify WD that we are sleeping (to avoid reboot)
+    __asm__ __volatile__("wdr\n\t");//  wdt_reset(); // to avoid WD fire first
+    fastnap();
+    if (pin2_interrupt_flag){fastnaptime=cnt1;}else { ERR=ERR_BROKEN_SLEEP; }
 
     WDsleep=1;// notify WD that we are sleeping (to avoid reboot)
   //  __asm__ __volatile__("wdr\n\t");//  wdt_reset(); // to avoid WD fire first
@@ -2335,6 +2363,7 @@ void SleepTime(void)
     //__asm__ __volatile__("wdr\n\t");//  wdt_reset(); // to avoid WD fire first
   //  nextnap();
     //if (pin0_interrupt_flag){nextnaptime=cnt1;}else { ERR=ERR_BROKEN_SLEEP; }
+    set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 }
 
 boolean Touched(void)
@@ -2355,8 +2384,8 @@ boolean Touched(void)
 void Settings(void)
 {
     
-    if(TFT_IS_ON)  // а как иначе? :)
-    {
+//    if(TFT_IS_ON)  // а как иначе? :)
+  //  {
        
         NiceBack(0,0,128,15);
         setAddrWindow(16,0,16+7,127);ta("Настройки * Settings");
@@ -2373,51 +2402,69 @@ void Settings(void)
         return; } // переход в тестовый режим
 
 //        setAddrWindow(60,0,60+7,119);ta(" false");
-        delay(5000);
-    }
+//        delay(5000);
+//    }
 }
 
 
-#define LONG_TOUCH_THRESHOLD 4 // критерий длинного нажатия в секундах
+#define LONG_TOUCH_THRESHOLD 7 // критерий длинного нажатия в 1/2 секундах
 
   volatile long lvv,lmv,lm2;// luminous
   volatile long mlvv,mlmv,mlm2;// luminous
   volatile word lasttouch,ltp,CurrentTouch;
   byte LongTouch=0;
+word rtcl;
+long NextScreen;
+long NextTouch;
 
 void UpdateScreen(void)
 {
+//    DrawBox(0,0,159,127,0x00,0x00,0x00);    // очистка экрана
+
+    setAddrWindow(20,0,27,127);
+  ta("ERR");th(ERR);
+    ta(" CT");tn(1000,CurrentTouch);
+    ta(" Ti");tn(100000,ticks);
+    ta(" H");tn(10,HR);
+//    th(rtc8);ta(" fn");tn(10000,fastnaptime);ta(" ln");tn(10000,longnaptime);
+    setAddrWindow(30,0,37,127);
+    
+    ta("Et");tn(1000,Etouch);ta(" rtcl");tn(10000,rtcl);ta(" Fi");th(FlashIntensity);
+
+    setAddrWindow(40,0,47,127);
+    ta(" it");tn(10000,it);ta(" LT");th(LongTouch);
+    setAddrWindow(50,0,57,127);
+    //ta("sss=");tn(100000,sss);
+    for(byte w=1;w<9;w++){th(TimeS[w]);ta(":");}
+    
+
+
+
     setAddrWindow(60,0,67,127);
-tn(10000,it);ta(" f");tn(1000,fastnaptime);ta(" l");tn(1000,longnaptime);ta(" n");tn(1000,nextnaptime);
-  setAddrWindow(70,0,77,127);
-//  ta("MN");tn(100,MN);
-//  ta(" CHAS");tn(1000,CHAS);  ta(" LEFT");tn(1000,LEFT);
-//lh(lvv);ta(" ");lh(lmv);ta(" ");lh(lm2);
-  setAddrWindow(80,0,87,127);
-lh(mlvv);ta(" ");lh(mlmv);ta(" ");lh(mlm2);//t3(val);th('A');th(vv);th(v2);
-  setAddrWindow(90,0,97,127);
-ta(" 1 ");tn(10000,tt1);ta(" 2 ");tn(10000,tt2);ta(" 3 ");tn(10000,tt3);
+//    ta("sss=");tn(10000,sss); 
+    ta("sleeps=");tn(100,sleeps); 
 
-  setAddrWindow(20,0,27,127);
-  ta("Сон"); tn(1000,fnt);  ta(" Пых");tn(100,FlashIntensity);ta(" E");th(ERR);ta(" T");wh(Etouch);
+    setAddrWindow(70,0,77,127);
+    
+//    ta(" sss=");tn(1000,sss);    
+//    ta(" bbb=");tn(1000,bbb);    
+    ta(" if=");th((pin0_interrupt_flag<<5)|(pin2_interrupt_flag<2)|(pin3_interrupt_flag<<1)|(WDhappen));
+//    ta(" slp=");tn(10000,sleeps);    
+    setAddrWindow(80,0,87,127);
 
-    setAddrWindow(30,0,37,119);
-    ta("CT :");tn(10000,CurrentTouch);
-    ta("LT :");tn(100,LongTouch);
+ta(" f");tn(10000,fastnaptime);ta(" l");tn(10000,longnaptime);   ta(" n");tn(10000,nextnaptime);   
 
-//  setAddrWindow(142,0,149,127);  tn(100000000,123456789);
-/*
-setAddrWindow(142,0,149,127);  
+    setAddrWindow(90,0,97,127);
+//    ta("ch0=");tn(1000,chan0);ta("ch1=");tn(1000,chan1);
+    ta("ch0=");tn(1000,Light.W[0]);ta("ch1=");tn(1000,Light.W[1]);
 
-for(byte e=0;e<4;e++){wh(TouchD[e]);}
+    setAddrWindow(100,0,107,127);
+  
+   ta("grr ");tn(100,grr);  ta(" ");th(grr);ta(" ");th(grr2);
+  //  ta("FCPU ");tn(1000000,I2C_CPUFREQ);
+//    ta("DC ");lh(I2C_DELAY_COUNTER);
 
-ta(" mi");tn(10,mi);
-*/
-  setAddrWindow(152,0,159,127);
-
-//th(tstr[2]);ta(":");th(tstr[1]);ta(".");th(tstr[0]);ta(" ");th(tstr[4]);ta("-");th(tstr[5]);ta("-");th(tstr[6]);ta(" ");
-tn(10,HR);ta(" ");th(FlashIntensity);th(TFT_IS_ON);ta(" lt");wh(lasttouch);ta(" ");wh(ltp);
-
+    setAddrWindow(152,0,159,127);ta("-----==<АУРА>==-----3");
 
 }
 
@@ -2427,7 +2474,7 @@ void loop() {
   long now;
 //  long oldnow=millis();
   word t,t1,n;
-  word Temp,rtcl;
+  word Temp;
 
   
   do{
@@ -2445,87 +2492,72 @@ void loop() {
 //PCMSK2 = 1<<PCINT16; // D0
 
 Pin2Input(DDRC,3);Pin2HIGH(PORTC,3); // pull up on A0
-PCICR |= 1<<PCIE1;
-PCMSK1 = 1<<PCINT11; // A3
+PCICR |= 1<<PCIE1; PCMSK1 = 1<<PCINT11; // A3
 
 
-CurrentTouch=TouchSensor(); Etouch=TouchT();
 
-boolean rrr=false;
-//rrr=i2cHIGH();
-//if (rrr)
-//{
-cli();
-  
-//      Pin2Output(DDRC,0);Pin2HIGH(PORTC,0); // "power on" TSL2561   (bad idea)
-      Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2HIGH(PORTC,4);Pin2HIGH(PORTC,5);   // activate internal pullups for twi.
-
-TCNT1=0;
-
-RTC(); // 365us
-rtcl=TCNT1;
-
-if(!ERR){TSLstart();} // 192us
-if(!ERR){delay(103);TSLstop();}//322us
-
-    Pin2LOW(PORTC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,4);Pin2Input(DDRC,5);
-//    Pin2LOW(PORTC,0);Pin2Input(DDRC,0);  // "power off"
-
-
-sei();
-/*if(TSLstart())
+if(ticks>=NextTouch)
 {
-delay(103);
-rrr=TSLstop();
-}*/
-
-
-//rtcl=TCNT1;
-//}
-//else { ERR=ERR_I2C; }
-
-
-//if((it&0xFF)==0) // 1 из 256
-//{
-  //RTC_ON(); // need to open mosfet 
-  //if(Check_RTC(16)==0){ERR=ERR_WHERE_IS_THE_CLOCK;} 
-  //else
-  //{
-//    if(Read_I2C(DS1307_ADDR_W,2,A1,A2)!=0x10) {Save_I2C(DS1307_ADDR_W,2,0x10,A1,A2);Save_I2C(DS1307_ADDR_W,1,0x57,A1,A2);Save_I2C(DS1307_ADDR_W,0,0x00,A1,A2);}//set time
-//            Save_I2C(DS1307_ADDR_W,2,0x12,A1,A2);Save_I2C(DS1307_ADDR_W,1,0x00,A1,A2);Save_I2C(DS1307_ADDR_W,0,0x00,A1,A2); } // set time 12:00:00 and reboot      
-    /*
-      MN=Read_I2C(DS1307_ADDR_W,1,A1,A2);
-      MN=((MN>>4)*10+MN&0xF);
-      
-          CS=Read_I2C(DS1307_ADDR_W,0,A1,A2);if((now-oldnow)>2000){ERR=ERR_STOPPED_CLOCK;Save_I2C(DS1307_ADDR_W,0,CS,A1,A2);}// проверка на остановившиеся часы
-          if(CS!=PS) // смена секунд да и минут также
-          {
-
-      if (MN!=PM) // смена минут
-      {
-          HR=Read_I2C(DS1307_ADDR_W,2,A1,A2); // before ShowBars
-          if(HR>=0x20){HR-=12;}else if(HR>=0x10){HR-=6;} //  читаем текущий час и конветируем из упакованного BCD
-          if(HR>23) {ERR=ERR_STRANGE_CLOCK_DATA; } // не пойми что с часов пришло
-          else
-          {
-              if(HR!=PH){PH=HR;}
-              PM=MN; word imm=(MN+HR*60); CHAS=imm/90; LEFT=imm-CHAS*90; //LEFT=imm%90;
-              if(CHAS>16){ ERR=ERR_STRANGE_CLOCK_DATA; } else{ FlashIntensity=Intensity[CHAS]; }
-          }
+    CurrentTouch=TouchSensor();  //1450us
+//    if (CurrentTouch<Etouch)
+  //  {
+        Etouch=TouchT(); //7us
+    //}
 
 
 
+  if (CurrentTouch>=Etouch)
+  {
+      if ((++LongTouch==LONG_TOUCH_THRESHOLD)&&(LCD)){Settings();LCD+=20;} 
+  }
+  else
+  {
+      LongTouch=0;
+      TouchD[((TouchPos++)&3)]=CurrentTouch;
+  }
+
+if (!LCD)
+{
+  if (CurrentTouch>=Etouch)
+  {
+      LCD=ticks+30;// 15sec
+      LCD_ON();
+     NextScreen=ticks+1; 
+     
+     // draw backgrounds
+     ShowBars();
+     
+  }
+}
+
+if(LCD)
+{
+  if (LCD<=ticks){LCD_OFF();}
+  else// update screen every 1/2 s?
+  {
+    
+      if (NextScreen<=ticks)  
+      { 
+          if(!ERR){TSLstart();} // 192us
+          if(!ERR){delay(103);TSLstop();}//322us
+
+    
+          UpdateScreen();NextScreen=ticks+1; 
       }
-            PS=CS;
-            CurrentTouch=TouchSensor(); Etouch=TouchT();
-*/
 
-/*
-pin0_interrupt_flag=0;
-pin2_interrupt_flag=0;
-pin3_interrupt_flag=0;
-WDhappen=0;
-*/
+  }
+}
+
+    NextTouch=ticks+1;
+}
+
+  //cli();  
+TCNT1=0;
+RTC(); // 500us
+rtcl=TCNT1; 
+//sei();
+
+
 //    set_sleep_mode(SLEEP_MODE_PWR_DOWN);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
 //    set_sleep_mode(SLEEP_MODE_IDLE);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
   //  sss=0;nextnap();sssn=sss;delay(100);sssb=sss;
@@ -2535,24 +2567,15 @@ WDhappen=0;
      set_sleep_mode(SLEEP_MODE_PWR_DOWN); 
  //   set_sleep_mode(SLEEP_MODE_IDLE);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
 
-//    attachInterrupt(0, pin2_isr, LOW);
-//pinMode(INPUT_PULLUP,A0);
-//pinMode(INPUT_PULLUP,A1);
-//pinMode(INPUT_PULLUP,A2);
-/*
-PCMSK1 |= 1<<PCINT8; // A0
-PCMSK1 |= 1<<PCINT9; // A1
-PCMSK1 |= 1<<PCINT10; // A2
-PCICR |= 1<<PCIE1;
-*/
-
   TCNT1=0;
 //  longnap();//4845us 3 sleeps
-//  fastnap();// 237us - 
+  fastnap();//957us - 
 //b7nap();//522us
 
 //delay(1000);
-unap(T1S);
+
+//unap(T1S);
+
 //unap();// 66 sleeps IDLE
 //unap();// 17 sleeps PWR_DOWN
    //   wdt_disable();
@@ -2571,55 +2594,6 @@ unap(T1S);
 //pinMode(6,OUTPUT);//analogWrite(6,10);
 
 //if(!TFT_IS_ON){
-TFT_ON(3);
-    DrawBox(0,0,159,127,0x00,0x00,0x00);    // очистка экрана
-
-    setAddrWindow(0,0,7,127);
-  ta("ERR");th(ERR);
-    ta(" CT");tn(1000,CurrentTouch);
-    ta(" Ti");tn(100000,ticks);
-    ta(" H");tn(10,HR);
-//    th(rtc8);ta(" fn");tn(10000,fastnaptime);ta(" ln");tn(10000,longnaptime);
-    setAddrWindow(10,0,17,127);
-    
-    ta("Et");tn(1000,Etouch);ta(" rtcl");tn(10000,rtcl);ta("Fi ");th(FlashIntensity);
-
-    setAddrWindow(20,0,27,127);
-    tn(100,CH);ta(":");tn(100,CM);ta(":");tn(100,CS);
-    ta(" ");th(cH);th(cM);th(cS);
-    setAddrWindow(30,0,37,127);
-    //ta("sss=");tn(100000,sss);
-    for(byte w=1;w<9;w++){th(TimeS[w]);ta(":");}
-    
-
-
-    delay(1000);
-
-    setAddrWindow(40,0,47,127);
-//    ta("sss=");tn(10000,sss); 
-    ta("sleeps=");tn(100,sleeps); 
-
-    setAddrWindow(50,0,57,127);
-    
-//    ta(" sss=");tn(1000,sss);    
-//    ta(" bbb=");tn(1000,bbb);    
-    ta(" if=");th((pin0_interrupt_flag<<5)|(pin2_interrupt_flag<2)|(pin3_interrupt_flag<<1)|(WDhappen));
-//    ta(" slp=");tn(10000,sleeps);    
-    setAddrWindow(60,0,67,127);
-
-ta(" f");tn(10000,fastnaptime);ta(" l");tn(10000,longnaptime);   ta(" n");tn(10000,nextnaptime);   
-
-    setAddrWindow(70,0,77,127);
-//    ta("ch0=");tn(1000,chan0);ta("ch1=");tn(1000,chan1);
-    ta("ch0=");tn(1000,Light.W[0]);ta("ch1=");tn(1000,Light.W[1]);
-
-    setAddrWindow(80,0,87,127);
-  
-   ta("grr ");tn(100,grr);  ta(" ");th(grr);ta(" ");th(grr2);
-  //  ta("FCPU ");tn(1000000,I2C_CPUFREQ);
-//    ta("DC ");lh(I2C_DELAY_COUNTER);
-    delay(5000);
-    TFT_OFF(); // close rtft/rtc mosfet
 
   //   set_sleep_mode(SLEEP_MODE_PWR_DOWN); 
 //unap();
