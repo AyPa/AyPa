@@ -1666,12 +1666,12 @@ void FlashTest(void) // #2 pin used as test
   
   Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light
   Pin2Output(DDRD,5);Pin2HIGH(PORTD,5);  // SRCLR to HIGH. when it is LOW all regs are cleared
-  Pin2Output(DDRD,1);
+  Pin2Output(DDRB,1);
   Pin2Output(DDRD,6); 
 
-    Pin2HIGH(PORTD,1);  // DATAPIN to HIGH  
+    Pin2HIGH(PORTB,1);  // DATAPIN to HIGH  
     Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
-    Pin2LOW(PORTD,1); // next data are zeroes
+    Pin2LOW(PORTB,1); // next data are zeroes
     Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
     Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
 
@@ -1684,7 +1684,9 @@ for(byte n=20;n>0;n--)
 
 for(word z=0;z<100;z++)
 {
-//    if (tsl.begin()) 
+                if(!ERR){TSLstart();} // 192us
+
+  //    if (tsl.begin()) 
 //  Wire.begin();
 
  // Initialise I2C
@@ -1712,9 +1714,13 @@ do{}while(TCNT1<1000);
 Pin2HIGH(PORTD,7);//digitalWrite(G,HIGH); // stop light
 sei();
 }
+
+  //              if(!ERR){delay(103);TSLstop();}//322us
+                if(!ERR){TSLstop();}//322us
   
 //  ch1 = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
 //  ch0 = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
+
 //  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF);  // disable();
 //  if (ch0>max0){max0=ch0;max01=ch1;}
 //  if (ch1>max1){max1=ch1;max10=ch0;}
@@ -1724,7 +1730,10 @@ sei();
 
     }// for 100
 
-  setAddrWindow(2,0,2+7,127);ta("1:");tn(10000,max1);tn(10000,max10);ta(" 0: ");tn(10000,max0);tn(10000,max01);
+  setAddrWindow(2,0,2+7,127);
+      ta("ch0=");tn(1000,Light.W[0]);ta("ch1=");tn(1000,Light.W[1]);
+
+//  ta("1:");tn(10000,max1);tn(10000,max10);ta(" 0: ");tn(10000,max0);tn(10000,max01);
 //  setAddrWindow(152,0,152+7,127);tn(10000,ch1);ta(" 0: ");tn(10000,ch0);
   
   /*
@@ -1742,26 +1751,27 @@ sei();
  //   TSL2561_OFF;
 
   Pin2LOW(PORTD,5);Pin2Input(DDRD,5);  // SRCLR to LOW. Clear regs
-  Pin2Input(DDRD,1);  // DATAPIN
+  Pin2Input(DDRB,1);  // DATAPIN
   Pin2Input(DDRD,6); // CLK&LATCH 
   Pin2LOW(PORTD,7);Pin2Input(DDRD,7);  // detach G control pin (it is pull upped by resistor) --- no so really
 }
 
-
+word Flashes=0; // число вспышек в секунду
+long FlasheS=0; // общее число вспышек
 
 void Flash(byte lamps,byte Duration)
 {
   
   Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light
   Pin2Output(DDRD,5);Pin2HIGH(PORTD,5);  // SRCLR to HIGH. when it is LOW all regs are cleared
-  Pin2Output(DDRD,1);
+  Pin2Output(DDRB,1);
   Pin2Output(DDRD,6); 
   
   for(byte n=0;n<Duration;n++)
  {
-    Pin2HIGH(PORTD,1);  // DATAPIN to HIGH  
+    Pin2HIGH(PORTB,1);  // DATAPIN to HIGH  
     Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
-    Pin2LOW(PORTD,1); // next data are zeroes
+    Pin2LOW(PORTB,1); // next data are zeroes
 
 //  Pin2Output(DDRB,6);Pin2LOW(PORTB,6);  // test latch
 
@@ -1895,7 +1905,7 @@ sei();
 }
 
   Pin2LOW(PORTD,5);Pin2Input(DDRD,5);  // SRCLR to LOW. Clear regs
-  Pin2Input(DDRD,1);  // DATAPIN
+  Pin2Input(DDRB,1);  // DATAPIN
   Pin2Input(DDRD,6); // CLK&LATCH 
   Pin2LOW(PORTD,7);Pin2Input(DDRD,7);  // detach G control pin (it is pull upped by resistor) --- no so really
 //  if(!TFT_IS_ON){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);}
@@ -1903,7 +1913,7 @@ sei();
 //if(it==1022){ADCSRA&=~(1<<ADEN); // stop ADC
 //ADCSRA=0;
 //}
-
+    Flashes++;
 }
 
 
@@ -1928,7 +1938,7 @@ boolean volatile Update500=true; // Update once in 500ms
 ISR (PCINT1_vect)  // A3
 { 
     if(++ticks>=172800){ticks=0;reboot;}
-    if(ticks&1){UpdateRTC=true;}// update clock every second
+    if((ticks&0x1)==0){UpdateRTC=true;}// update clock every second
     Update500=true;
     
     // alarms ?
@@ -1996,7 +2006,7 @@ uint16_t t1,t2,tt1,tt2,tt3,ttt1,ttt2;
 
 word it=0;
 byte rnd;
-long flashes=0;
+//long flashes=0;
 long ln=0;
 long fn=0;
 word tim;
@@ -2419,16 +2429,14 @@ void Settings(void)
 }
 
 
-#define LONG_TOUCH_THRESHOLD 7 // критерий длинного нажатия в 1/2 секундах
+#define LONG_TOUCH_THRESHOLD 4 // критерий длинного нажатия в  секундах
 
   volatile long lvv,lmv,lm2;// luminous
   volatile long mlvv,mlmv,mlm2;// luminous
   volatile word lasttouch,ltp,CurrentTouch;
   byte LongTouch=0;
 word rtcl;
-//long NextScreen;
-//long NextTouch;
-//long NextTouchSample;
+long uptime=0; // uptime в секундах
 
 void UpdateScreen(void)
 {
@@ -2445,7 +2453,7 @@ void UpdateScreen(void)
     ta("Et");tn(1000,Etouch);ta(" rtcl");tn(10000,rtcl);ta(" Fi");th(FlashIntensity);
 
     setAddrWindow(40,0,47,127);
-    ta(" it");tn(10000,it);ta(" LT");th(LongTouch);   ta("sleeps ");tn(10,sleeps); 
+    ta(" it");tn(10000,it);ta(" LT");th(LongTouch);   ta(" sleeps");tn(10,sleeps); 
 
     setAddrWindow(50,0,57,127);
     //ta("sss=");tn(100000,sss);
@@ -2483,7 +2491,13 @@ ta(" f");tn(10000,fastnaptime);ta(" l");tn(10000,longnaptime);   ta(" n");tn(100
   //  ta("FCPU ");tn(1000000,I2C_CPUFREQ);
 //    ta("DC ");lh(I2C_DELAY_COUNTER);
 
-//    setAddrWindow(110,0,110+24-1,42-1);
+    setAddrWindow(110,0,117,127);
+    ta("uptime");tn(10000,uptime);
+    setAddrWindow(120,0,127,127);
+    ta(" fps");tn(1000,Flashes);
+    ta(" ");tn(1000000000,FlasheS);
+
+
     // 42x24
 
     setAddrWindow(100,100,141,123);
@@ -2549,6 +2563,7 @@ void loop() {
   if (UpdateRTC) // every second
   {
       UpdateRTC=false;
+      uptime++;
       RTC(); // 500us
 
 
@@ -2560,8 +2575,8 @@ void loop() {
            if (LCD<=ticks){LCD_OFF();}
            else
            {    
-                if(!ERR){TSLstart();} // 192us
-                if(!ERR){delay(103);TSLstop();}//322us
+//                if(!ERR){TSLstart();} // 192us
+  //              if(!ERR){delay(103);TSLstop();}//322us
 
                 UpdateScreen();          
            }
@@ -2578,11 +2593,10 @@ void loop() {
                }
        }
 
-      if (CurrentTouch>=Etouch){ if ((++LongTouch==LONG_TOUCH_THRESHOLD)&&(LCD)){Settings();LCD+=20;} }
+      if (CurrentTouch>=Etouch){ if ((++LongTouch==LONG_TOUCH_THRESHOLD)&&(LCD)){LCD+=900;Settings();LCD=ticks+20;} }
       else{ LongTouch=0; TouchSample(); }
 
-  
-
+      FlasheS+=Flashes;Flashes=0;
  }
 
 
@@ -2808,13 +2822,13 @@ _writeRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_
   //  t=0;  
 
   //once in 65536
-  if(it==0xFFFF){flashes++;}
+ // if(it==0xFFFF){flashes++;}
 
 
 if(FlashIntensity)
 {
 //    Flash(8,FlashIntensity);
-//    Flash(16,FlashIntensity);
+    Flash(16,FlashIntensity);
 //    Flash(16,1);
 
 //    Flash(9,FlashIntensity);
