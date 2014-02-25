@@ -1633,8 +1633,13 @@ PORTD=0;
 }
 
 
-byte pinmask,prt;
-word max0=0,max1=0,max01=0,max10=0;
+//byte pinmask,prt;
+//word max0=0,max1=0,max01=0,max10=0;
+
+word VccN;
+word VccH=1023;
+word VccL=0;
+
 
 void FlashTest(void) // #2 pin used as test
 {
@@ -1680,9 +1685,9 @@ void FlashTest(void) // #2 pin used as test
   
 for(byte n=20;n>0;n--)
 {
-  setAddrWindow(152,120,152+7,127);tn(10,n);
 
-for(word z=0;z<100;z++)
+  LCD_OFF();
+for(word z=0;z<30;z++)
 {
                 if(!ERR){TSLstart();} // 192us
 
@@ -1705,11 +1710,13 @@ for(word z=0;z<100;z++)
         //write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_0X);    //  // Set integration time and gain
       //  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);  // enable();
 
+
 for(byte q=0;q<103;q++)
 {
 cli();
 TCNT1=0;
 Pin2LOW(PORTD,7);// start lighting
+GetVcc();
 do{}while(TCNT1<1000);
 Pin2HIGH(PORTD,7);//digitalWrite(G,HIGH); // stop light
 sei();
@@ -1730,22 +1737,19 @@ sei();
 
     }// for 100
 
-  setAddrWindow(2,0,2+7,127);
-      ta("ch0=");tn(1000,Light.W[0]);ta("ch1=");tn(1000,Light.W[1]);
+      LCD_ON();
 
-//  ta("1:");tn(10000,max1);tn(10000,max10);ta(" 0: ");tn(10000,max0);tn(10000,max01);
-//  setAddrWindow(152,0,152+7,127);tn(10000,ch1);ta(" 0: ");tn(10000,ch0);
-  
-  /*
-for(word z=1;z<300;z++)
-{  
-cli();
-TCNT1=0;
-Pin2LOW(PORTD,7);// start lighting
-do{}while(TCNT1<Duration);
-Pin2HIGH(PORTD,7);//digitalWrite(G,HIGH); // stop light
-sei();
-}*/
+  setAddrWindow(152,120,152+7,127);tn(10,n);
+      
+  setAddrWindow(2,0,2+7,127);
+      ta("ch0=");tn(10000,Light.W[0]);ta("ch1=");tn(10000,Light.W[1]);
+
+  setAddrWindow(12,0,12+7,127);
+    ta("Vcc");tn(100,VccN);ta(" L");tn(100,VccL);ta(" H");tn(100,VccH);
+  setAddrWindow(22,0,22+7,127);    
+    ta("Vcc");tn(100,114000L/VccN);ta(" L");tn(100,114000L/VccL);ta(" H");tn(100,114000L/VccH); // 1125300L
+    
+    delay(5000);
 
 } //for n 10
  //   TSL2561_OFF;
@@ -1754,6 +1758,8 @@ sei();
   Pin2Input(DDRB,1);  // DATAPIN
   Pin2Input(DDRD,6); // CLK&LATCH 
   Pin2LOW(PORTD,7);Pin2Input(DDRD,7);  // detach G control pin (it is pull upped by resistor) --- no so really
+
+  VccH=1023;VccL=0;
 }
 
 word Flashes=0; // число вспышек в секунду
@@ -1960,9 +1966,6 @@ void pin3_isr()
   pin3_interrupt_flag = 1;
 }
 
-word VccN;
-word VccH=1023;
-word VccL=0;
 
 word Vcc(void)
 {
@@ -2390,13 +2393,13 @@ void SleepTime(void)
 
 boolean Touched(void)
 {
-    byte x,e=3;
+    byte x,e=2;
 
-    for (x=0;x<4;x++){ delay(700); DrawBox(100,12+30*x,115,12+15+30*x,0xfc,0xfc,0x00); }
+    for (x=0;x<3;x++){ delay(700); Cherry(15+x*36,100); }
     do        
     {
-        for (x=0;x<5;x++){ if (TouchSensor()>Etouch){ return true; } delay(200); }
-        DrawBox(100,12+e*30,115,12+15+e*30,0x00,0x00,0x00);    
+        for (x=0;x<4;x++){ if (TouchSensor()>Etouch){ return true; } delay(200); }
+        DrawBox(100,15+e*30,123,15+23+e*36,0x00,0x00,0x00);    
          if(e==0){break;}
          e--;
      }while(1);
@@ -2426,6 +2429,25 @@ void Settings(void)
 //        setAddrWindow(60,0,60+7,119);ta(" false");
 //        delay(5000);
 //    }
+}
+
+void Cherry(byte x,byte y)
+{
+    word pos=0;
+    byte r,g,b,z;
+    setAddrWindow(y,x,y+23,x+23);
+    Pin2HIGH(PORTD,4);
+    do
+    {
+        for(z=0;z<24;z++)
+        {
+            b=pgm_read_byte(&(C24[pos++]));     
+            g=pgm_read_byte(&(C24[pos++]));     
+            r=pgm_read_byte(&(C24[pos++]));     
+            spiwrite(r); spiwrite(g); spiwrite(b);
+        }//  pos+=2;// row padding
+    }
+    while (pos<(24*24*3));
 }
 
 
@@ -2498,8 +2520,12 @@ ta(" f");tn(10000,fastnaptime);ta(" l");tn(10000,longnaptime);   ta(" n");tn(100
     ta(" ");tn(1000000000,FlasheS);
 
 
-    // 42x24
+    Cherry(90,90);
+    
 
+
+    // 42x24
+/*
     setAddrWindow(100,100,141,123);
 
    // setAddrWindow(x,y,x2,y2);
@@ -2521,13 +2547,15 @@ do
   pos+=2;// row padding
 }
 while(pos<(42*24*3+0x36));
-
+*/
     
     
 
     setAddrWindow(152,0,159,127);ta("-----==<АУРА>==-----3");
 
 }
+
+void GetVcc(void){ VccN=Vcc(); if (VccN<VccH){VccH=VccN;} if (VccN>VccL){VccL=VccN;} } //280us
 
 // the loop routine runs over and over again forever:
 void loop() {
@@ -2554,8 +2582,7 @@ void loop() {
   if (Update500) // every 500ms
   {
       Update500=false;
-
-      VccN=Vcc(); if (VccN<VccH){VccH=VccN;} if (VccN>VccL){VccL=VccN;} //280us
+      GetVcc();  
    
     
   }
