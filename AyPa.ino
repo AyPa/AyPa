@@ -23,11 +23,11 @@
 
 
 #define reboot {__asm__ __volatile__ ("rcall 0\n\t" );} //void(* resetFunc) (void) = 0; //declare reset function @ address 0
-
-//#include <Wire.h>
+/*
+#include <Wire.h>
 //#include "TSL2561.h"
 //TSL2561 tsl(TSL2561_ADDR_LOW); 
-/*
+
 uint16_t read16(uint8_t reg,int addr)
 {
   uint16_t x; uint16_t t;
@@ -405,6 +405,8 @@ void RTC(void)
 
 typedef union{byte B[4];word W[2];long L[1];} Data4;
 Data4 Light;
+Data4 LightMax0;
+Data4 LightMax1;
 
 void WriteByte(byte addr, byte reg, byte val)
 {
@@ -465,17 +467,66 @@ typedef enum
 }
 tsl2561Gain_t;
 
-void TSLstart(void)
+void TSLstart(byte IntGain)
 {    
+  
     Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2HIGH(PORTC,4);Pin2HIGH(PORTC,5);   // activate internal pullups for twi.  
-    WriteByte((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING), (TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X));
+    WriteByte((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING), IntGain );
     WriteByte((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL), TSL2561_CONTROL_POWERON);
     if (TWSR!=0x28){ ERR=ERR_WHERE_IS_THE_TSL2561; } 
     TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);   // send stop condition
+    
+//    Wire.begin();        write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON,0x29);  //  enable();
+//  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  IntGain ,0x29);    //  // Set default integration time and gain
+
 }
 
 void TSLstop(void)
 {
+/*
+  grr=read8(TSL2561_REGISTER_ID,0x29);
+       Light.W[1]= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW,0x29);
+     Light.W[0]= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW,0x29);
+  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF,0x29);
+*/
+      
+
+    RequestFrom((0x29<<1),(TSL2561_REGISTER_ID));
+    
+    TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + ack
+    wait4int();//    if (TWSR!=0x50){return false;} // ack sent
+    if ((TWDR&0xF)!=0xA){ ERR=ERR_WHERE_IS_THE_TSL2561; } 
+
+/*
+   RequestFrom((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN1_LOW));
+
+   TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + ack
+   wait4int();//    if (TWSR!=0x50){return false;} // ack sent
+   grr2=TWDR;
+   Light.W[1]=TWDR;
+
+   RequestFrom((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN1_HIGH));
+
+   TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + ack
+   wait4int();//    if (TWSR!=0x50){return false;} // ack sent
+   grr=TWDR;
+   Light.W[1]|=(TWDR<<8);
+
+   RequestFrom((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN0_LOW));
+
+   TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + ack
+   wait4int();//    if (TWSR!=0x50){return false;} // ack sent
+  // grr2=TWDR;
+   Light.W[0]=TWDR;
+
+   RequestFrom((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN0_HIGH));
+
+   TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + ack
+   wait4int();//    if (TWSR!=0x50){return false;} // ack sent
+//   grr=TWDR;
+   Light.W[0]|=(TWDR<<8);
+   */
+
     RequestFrom((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW));
 
     TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + ack
@@ -484,6 +535,7 @@ void TSLstop(void)
     TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + ack
     wait4int();//    if (TWSR!=0x50){return false;} // ack sent
     Light.B[1]=TWDR;
+    
 
     RequestFrom((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW));
     
@@ -494,11 +546,14 @@ void TSLstop(void)
     wait4int();//    if (TWSR!=0x50){return false;} // ack sent
     Light.B[3]=TWDR;  if (TWSR!=0x58){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} 
 
-//WriteByte((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL), TSL2561_CONTROL_POWEROFF);  ///  глючит ну и ладно
+
+WriteByte((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL), TSL2561_CONTROL_POWEROFF);  ///  глючит ну и ладно
 //  if (TWSR!=0x28){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} 
+grr2=TWSR;
   
     TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);   // send stop condition
     Pin2LOW(PORTC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,4);Pin2Input(DDRC,5); // если STOP не успевает - поставь задержку
+
 }
 
 word TouchSensor(void) // 
@@ -570,6 +625,7 @@ word TouchT(void)
   
   for(byte i=0;i<4;i++){ res+= TouchD[i]; }
   res=res+(res>>4); // среднее+ 1/16
+//  return res;
   return (res>>2);
 }
 
@@ -1643,14 +1699,15 @@ word VccL=0;
 
 void FlashTest(void) // #2 pin used as test
 {
-  word ch0,ch1;
+  word max0,max1;
+  word maxx0,maxx1;
   
   DrawBox(16,0,159,127,0x00,0x00,0x00);    // очистка экрана
   
-  setAddrWindow(14,0,14+7,127);ta("Тестовый режим / TEST");
-  setAddrWindow(22,0,22+7,127);ta("---------------------");
+  setAddrWindow(140,0,140+7,127);ta("Тестовый режим / TEST");
+//  setAddrWindow(22,0,22+7,127);ta("---------------------");
 
-
+/*
   setAddrWindow(30,0,30+7,127);ta("Сейчас на вывод TEST ");
   setAddrWindow(40,0,40+7,127);ta("будет подан постоян-"); 
   setAddrWindow(50,0,50+7,127);ta("ный ток. Используй");
@@ -1663,7 +1720,7 @@ void FlashTest(void) // #2 pin used as test
   setAddrWindow(115,0,115+7,127);ta("to TEST output now.");
   setAddrWindow(125,0,125+7,127);ta("Use adjustment resis-");
   setAddrWindow(135,0,135+7,127);ta("tor to limit it. Do");
-  setAddrWindow(145,0,145+7,127);ta("not go beyond 700mA.");  
+  setAddrWindow(145,0,145+7,127);ta("not go beyond 700mA.");  */
   
   delay(3000);
 
@@ -1682,42 +1739,23 @@ void FlashTest(void) // #2 pin used as test
 
 //    TSL2561_ON;
 
-  
+  maxx0=0;maxx1=0;
 for(byte n=20;n>0;n--)
 {
 
-  LCD_OFF();
-for(word z=0;z<30;z++)
+  LCD_OFF();max0=0;max1=0;
+for(word z=0;z<25;z++)
 {
-                if(!ERR){TSLstart();} // 192us
+                if(!ERR){TSLstart(TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X);} // 192us
+//                if(!ERR){TSLstart(TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_0X);} // 192us
 
-  //    if (tsl.begin()) 
-//  Wire.begin();
-
- // Initialise I2C
-//  Wire.beginTransmission(TSL2561_ADDR_LOW);
-//  Wire.write(TSL2561_REGISTER_ID);
-//  Wire.endTransmission();
-//  Wire.requestFrom(TSL2561_ADDR_LOW, 1);
-//  byte x = Wire.read();
-//  if (x==0x0A)
-//  if (x & 0x0A )// FF подходит в случае отсутствия датчика
-  //{
-        //tsl.setGain(TSL2561_GAIN_0X);      // set 16x gain (for dim situations)
-//        tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  
-        //tsl.setTiming(TSL2561_INTEGRATIONTIME_101MS);  
-    //    write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X);    //  // Set integration time and gain
-        //write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_0X);    //  // Set integration time and gain
-      //  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);  // enable();
-
-
-for(byte q=0;q<103;q++)
+for(byte q=0;q<11;q++)
 {
 cli();
 TCNT1=0;
 Pin2LOW(PORTD,7);// start lighting
 GetVcc();
-do{}while(TCNT1<1000);
+do{}while(TCNT1<10000);
 Pin2HIGH(PORTD,7);//digitalWrite(G,HIGH); // stop light
 sei();
 }
@@ -1725,15 +1763,8 @@ sei();
   //              if(!ERR){delay(103);TSLstop();}//322us
                 if(!ERR){TSLstop();}//322us
   
-//  ch1 = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
-//  ch0 = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
-
-//  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF);  // disable();
-//  if (ch0>max0){max0=ch0;max01=ch1;}
-//  if (ch1>max1){max1=ch1;max10=ch0;}
-
-//    }      // if begin
-
+          if(Light.W[0]>max0){max0=Light.W[0];max1=Light.W[1];}
+          if(Light.W[0]>maxx0){maxx0=Light.W[0];maxx1=Light.W[1];}
 
     }// for 100
 
@@ -1742,17 +1773,19 @@ sei();
   setAddrWindow(152,120,152+7,127);tn(10,n);
       
   setAddrWindow(2,0,2+7,127);
-      ta("ch0=");tn(10000,Light.W[0]);ta("ch1=");tn(10000,Light.W[1]);
-
+      ta("CH0 ");tn(10000,max0);ta(" CH1 ");tn(10000,max1);
+//      ta(" ");tn(100,Light.W[0]);ta(" ");tn(100,Light.W[1]);
   setAddrWindow(12,0,12+7,127);
-    ta("Vcc");tn(100,VccN);ta(" L");tn(100,VccL);ta(" H");tn(100,VccH);
-  setAddrWindow(22,0,22+7,127);    
+      ta("CH0 ");tn(10000,maxx0);ta(" CH1 ");tn(10000,maxx1);
+
+  setAddrWindow(32,0,32+7,127);
+    ta("Vcc");tn(100,VccN);ta(" L");tn(100,VccL);ta(" H");tn(100,VccH);ta(" ERR ");th(ERR);
+  setAddrWindow(42,0,42+7,127);    
     ta("Vcc");tn(100,114000L/VccN);ta(" L");tn(100,114000L/VccL);ta(" H");tn(100,114000L/VccH); // 1125300L
     
     delay(5000);
 
-} //for n 10
- //   TSL2561_OFF;
+} //for n 
 
   Pin2LOW(PORTD,5);Pin2Input(DDRD,5);  // SRCLR to LOW. Clear regs
   Pin2Input(DDRB,1);  // DATAPIN
@@ -1765,16 +1798,17 @@ sei();
 word Flashes=0; // число вспышек в секунду
 long FlasheS=0; // общее число вспышек
 
-void Flash(byte lamps,byte Duration)
+void Flash(byte chips,byte Duration)
 {
+  word lamps=chips*8;
   
   Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light
   Pin2Output(DDRD,5);Pin2HIGH(PORTD,5);  // SRCLR to HIGH. when it is LOW all regs are cleared
   Pin2Output(DDRB,1);
   Pin2Output(DDRD,6); 
   
-  for(byte n=0;n<Duration;n++)
- {
+//  for(byte n=0;n<Duration;n++)
+// {
     Pin2HIGH(PORTB,1);  // DATAPIN to HIGH  
     Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
     Pin2LOW(PORTB,1); // next data are zeroes
@@ -1798,117 +1832,33 @@ void Flash(byte lamps,byte Duration)
 
 for(byte z=0;z<lamps;z++)// serie of flashes
 {
-//  if((z&7)==0){Pin2HIGH(PORTD,1);} // 1st bit is "1"
   Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6); // clock pulse 
-//  Pin2LOW(PORTD,1); // next data are zeroes (just delay)
 
-//  Pin2HIGH(PORTB,6);  Pin2LOW(PORTB,6); // latch
+cli();
+ Pin2LOW(PORTD,7); 
+// NOP;
+// NOP;
+ 
+//  NOP;
+// NOP;
 
-//  delayMicroseconds(2);
-
-//  if((z&7)==0){Pin2LOW(PORTD,1);} // next 7 are zeroes
-//  Pin2LOW(PORTD,1); // next data are zeroes
-  
-//  delayMicroseconds(2);
-// latch
-//  Pin2HIGH(PORTD,6);//digitalWrite(LATCHPIN,HIGH);
-//  delayMicroseconds(2);
-//  Pin2LOW(PORTD,6);//digitalWrite(LATCHPIN,LOW);
-//  delayMicroseconds(2);
-  
-//  if((it==0x0200)&&(z==0)){SetADC(0,14,100);}
-  
-//flash itself
-//for(byte x=0;x<3;x++)// flashes
-//{
-//Pin2LOW(PORTD,5);delayMicroseconds(30);Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // start/stop light
-//}
+//NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;
+//delayMicroseconds(10);
+   Pin2HIGH(PORTD,7); 
+   sei();
 /*
-if(it==1021)
-{
-  ADCSRA|=(1<<ADEN);  // start ADC
-  ADMUX=(0<<REFS1)|(1<<REFS0)|(0<<ADLAR)|14;// input 14 (Vcc) internalRef Vcc
-  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start 1st conversion
-}
-if(it==1022)// measure Vcc and stop ADC
-{
-if(z==0){Vcc1=ADCW;
-  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
-  do{}while(bit_is_set(ADCSRA,ADSC));Vcc1=ADCW; //repeat
-}// read 1st conversion
 cli();
-
-
-  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
-  do{}while(bit_is_set(ADCSRA,ADSC));VccN[z][0]=ADCW; 
-
-//enter critical section
-//Pin2Input(DDRD,0); // important set it 2 input (high impedance state)
-Pin2HIGH(PORTD,0);// open reset mosfet
-//TCNT1=0;
-Pin2LOW(PORTD,5);// start lighting
-// do 3 ADC reading (27us)
-  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
-  do{}while(bit_is_set(ADCSRA,ADSC));VccN[z][1]=ADCW; 
-  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
-  do{}while(bit_is_set(ADCSRA,ADSC));VccN[z][2]=ADCW; 
-  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
-  do{}while(bit_is_set(ADCSRA,ADSC));VccN[z][3]=ADCW; 
-//delayMicroseconds(14);
-
-Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // start/stop light
-//tim=TCNT1;    // 27us
-
-Pin2LOW(PORTD,0);// close reset mosfet
-
-  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
-  do{}while(bit_is_set(ADCSRA,ADSC));VccN[z][4]=ADCW; 
-  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
-  do{}while(bit_is_set(ADCSRA,ADSC));VccN[z][5]=ADCW; 
-  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
-  do{}while(bit_is_set(ADCSRA,ADSC));VccN[z][6]=ADCW; 
-  ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// start conversion
-  do{}while(bit_is_set(ADCSRA,ADSC));VccN[z][7]=ADCW; 
-
-}
-else{
-*/
-//  if(it==15000){
-//pinMode(A4,OUTPUT);
-//pinMode(A5,OUTPUT);
-//delay(1);
-  // prepare light sensor
-//if (tsl.begin()) {  
-      //    write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);  //  enable();
-//  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_16X);    //  // Set integration time and gain
-
-//    tsl.setGain(TSL2561_GAIN_0X);         // set no gain (for bright situtations)
-//  tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  // shortest integration time (bright light)
-//  tsl.enable(); // will init if need to
-
-//lvv+=0x100000L;  
-
-//}// begin
-
-//}
-//lvv++;
-  
-cli();
-//enter critical section
-//Pin2Input(DDRD,0); // important set it 2 input (high impedance state)
-//Pin2HIGH(PORTD,0);// open reset mosfet
-//TCNT1=0;
-Pin2LOW(PORTD,7);// start lighting
-
-NOP;
-//do{}while(TCNT1<Duration);
-
-Pin2HIGH(PORTD,7);//digitalWrite(G,HIGH); // stop light
-
+if(Duration==5){ __asm__ __volatile__("cbi 0x0B,7\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""sbi 0x0B,7\n\t"); }
+else if(Duration==4){ __asm__ __volatile__("cbi 0x0B,7\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""sbi 0x0B,7\n\t"); }
+else if(Duration==3){ __asm__ __volatile__("cbi 0x0B,7\n\t""nop\n\t""nop\n\t""nop\n\t""sbi 0x0B,7\n\t"); }
+else if(Duration==2){ __asm__ __volatile__("cbi 0x0B,7\n\t""nop\n\t""nop\n\t""sbi 0x0B,7\n\t"); }
+else if(Duration==1){ __asm__ __volatile__("cbi 0x0B,7\n\t""nop\n\t""sbi 0x0B,7\n\t"); }
 sei();
+*/
+
 
 }// for
-}
+//}
 
   Pin2LOW(PORTD,5);Pin2Input(DDRD,5);  // SRCLR to LOW. Clear regs
   Pin2Input(DDRB,1);  // DATAPIN
@@ -1919,7 +1869,6 @@ sei();
 //if(it==1022){ADCSRA&=~(1<<ADEN); // stop ADC
 //ADCSRA=0;
 //}
-    Flashes++;
 }
 
 
@@ -2040,181 +1989,16 @@ void unap(byte timeout)
       }while(1);
 }
 
-void longnap_old(void)
-{
-//?????????????????
-//PORTC=0;
-//PORTB=0;
-//PORTD=0;
-//PORTD=0b00000100; //except 2nd pin (INT0)
-
-
-     // cnt1=0;
-      //tc1=TCNT1;
-//        set_sleep_mode(SLEEP_MODE_PWR_DOWN);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
-//      set_sleep_mode (SLEEP_MODE_IDLE);//// in r24,0x33// andi r24,0xF1// out 0x33,r24
-
-//Pin2Output(DDRD,0);// sleep 2n7000 control
-//Pin2HIGH(PORTD,0);// switch ON sleep control mosfet
-
-//Pin2Output(DDRD,3);Pin2HIGH(PORTD,3);// charge cap
-
-
-// all pins to  high imp. except some
-//PORTC=0;
-//PORTB=0;
-//PORTD=0;
-//DDRC=0;
-//DDRB=0;
-//DDRD=0;
-// every pin must  be in determined state
-/*
-    Pin2Input(DDRB,2);Pin2LOW(PORTB,2); // SPI pins
-    Pin2Input(DDRB,3);Pin2LOW(PORTB,3);
-    Pin2Input(DDRD,4);Pin2LOW(PORTD,4);    
-    Pin2Input(DDRB,5);Pin2LOW(PORTB,5);
-*/
-// не нравится...
-//.. по кнопке пробуем
-
-// instead of charging cap we must set internal pullup resistor to get SQW from DS1307
-    Pin2Input(DDRD,3);Pin2HIGH(PORTD,3);// pinMode(3,INPUT_PULLUP);      attachInterrupt(1, pin3_isr, RISING);
-
-
-//            WDhappen=0;
-        sleeps=0;
-//      TCNT1=0;
-      do{
-
-            cli();
-      pin3_interrupt_flag=0;
-      sleep_enable();
-//      attachInterrupt(1, pin3_isr, LOW);
-      attachInterrupt(1, pin3_isr, RISING);
-
-//      Pin2LOW(PORTD,3);Pin2Input(DDRD,3); // controlled charging (very impurtant set it 2 input (high impedance state))
-        sei();
-        sleep_cpu();
-//wake up here
-// check if it us or not
-        sleep_disable();
-  //      if(pin3_interrupt_flag||WDhappen){break;}else{sleeps++;}
-  // check if there is a ob to do or sleep further
-  // 4kHz gives us 246us sleeping time
-        if(pin3_interrupt_flag){break;}else{sleeps++;}
-      }while(1);
-
-
-/*
-    Pin2Output(DDRB,2);Pin2HIGH(PORTB,2); // SPI pins
-    Pin2Output(DDRB,3);Pin2LOW(PORTB,3);
-//    Pin2Input(DDRD,4);Pin2LOW(PORTD,4);    
-    Pin2Output(DDRB,5);Pin2LOW(PORTB,5);
-*/
-
-//Pin2Output(DDRD,0);// sreset mosfet 2n7000 control
-//Pin2Output(DDRD,1);// 3.3/5v mosfet 2n7000 control
-//Pin2Output(DDRD,2);// INT0 line
-
-//Pin2Output(DDRD,3);// INT1 line /TFT CS
-//Pin2Output(DDRD,4);// TFT DC
-//Pin2Output(DDRB,3);// MOSI
-//Pin2Output(DDRB,5);// CLK
-
-
-//Pin2Output(DDRB,0); // CLOCKPIN 8
-//Pin2Output(DDRD,1); // DATAPIN 9
-//Pin2Output(DDRB,2);
-//Pin2Output(DDRB,6);
-
-//Pin2Output(DDRD,5); // pin 5 G
-//Pin2Output(DDRD,6); // pin 6 LATCH
-//Pin2Output(DDRD,7); // pin 7 SRCLR
-
-//  pinMode(DATAPIN,OUTPUT);
-//  pinMode(CLOCKPIN,OUTPUT);
-//  pinMode(LATCHPIN,OUTPUT);
-
-
-  
-  //cli();t1111=TCNT1;sei();//atomic read
-}
-
-void nextnap(void)
-{
-
-//Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// charge cap
-//delayMicroseconds(2);
-//Pin2Input(DDRC,0);Pin2HIGH(PORTC,0); // pull up on A0
-//PCICR |= 1<<PCIE1;
-//PCMSK1 = 1<<PCINT8; // A0
-Pin2Input(DDRC,3);Pin2HIGH(PORTC,3); // pull up on A0
-PCICR |= 1<<PCIE1;
-PCMSK1 = 1<<PCINT11; // A3
-
-
-      sleeps=0;
-      TCNT1=0;
-//      do{
-    //        cli();
-            pin0_interrupt_flag=0;
-            sleep_enable();
-//            attachInterrupt(0, pin2_isr, LOW);
-
-  //          Pin2LOW(PORTD,2);Pin2Input(DDRD,2); // controlled charging (very impurtant set it 2 input (high impedance state))
-      //      sei();
-            sleep_cpu();
-//wake up here
-            sleep_disable();
-//break;  
-//      if(pin3_interrupt_flag||WDhappen){break;}else{sleeps++;}
-//            if(pin0_interrupt_flag||WDhappen){break;}else{sleeps++;} // WD is important in case  RC sleeper went off
-  //        }while(1);
-//  cli();t1111=TCNT1;sei();//atomic read
-PCICR&=~(1<<PCIE1);
-Pin2LOW(PORTC,0); // pull up off A0
-}
-
-void b7nap(void) // дрыхнет богатырским сном!
-{
-
-Pin2Output(DDRB,7);Pin2HIGH(PORTB,7);// charge cap
-//delayMicroseconds(2);
-//Pin2Input(DDRB,7);Pin2HIGH(PORTB,7); // pull up on B7
-PCICR |= 1<<PCIE0;
-PCMSK0 = 1<<PCINT6; // B7
-
-
-      sleeps=0;
-      TCNT1=0;
-    //  do{
-            cli();
-            pin7_interrupt_flag=0;
-            sleep_enable();
-//            attachInterrupt(0, pin2_isr, LOW);
-
-            Pin2LOW(PORTB,7);Pin2Input(DDRB,7); // controlled charging (very impurtant set it 2 input (high impedance state))
-      //      sei();
-            sleep_cpu();
-//wake up here
-            sleep_disable();
-//break;  
-//      if(pin3_interrupt_flag||WDhappen){break;}else{sleeps++;}
-  //          if(pin7_interrupt_flag||WDhappen){break;}else{sleeps++;} // WD is important in case  RC sleeper went off
-//          }while(1);
-//  cli();t1111=TCNT1;sei();//atomic read
-PCICR&=~(1<<PCIE0);
-//Pin2LOW(PORTC,0); // pull up off A0
-}
-
 void fastnap(void)
 {
+      word prev;
 
 Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// charge cap
 //delayMicroseconds(2);
 
       WDhappen=0;
       sleeps=0;
+      prev=TCNT1;
       TCNT1=0;
       do{
             cli();
@@ -2228,16 +2012,21 @@ Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// charge cap
 //wake up here
             sleep_disable();
   //      if(pin3_interrupt_flag||WDhappen){break;}else{sleeps++;}
+  // if wakeup by WD then reboot?
             if(pin2_interrupt_flag||WDhappen){break;}else{sleeps++;} // WD is important in case  RC sleeper went off
           }while(1);
+          TCNT1+=prev;
 //  cli();t1111=TCNT1;sei();//atomic read
 }
 void longnap(void)
 {
+      word prev;
+      
       Pin2Output(DDRD,3);Pin2HIGH(PORTD,3);// charge cap
 
       WDhappen=0;
       sleeps=0;
+      prev=TCNT1;
       TCNT1=0;
       do{
             cli();
@@ -2253,6 +2042,7 @@ void longnap(void)
   //      if(pin3_interrupt_flag||WDhappen){break;}else{sleeps++;}
             if(pin3_interrupt_flag||WDhappen){break;}else{sleeps++;} // WD is important in case  RC sleeper went off
           }while(1);
+          TCNT1+=prev;
 //  cli();t1111=TCNT1;sei();//atomic read
 }
 
@@ -2380,7 +2170,7 @@ void SleepTime(void)
     if (pin2_interrupt_flag){fastnaptime=cnt1;}else { ERR=ERR_BROKEN_SLEEP; }
 
     WDsleep=1;// notify WD that we are sleeping (to avoid reboot)
-  //  __asm__ __volatile__("wdr\n\t");//  wdt_reset(); // to avoid WD fire first
+    __asm__ __volatile__("wdr\n\t");//  wdt_reset(); // to avoid WD fire first
     longnap();
     if (pin3_interrupt_flag){longnaptime=cnt1;}else { ERR=ERR_BROKEN_SLEEP; }
 
@@ -2459,6 +2249,7 @@ void Cherry(byte x,byte y)
   byte LongTouch=0;
 word rtcl;
 long uptime=0; // uptime в секундах
+word FT[5];
 
 void UpdateScreen(void)
 {
@@ -2475,7 +2266,7 @@ void UpdateScreen(void)
     ta("Et");tn(1000,Etouch);ta(" rtcl");tn(10000,rtcl);ta(" Fi");th(FlashIntensity);
 
     setAddrWindow(40,0,47,127);
-    ta(" it");tn(10000,it);ta(" LT");th(LongTouch);   ta(" sleeps");tn(10,sleeps); 
+    ta(" it");tn(10000,it);ta(" LT");th(LongTouch);   ta(" sl");tn(10,sleeps);ta(" ");th(grr);th(grr2);
 
     setAddrWindow(50,0,57,127);
     //ta("sss=");tn(100000,sss);
@@ -2494,9 +2285,7 @@ void UpdateScreen(void)
     
     setAddrWindow(70,0,77,127);
 
-TCNT1=0;
     ta("Vcc");tn(100,114000L/VccN);ta(" L");tn(100,114000L/VccL);ta(" H");tn(100,114000L/VccH); // 1125300L
-rtcl=TCNT1; 
     
 
     setAddrWindow(80,0,87,127);
@@ -2505,11 +2294,17 @@ ta(" f");tn(10000,fastnaptime);ta(" l");tn(10000,longnaptime);   ta(" n");tn(100
 
     setAddrWindow(90,0,97,127);
 //    ta("ch0=");tn(1000,chan0);ta("ch1=");tn(1000,chan1);
-    ta("ch0=");tn(1000,Light.W[0]);ta("ch1=");tn(1000,Light.W[1]);
+    ta("ch0=");tn(1000,Light.W[0]);ta(" ch1=");tn(1000,Light.W[1]);
+//    ta("ch0=");wh(Light.W[0]);ta(" ch1=");wh(Light.W[1]);
 
-    setAddrWindow(100,0,107,127);
+    LightMax0.W[0]=0;LightMax1.W[1]=0;
+
+    setAddrWindow(100,0,107,127);    
+    ta("0 ");tn(10000,LightMax0.W[0]);tn(10000,LightMax0.W[1]);
+    ta(" 1 ");tn(10000,LightMax1.W[0]);tn(10000,LightMax1.W[1]);
+
   
-   ta("grr ");tn(100,grr);  ta(" ");th(grr);ta(" ");th(grr2);
+//   ta("grr ");tn(100,grr);  ta(" ");th(grr);ta(" ");th(grr2);
   //  ta("FCPU ");tn(1000000,I2C_CPUFREQ);
 //    ta("DC ");lh(I2C_DELAY_COUNTER);
 
@@ -2519,8 +2314,11 @@ ta(" f");tn(10000,fastnaptime);ta(" l");tn(10000,longnaptime);   ta(" n");tn(100
     ta(" fps");tn(1000,Flashes);
     ta(" ");tn(1000000000,FlasheS);
 
+    setAddrWindow(130,0,137,127);
+    tn(1000,FT[0]);ta(" ");    tn(1000,FT[1]);ta(" ");    tn(1000,FT[2]);ta(" ");    tn(1000,FT[3]);ta(" ");    tn(1000,FT[4]);
 
-    Cherry(90,90);
+
+    Cherry(103,108);
     
 
 
@@ -2567,7 +2365,6 @@ void loop() {
   
   do{
 //        __asm__ __volatile__("wdr\n\t");//  wdt_reset();
-        if(it==0){SleepTime();}
 
 //        Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // stop light outputs
 //        Pin2HIGH(PORTB,6);//power supply to tpic6a595  (add caps?)
@@ -2592,6 +2389,7 @@ void loop() {
       UpdateRTC=false;
       uptime++;
       RTC(); // 500us
+      SleepTime();
 
 
       CurrentTouch=TouchSensor();  //337-440us
@@ -2612,7 +2410,7 @@ void loop() {
        {
 
                if (CurrentTouch>=Etouch){
-         LCD=ticks+30;// 15sec
+         LCD=ticks+90;
       LCD_ON();
      
      // draw backgrounds
@@ -2626,123 +2424,6 @@ void loop() {
       FlasheS+=Flashes;Flashes=0;
  }
 
-
-
-/*
-
-if(ticks>=NextTouch)
-{
-TCNT1=0;
-    CurrentTouch=TouchSensor();  //337-440us
-rtcl=TCNT1; 
-
-//    if (CurrentTouch<Etouch)
-  //  {
-        Etouch=TouchT(); //7us
-    //}
-
-
-
-  if (CurrentTouch>=Etouch)
-  {
-      if ((++LongTouch==LONG_TOUCH_THRESHOLD)&&(LCD)){Settings();LCD+=20;} 
-  }
-  else
-  {
-      LongTouch=0;
-  }
-
-if (!LCD)
-{
-  if (CurrentTouch>=Etouch)
-  {
-      LCD=ticks+30;// 15sec
-      LCD_ON();
-     NextScreen=ticks+1; 
-     
-     // draw backgrounds
-     ShowBars();
-     
-  }
-
-    if(ticks>=NextTouchSample){TouchSample();NextTouchSample=ticks+100;}// подстройка раз в 50 секунд при выключенном экране
-}
-
-
-    NextTouch=ticks+1;
-}
-*/
-
-
-//    set_sleep_mode(SLEEP_MODE_PWR_DOWN);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
-//    set_sleep_mode(SLEEP_MODE_IDLE);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
-  //  sss=0;nextnap();sssn=sss;delay(100);sssb=sss;
-
-//        set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-//       wdt_disable();
-     set_sleep_mode(SLEEP_MODE_PWR_DOWN); 
- //   set_sleep_mode(SLEEP_MODE_IDLE);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
-
-  TCNT1=0;
-//  longnap();//4845us 3 sleeps
-  fastnap();//957us - 
-//b7nap();//522us
-
-//delay(1000);
-
-//unap(T1S);
-
-//unap();// 66 sleeps IDLE
-//unap();// 17 sleeps PWR_DOWN
-   //   wdt_disable();
-      
-// nextnap();// 16-52us  (wakeups from power down also)
-//delay(5000); // 10 interrupts (every 1/2 second) - 
-  //rtcl=TCNT1;
-
-//detachInterrupt(0);  Pin2LOW(PORTD,2);//
-        
-       // fastnap();
-       // sssn=sss;
-//        nextnap(); // never wakeup (RTC is OFF  >> SQW is present
-     //   sssb=bbb;
-
-//pinMode(6,OUTPUT);//analogWrite(6,10);
-
-//if(!TFT_IS_ON){
-
-  //   set_sleep_mode(SLEEP_MODE_PWR_DOWN); 
-//unap();
-//analogWrite(6,0);
-          
-//          continue;
-        
-  //          if (CurrentTouch>Etouch){LongTouch++;if(TFT_IS_ON){TFT_IS_ON+=7;} if(LongTouch==LONG_TOUCH_THRESHOLD){Settings();} }else{LongTouch=0;}
-    //        if(TFT_IS_ON) { if(LongTouch<2){if(--TFT_IS_ON==0){TFT_OFF();}else{UpdateScreen();}}}  // если дисплей включен то проверим не пора ли его выключить
-      //      else {ltp=lasttouch;lasttouch=CurrentTouch; if (lasttouch>Etouch){TFT_ON(15);ShowBars(HR);}else{TouchD[((TouchPos++)&3)]=lasttouch;}}
-         // }
-   //}
- 
-  
-  //RTC_OFF();  // переводим лапки часиков в высокоомное состояние  и отключаем питание
-//  rtcl=TCNT1;
-  
-//  I2C_ON(DDRC,1,2);
-  //if(!Check_TSL(16)){ERR=WHERE_IS_THE_TSL2561;} 
-//  else{
-
-//TSL2561_START(TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_16X);//
-//TSL2561_START(TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_0X);////
-//delay(14);
-//lvv=TSL2561_STOP();
-
-//}
-  //I2C_OFF(DDRC,PORTC,1,2);
-  
-//}
-
-/*
-*/
 
 
 // если есть ошибки
@@ -2760,102 +2441,58 @@ if (ERR)
     ta("cycles:");tn(10000,cycles);
 
     delay(5500);
-//    RTC_OFF();  // переводим лапки часиков в высокоомное состояние 
-    TFT_OFF(); // close rtft/rtc mosfet
+    TFT_OFF(); 
     reboot;  // This will call location zero and cause a reboot.
 }
 
-//continue;
-//  if(!FlashIntensity){unap();continue;} // определяем продолжительность пыхи в данном часе и спим 8s если нечего делать
-
-//if(((it&0x3FF)==0)&&TFT_IS_ON)// once in 1k
-//{
-
-// check that we have sensor responding
-/*
-byte vv=_readRegisterT(TSL2561_REGISTER_ID); // works
-
-_writeRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);
-_writeRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_16X);   
-
-delay(14);
-
-long lm=_readRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN1_HIGH);
-  lm <<= 8;
-lm|=_readRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN1_LOW);
-  lm <<= 8;
-lm|=_readRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN0_HIGH);
-  lm <<= 8;
-lm|=_readRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN0_LOW);
-
-// lm = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
-  //lm <<= 16;
-//  lm |= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
-
-_writeRegisterT(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF);
-*/
-/*
-    I2C_ON(DDRC,4,5); // не работает вместе с wire.h точно
-    if(Check_TSL(16))
-    {  
-//      lvv=Check_TSL(16); //16
-      
-//    TSL2561_START(TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X); 
-    TSL2561_START(TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_0X); 
-     delay(120);
-      lvv=TSL2561_STOP();
-      if (lvv>mlvv) mlvv=lvv;
-      
-    }
-    I2C_OFF(DDRC,PORTC,4,5);*/
-
-/* // измерялка фотонов
-    if (tsl.begin()) {
-    tsl.setGain(TSL2561_GAIN_0X);      // set 16x gain (for dim situations)
-      tsl.setTiming(TSL2561_INTEGRATIONTIME_101MS);  
-  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);
-  
-  delay(120);
-  
-  lmv = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
-  lmv <<= 16;
-  lmv |= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
-  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF);
-  if (lmv>mlmv)mlmv=lmv;
-
-    }
-
-    if (tsl.begin()) {
-    tsl.setGain(TSL2561_GAIN_0X);      // set 16x gain (for dim situations)
-      tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  
-  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);
-  
-  delay(14);
-  
-  lm2 = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
-  lm2 <<= 16;
-  lm2 |= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
-  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF);
-    if (lm2>mlm2)mlm2=lm2;
-
-    }
-*/    
-
-//}
-
-//if((it&0x3FF)==0)// once in 1024
-//{
-
-  //  t=0;  
-
-  //once in 65536
- // if(it==0xFFFF){flashes++;}
+FlashIntensity=1; // debug
 
 
 if(FlashIntensity)
 {
-//    Flash(8,FlashIntensity);
-    Flash(16,FlashIntensity);
+long base=micros();
+  long m1=millis();
+  FT[0]=0;
+//                  if(!ERR){TSLstart();} // 192us
+                                  if(!ERR){TSLstart(TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X);} // 192us
+//                                  if(!ERR){TSLstart(TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_0X);} // 192us
+while((micros()-base)<110000L)
+//while((micros()-base)<14000L)
+{
+    Flash(2,FlashIntensity); //84us    
+    FT[0]++;
+}
+long m2=millis();
+                  if(!ERR){TSLstop();}//322us
+                  FT[3]=ERR;
+                  FT[4]=m2-m1;
+  
+                if(Light.W[0]>LightMax0.W[0]){LightMax0.W[0]=Light.W[0];LightMax0.W[1]=Light.W[1];}
+                if(Light.W[1]>LightMax1.W[1]){LightMax1.W[0]=Light.W[0];LightMax1.W[1]=Light.W[1];}
+
+//    set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+//TCNT1=0;
+//    Flash(1,FlashIntensity); //48us
+  /*  FT[0]=micros()-base;
+    Flash(2,FlashIntensity); //84us    
+    FT[1]=micros()-base;
+    Flash(2,FlashIntensity); //84us
+    fastnap();    //120us
+    FT[2]=micros()-base;
+    Flash(2,FlashIntensity); //84us
+    longnap();   // 1300us
+    FT[3]=micros()-base;
+    Flash(2,FlashIntensity); //84us
+    FT[4]=micros()-base;
+*/
+//    Flash(3,FlashIntensity); //120us
+//    Flash(4,FlashIntensity); //156us
+//rtcl=TCNT1; 
+
+
+    Flashes++;
+
+    
 //    Flash(16,1);
 
 //    Flash(9,FlashIntensity);
@@ -2922,6 +2559,7 @@ if (tsl.begin()) {
   
     
 } // пыхнем
+else { set_sleep_mode(SLEEP_MODE_PWR_DOWN); unap(T1S); } // а иначе выходной :)
 
 
   
