@@ -224,7 +224,7 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 #define ERR_SET_CLOCK                    0x2F;
 #define ERR_I2C                                0x30;
 byte ERR=0; // ошибки (255)
-
+/*
 word TFT_IS_ON=0;
 
 void TFT_ON(byte duration){
@@ -255,11 +255,11 @@ void TFT_OFF(void){ writecommand(ST7735_SLPIN);
   //  Pin2Input(DDRB,7);
     TFT_IS_ON=0; 
 }// вЫключаем питание  дисплея
-
+*/
 long LCD;
 
 void LCD_ON(void){
-  Pin2Output(DDRB,0);Pin2HIGH(PORTB,0); 
+    Pin2Output(DDRB,0);Pin2HIGH(PORTB,0); 
 //    Pin2Output(DDRB,7);Pin2HIGH(PORTB,7);
   
     Pin2Output(DDRD,1);Pin2HIGH(PORTD,1); 
@@ -273,16 +273,20 @@ void LCD_ON(void){
 } // включаем питание  дисплея
     
 void LCD_OFF(void){ writecommand(ST7735_SLPIN); 
+    Pin2LOW(PORTB,0); // sink charge first  then to input
+    Pin2LOW(PORTD,4); 
+    Pin2LOW(PORTD,1); 
     Pin2LOW(PORTB,2); Pin2Input(DDRB,2); 
     Pin2LOW(PORTB,3); Pin2Input(DDRB,3); 
     Pin2LOW(PORTB,5); Pin2Input(DDRB,5); // need to close all  connected pins before sinking  remaining charge. otherwise it will be suck current from them :)
-    Pin2LOW(PORTB,0); // sink charge first  then to input
-    Pin2LOW(PORTB,7); // sink charge first  then to input
-//    delay(1);
-//    delayMicroseconds(1);
-    Pin2Input(DDRB,0);
-  //  Pin2Input(DDRB,7);
+//    Pin2LOW(PORTB,7); // sink charge first  then to input
+
     LCD=0; 
+
+//    delayMicroseconds(100);
+     Pin2Input(DDRD,1); 
+     Pin2Input(DDRD,4); 
+  //  Pin2Input(DDRB,0); // continue to sink. D4 has only 0.7v then
 }// вЫключаем питание  дисплея
 
 //void RTC_ON(void){Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);Pin2Output(DDRC,1);Pin2Output(DDRC,2);}
@@ -1170,11 +1174,13 @@ WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280
 //     WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
   sei();*/
 
+    Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light (MUST be HIGH at all times except flashtime)
 
 
     Pin2Input(DDRC,3);Pin2HIGH(PORTC,3); // pull up on A0
     PCMSK1 = 1<<PCINT11; // setup pin change interrupt on A3 pin (SQuareWave from RTC)
     PCICR |= 1<<PCIE1; 
+
 
 }
 
@@ -1726,7 +1732,7 @@ void FlashTest(void) // #2 pin used as test
 
   
   
-  Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light
+//  Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light
   Pin2Output(DDRD,5);Pin2HIGH(PORTD,5);  // SRCLR to HIGH. when it is LOW all regs are cleared
   Pin2Output(DDRB,1);
   Pin2Output(DDRD,6); 
@@ -1790,7 +1796,7 @@ sei();
   Pin2LOW(PORTD,5);Pin2Input(DDRD,5);  // SRCLR to LOW. Clear regs
   Pin2Input(DDRB,1);  // DATAPIN
   Pin2Input(DDRD,6); // CLK&LATCH 
-  Pin2LOW(PORTD,7);Pin2Input(DDRD,7);  // detach G control pin (it is pull upped by resistor) --- no so really
+//  Pin2LOW(PORTD,7);Pin2Input(DDRD,7);  // detach G control pin (it is pull upped by resistor) --- no so really
 
   VccH=1023;VccL=0;
 }
@@ -1800,18 +1806,19 @@ long FlasheS=0; // общее число вспышек
 
 void Flash(byte chips,byte Duration)
 {
-  word lamps=chips*8;
+//  word lamps=chips*8;
   
-  Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light
-  Pin2Output(DDRD,5);Pin2HIGH(PORTD,5);  // SRCLR to HIGH. when it is LOW all regs are cleared
-  Pin2Output(DDRB,1);
-  Pin2Output(DDRD,6); 
+//  Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light
+//  Pin2Output(DDRD,5);Pin2HIGH(PORTD,5);  // SRCLR to HIGH. when it is LOW all regs are cleared
+//  Pin2Output(DDRB,1);
+//  Pin2Output(DDRD,6); 
   
 //  for(byte n=0;n<Duration;n++)
 // {
-    Pin2HIGH(PORTB,1);  // DATAPIN to HIGH  
-    Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
-    Pin2LOW(PORTB,1); // next data are zeroes
+    PORTB=0b00000010;//    Pin2HIGH(PORTB,1);  // DATAPIN to HIGH  
+PORTD=0xF0;PORTD=0xB0;  
+//Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
+    PORTB=0;    //Pin2LOW(PORTB,1); // next data are zeroes
 
 //  Pin2Output(DDRB,6);Pin2LOW(PORTB,6);  // test latch
 
@@ -1830,22 +1837,69 @@ void Flash(byte chips,byte Duration)
 //  if((z&7)==0){Pin2HIGH(PORTD,1);} // 1st bit is "1"
 //  Pin2HIGH(PORTD,1); // 1st bit is "1"
 
-for(byte z=0;z<lamps;z++)// serie of flashes
-{
-  Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6); // clock pulse 
+//byte pb=PORTB;
+//byte pd=PORTD; //0xB0 10110000 pins 4,5&7 are set
+//grr=pd;
+//byte pd7set=PORTD;
+//byte pd7setd6set=PORTD&0x40;
+//byte pd7clear=pd7set&~0x80;
+//byte pd67clear=pd7set&~0xC0;
 
+//for(byte z=0;z<lamps;z++)// serie of flashes
+//{
+//PORTD=0xF0;PORTD=0xB0;  //  Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6); // clock pulse 
+
+
+//PORTB=pb;
 cli();
- Pin2LOW(PORTD,7); 
-// NOP;
-// NOP;
- 
-//  NOP;
-// NOP;
 
-//NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;
-//delayMicroseconds(10);
-   Pin2HIGH(PORTD,7); 
-   sei();
+PORTD=0x70; PORTD=0x30; //PORTD=0xB0;//NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; PORTD=0x30;// PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0xB0;// restore pin7 high pin6 low
+/*
+PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//1
+PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//2
+PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6); //3
+PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6); //4
+PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6); //pin5
+PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6); //pin6
+PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6); ////Pin2LOW(PORTD,7); NOP;  Pin2HIGH(PORTD,7); // pin7
+*/
+
+//PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
+//PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
+//PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
+//PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
+//PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
+//PORTD=0x30; NOP; PORTD=0x30; PORTD=0xB0;
+
+/*
+PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
+PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
+PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
+PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
+PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
+PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
+PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
+PORTD=0x30; NOP; PORTD=0x30; PORTD=0xB0;
+*/
+
+//PORTD=0xB0; //4,5,7
+
+
+// Pin2LOW(PORTD,7);  PORTB=pb;  Pin2HIGH(PORTD,7); 
+// Pin2LOW(PORTD,7);  PORTB=pb;  Pin2HIGH(PORTD,7); 
+// Pin2LOW(PORTD,7);  PORTB=pb;  Pin2HIGH(PORTD,7); 
+
+
+sei();
 /*
 cli();
 if(Duration==5){ __asm__ __volatile__("cbi 0x0B,7\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""sbi 0x0B,7\n\t"); }
@@ -1857,18 +1911,13 @@ sei();
 */
 
 
-}// for
+//}// for
 //}
 
-  Pin2LOW(PORTD,5);Pin2Input(DDRD,5);  // SRCLR to LOW. Clear regs
-  Pin2Input(DDRB,1);  // DATAPIN
-  Pin2Input(DDRD,6); // CLK&LATCH 
-  Pin2LOW(PORTD,7);Pin2Input(DDRD,7);  // detach G control pin (it is pull upped by resistor) --- no so really
-//  if(!TFT_IS_ON){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);}
-
-//if(it==1022){ADCSRA&=~(1<<ADEN); // stop ADC
-//ADCSRA=0;
-//}
+//  Pin2LOW(PORTD,5);Pin2Input(DDRD,5);  // SRCLR to LOW. Clear regs
+//  Pin2Input(DDRB,1);  // DATAPIN
+//  Pin2Input(DDRD,6); // CLK&LATCH 
+//  Pin2LOW(PORTD,7);Pin2Input(DDRD,7);  // detach G control pin (it is pull upped by resistor) --- no so really
 }
 
 
@@ -1915,6 +1964,25 @@ void pin3_isr()
   pin3_interrupt_flag = 1;
 }
 
+word VH(void)
+{
+  word t1;
+    
+//    ADCSRA|=(1<<ADEN); //turn on ADC    
+//    SetADC(1,8,500);  //  select temperature sensor 352 (need calibration)  
+//    mRawADC(t1,2);
+//    mRawADC(t1,2);
+    
+    SetADC(0,2,500);
+
+    mRawADC(t1,2);
+    mRawADC(t1,2);
+
+    ADCoff;
+//    ADCSRA&=~(1<<ADEN); //turn off ADC 
+//    ACSR = (1<<ACD); // turn off analog comparator    
+    return t1;
+}
 
 word Vcc(void)
 {
@@ -2286,7 +2354,7 @@ void UpdateScreen(void)
     setAddrWindow(70,0,77,127);
 
     ta("Vcc");tn(100,114000L/VccN);ta(" L");tn(100,114000L/VccL);ta(" H");tn(100,114000L/VccH); // 1125300L
-    
+    ta(" VH=");tn(1000,VH());
 
     setAddrWindow(80,0,87,127);
 
@@ -2410,11 +2478,12 @@ void loop() {
        {
 
                if (CurrentTouch>=Etouch){
-         LCD=ticks+90;
+         LCD=ticks+20;
       LCD_ON();
      
-     // draw backgrounds
-     ShowBars();
+                 // draw backgrounds
+                 ShowBars();
+//                 UpdateScreen();                 delay(7000);               LCD_OFF();
                }
        }
 
@@ -2430,7 +2499,7 @@ void loop() {
 if (ERR)
 {
   //  RTC_ON();
-    TFT_ON(3);
+    LCD_ON();
 //    fillScreen(0x000000);
     DrawBox(0,0,159,127,0x00,0x00,0xfc);    // очистка экрана
 
@@ -2441,31 +2510,45 @@ if (ERR)
     ta("cycles:");tn(10000,cycles);
 
     delay(5500);
-    TFT_OFF(); 
+    LCD_OFF(); 
     reboot;  // This will call location zero and cause a reboot.
 }
 
 FlashIntensity=1; // debug
 
 
-if(FlashIntensity)
+if(FlashIntensity&&(!LCD))
 {
 long base=micros();
-  long m1=millis();
+  //long m1=millis();
   FT[0]=0;
+  
+//    Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light
+  Pin2Output(DDRD,5);Pin2HIGH(PORTD,5);  // SRCLR to HIGH. when it is LOW all regs are cleared
+  Pin2Output(DDRB,1);
+  Pin2Output(DDRD,6); 
+
+  
 //                  if(!ERR){TSLstart();} // 192us
                                   if(!ERR){TSLstart(TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X);} // 192us
 //                                  if(!ERR){TSLstart(TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_0X);} // 192us
 while((micros()-base)<110000L)
 //while((micros()-base)<14000L)
 {
-    Flash(2,FlashIntensity); //84us    
+    Flash(1,FlashIntensity); //84us    
+   
     FT[0]++;
 }
-long m2=millis();
+//long m2=millis();
                   if(!ERR){TSLstop();}//322us
+                  
+  Pin2LOW(PORTD,5);Pin2Input(DDRD,5);  // SRCLR to LOW. Clear regs
+  Pin2Input(DDRB,1);  // DATAPIN
+  Pin2Input(DDRD,6); // CLK&LATCH 
+//  Pin2LOW(PORTD,7);Pin2Input(DDRD,7);  // detach G control pin (it is pull upped by resistor) --- no so really
+
                   FT[3]=ERR;
-                  FT[4]=m2-m1;
+  //                FT[4]=m2-m1;
   
                 if(Light.W[0]>LightMax0.W[0]){LightMax0.W[0]=Light.W[0];LightMax0.W[1]=Light.W[1];}
                 if(Light.W[1]>LightMax1.W[1]){LightMax1.W[0]=Light.W[0];LightMax1.W[1]=Light.W[1];}
