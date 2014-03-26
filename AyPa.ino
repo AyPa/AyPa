@@ -286,6 +286,7 @@ void LCD_OFF(void){ writecommand(ST7735_SLPIN);
 //    delayMicroseconds(100);
      Pin2Input(DDRD,1); 
      Pin2Input(DDRD,4); 
+     Pin2Input(DDRB,0); 
   //  Pin2Input(DDRB,0); // continue to sink. D4 has only 0.7v then
 }// вЫключаем питание  дисплея
 
@@ -564,7 +565,8 @@ word TouchSensor(void) //
 {
       word cycles=30000;
       Pin2Output(DDRC,0);Pin2LOW(PORTC,0); // discharge sensor  pin
-//      delayMicroseconds(50); // works fine without
+//      delayMicroseconds(50); // works fine without???
+      delayMicroseconds(100);
       Pin2Input(DDRC,0);
       for(int i=0;i<cycles;i++){if (PINC&0b00000001){cycles=i;break;}}
       Pin2Output(DDRC,0);Pin2LOW(PORTC,0); // discharge sensor  pin
@@ -1174,6 +1176,15 @@ WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280
 //     WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
   sei();*/
 
+//Pin2Output(DDRB,1);
+//Pin2Output(DDRB,4);
+//Pin2Output(DDRB,6);
+//Pin2Output(DDRB,7);
+
+//PORTB=0;
+//DDRB=0xFF;
+
+
     Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light (MUST be HIGH at all times except flashtime)
 
 
@@ -1181,7 +1192,20 @@ WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280
     PCMSK1 = 1<<PCINT11; // setup pin change interrupt on A3 pin (SQuareWave from RTC)
     PCICR |= 1<<PCIE1; 
 
+    
+/*
+      LCD_ON();
+  DrawBox(16,0,159,127,0x00,0x00,0x00);    // очистка экрана
+      
+  setAddrWindow(2,0,2+7,127);ta("АУРА");
+    
+    delay(5000);
+    
+LCD_OFF();
 
+
+LCD=ticks+300;
+*/
 }
 
 /*
@@ -1207,492 +1231,6 @@ uint8_t a1,b1,c1,d1,e1;
 
 byte tqq;
 
-// flash delay in clock cycles
-void flashold(void)
-{
-  int nn=0;
-
-  //sei();
-
-  //cli();
-  // setup ADC in freerunning mode and do 1st conversion (25 clocks)
-  //ADCSRB &=B11111000;
-  // ADCSRB=(0<<ACME)|(0<<ADTS2)|(0<<ADTS1)|(0<<ADTS0);
-  // ADCSRA=(1<<ADATE);
-  //ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<ADLAR)|(1<<ADATE)|(1<<ADIE)|(0<<ADPS2)|(0<<ADPS1)|(1<<ADPS0);// int takes +55 cycles
-
-  //  ADCSRA=(1<<ADEN)|(1<<ADSC)|(1<ADLAR)|(0<<ADATE)|(0<<ADIE)|(0<<ADPS2)|(1<<ADPS1)|(0<<ADPS0);
-  //  ADCSRA=(1<<ADEN)|2;
-  // ADCSRA |= (1<<ADSC); // start converting
-  //sei();
-  //nn=0;
-  //do{++nn;}while(bit_is_set(ADCSRA,ADSC));
-
-
-
-  //rez[13]=ADCSRA&(1<<ADSC);
-
-  //for(int i=0;i<15;i++){lcd.print(rez[i]);lcd.print(" ");}
-
-  //int aa=micros();
-  //ADCv=0;
-  //NOP;
-  //e1=TCNT2;
-  //NOP;
-  //PORTA = 0b00000000; // select input channel 0 
-  //c1=PINA;
-  //d1=PINB;
-  //e1=PINC;
-  //c1=TCNT2-TCNT0;
-  //cli();
-  //r0(d1);// read TCNT0 (/64 clk)
-  //mRawADC(nn,2);//3us
-
-
-  //__asm__ __volatile__ ("in r24,0x26\n\t" "sts e1,r24\n\t"); //read TCNT0
-
-    //d1=TCNT1;
-  //NOP;
-  //__asm__ __volatile__ ("ldi r25,0b11000001\n\t"); //PORTA = 0b11000001;// 1clock load port A opening mask
-  //r0(d1);
-  // select input channel 0 
-  //__asm__ __volatile__ ("ldi r25,0b11000001\n\t" "out 0x02,r25\n\t"); //PORTA = 0b11000001;
-  //__asm__ __volatile__ ("out 0x02,r25\n\t"); //PORTA = 0b11000001; // 1 clock
-  //r2(e1);
-  //PORTA |= 0b11000001; // select input channel 0 
-  //c1=TCNT0;
-  //NOP;
-  //r02(e1);
-
-  //sei();
-  //for(int i=0;i<10000;i++){
-  //  asm volatile ("lds r24,1 \n\t " :::); // 2 clocks
-  // asm volatile ("1: sbiw r24,1 \n\t   brne 1b   \n\t" ::"r"(q1):); //breq 0
-  // NOP;
-  //__asm__ __volatile__ ("3:ldi r22,64 \n\t ldi r21,200 \n\t 2: ldi r20,243 \n\t 1: nop \n\t dec r20\n\t brne 1b\n\t dec r21\n\t brne 2b\n\t dec r22\n\t brne 3b\n\t"); // 1 1 1 2 +loop 5
-  //delay(10);
-  //delayMicroseconds(10); // 252 us actually?
-  //int aa=ADCv;
-  //~3us ADC conversion with ISR calling overhead
-  //delayMicroseconds(1);//6 ADC conversions
-  //NOP;//1
-  //NOP;//1
-  //NOP;//1
-  //cli();
-  //s1[0]=TCNT1L;s1[0]=s1[0]|(TCNT1H<<8);
-  //s1[0]=TCNT1;
-
-  //r2(a1);// double sts in macro!
-  //#define mRawADC(v,p) ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|p;do{}while(bit_is_set(ADCSRA,ADSC));v=ADCW; 
-  //mRawADC(nn,2);//3us
-  //__asm__ __volatile__ ("ldi r24,0xC2 \n\t sts 0x007A,r24\n\t"); //ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|p;
-  // adc conversion has started. can monitor analog comparator while converting
-
-  //__asm__ __volatile__ ("1: lds r24,0x007A\n\t sbrc r24,6\n\t rjmp 1b\n\t"); //do{}while(bit_is_set(ADCSRA,ADSC));
-  //__asm__ __volatile__ ("lds r24,0x0078\n\t lds r25,0x0079\n\t sts d1,r24\n\t sts e1,r25\n\t "); //v=ADCV;
-  //NOP;
-  //delayMicroseconds(100);
-  //s1[1]=TCNT1;
-  //s1[1]-=8;//correction
-  //e1=ACSR&&(1<<ACO);
-  //e1=ACSR;//&&(1<<ACO);
-  //s1[1]=TCNT1L;s1[1]=s1[1]|(TCNT1H<<8);
-  //sei();
-
-  //NOP;
-  //r2(b1);
-  //r2(c1);
-  //r2(d1);
-  //r2(e1);
-  //sei();
-  //delta=64017;
-  //a1=
-
-
-
-  //PORTC |= 0b01000000; // select channel 1  ldi and out
-  //PORTA |= 0b01000000; // select channel 1  ldi and out
-  //PORTB |= 0b01000000; // select channel 0  sbi
-  //TCNT1=0;
-  __asm__ __volatile__ ( 
-  //  "in r24, 0x6\n\t" //PORTC(8) PORTB(5) PORTA(2)
-  //  "in r24, 0x30\n\t" //ACSR
-  "cli \n\t"
-    "lds r18,flash_duration\n\t"
-    "lds r19,flash_duration+1\n\t"
-
-    // storing to array
-  "ldi r30,lo8(sc)\n\t" // load sc offset (low part)
-  "ldi r31,hi8(sc)\n\t" // load sc offset (high part)
-
-  "rjmp 1f\n\t"
-    "2:\n\t" // analog comparator trigger
-
-  "ldi r24,200 \n\t" "sts d1,r24\n\t" // some test code
-
-
-  "rjmp 3f\n\t"
-    "1:\n\t"
-    "clr r20\n\t""sts 0x0085,r20\n\t""sts 0x0084,r20\n\t" // TCNT=0
-  "lds r20,0x0084\n\t""lds r21,0x0085\n\t" // load 16bit TCNT1 value
-
-  "lds r25,flash_start_mask\n\t" // "sts e1,r25\n\t"
-    "out 0x02,r25\n\t" // START flash //pinc(6) pinb(3) pina(2)
-  "5:\n\t"// next adc
-  "ldi r24,0xC2 \n\t sts 0x007A,r24\n\t" //ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;// adc conversion has started.
-
-  // storing to array
-  //  "ldi r30,lo8(s1+2)\n\t" // load s1 offset (low part)
-  //  "ldi r31,hi8(s1+2)\n\t" // load s1 offset (high part)
-  //"st Z+,r28\n\t" // 2 bytes
-  //  "st Z+,r29\n\t"
-
-
-
-    "4:\n\t"
-    // compare timer r19:r18 with r23:r22
-  "lds r22,0x0084\n\t""lds r23,0x0085\n\t" // load 16bit TCNT1 value
-  "cp r18,r22 \n\t"//; compare lower bytes
-  "cpc r19,r23 \n\t"// ; compare upper bytes
-
-  "brcs 3f\n\t"//If the carry flag is set now, R1:R2 is smaller than R3:R4.
-
-
-  "in r24, 0x30\n\t" //ACSR (can use "sbic 0..31,5\n\t" for 1st 32 ports)
-  "sts e1,r24\n\t" 
-    //  "sbrs r24,5\n\t" // skip next instruction if bit 5(ACO) is 1
-  //  "sbrc r24,5\n\t" // skip next instruction if bit 5(ACO) is 0
-  //  "rjmp 2b\n\t"
-  "lds r25,0x007A\n\t"// read ADCSRA
-  "sbrc r25,6\n\t rjmp 4b\n\t" //skip jump if bit 6(ADSC) is 0 // do{}while(bit_is_set(ADCSRA,ADSC));
-
-  "lds r24,0x0078\n\t lds r25,0x0079\n\t" //read ADCW & store it plus check
-  //  "sts a1,r24\n\t sts b1,r25\n\t "
-  "st Z+,r24\n\t"
-    "rjmp 5b\n\t"
-
-    // "sts c1,r25\n\t"
-  //  "sts d1,r24\n\t"
-
-    //  "ldi r24,200 \n\t"
-  //  "sts d1,r24\n\t"
-  //  "nop \n\t"
-  //  "ldi r30,0xb2\n\t"
-  //  "ldi r31,0x0\n\t"
-  //  "ld r25,Z \n\t"
-  //  "nop\n\t"
-  //  "nop\n\t"
-  //  "ld r24,Z \n\t"
-
-    "3:\n\t"
-    //  "lds r25,flash_stop_mask\n\t" // "sts e1,r25\n\t"
-  //  "out 0x02,r25\n\t" // STOP flash //pinc(6) pinb(3) pina(2)
-  "sts st1,r20\n\t""sts st1+1,r21\n\t"
-    "sts st2,r22\n\t""sts st2+1,r23\n\t"
-    //"clr r24 \n\t sts 0x007A,r24\n\t" //ADCSRA=0;// stop adc (1st conversion will be long)
-  "sei\n\t"
-    //  "sts [a1],r25\n\t"
-  //  "sts [b1],r24\n\t"
-  //  "nop\n\t"
-  //  "ldi r21,200 \n\t "
-  //"ld r24,Z \n\t"
-  //"st  %[c1], r24 \n\t" 
-  //: [c1] "=r" (c1),[d1] "=r" (d1)// : [_PINB] "I"  (_SFR_IO_ADDR(PINB)) 
-  );
-
-  if(st2>st1){
-    delta=(uint16_t)(st2-st1-4);
-  }
-  else{
-    delta=st2+65536-st1-4;
-  }//delta-=4;//correction
-
-  //__asm__ __volatile__ ("ld r24,Z \n\t nop \n\t nop \n\t nop \n\t ld r23,Z \n\t sub r23,r24\n\t sts %[c1],%%r23\n\t":"=r"(c1)); // 1 1 1 2 +loop 5
-
-
-  //__asm__ __volatile__ ("ldi r21,200 \n\t 2: ldi r20,250 \n\t 1: nop\n\t dec r20\n\t brne 1b\n\t dec r21\n\t brne 2b\n\t"); // 1 1 1 2 +loop 5
-  //__asm__ __volatile__ ("ldi r21,200 \n\t 2: ldi r20,250 \n\t 1: nop\n\t dec r20\n\t brne 1b\n\t dec r21\n\t brne 2b\n\t"); // 1 1 1 2 +loop 5
-  //delay(10);
-  //}
-
-
-  delay(3000);
-  PORTB=0;
-  //delayMicroseconds(10);// 6 ADC interrupts (cannot do any lower. nops don't work)
-  //NOP;NOP;
-  //nn=ADCv;
-  //int vv=ADCval;
-
-  //int bb=ADCv;
-  //b1=TCNT2;
-
-  //int bb=micros();
-  //int cc=TCCR0A;
-  /*
-lcd.clear();
-   lcd.setCursor(0,0);
-   
-   lcd.print("delta=");
-   lcd.print(delta);
-   
-   lcd.print(" d=");
-   lcd.print(b1-a1);
-   
-   lcd.print(" H=");
-   lcd.print(delta>>8);
-   lcd.print(" L=");
-   lcd.print((delta<<8)>>8);
-   
-   lcd.print(" st1=");
-   lcd.print(st1);
-   lcd.print(" st2=");
-   lcd.print(st2);
-   
-   uint16_t number_to_print=s1[0];
-   //Divide number by a series of 10s
-   for(mo = 4 ; number_to_print > 0 ; mo--)
-   {
-   //              tempo = number_to_print % (uint16_t)10;
-   //                decimal_output[mo] = tempo;
-   lcd.print((number_to_print % (uint16_t)10));
-   number_to_print = number_to_print / (uint16_t)10;               
-   
-   }
-   */
-
-  //lcd.print(" a1=");
-  //lcd.print(a1);
-  //lcd.print(" b1=");
-  //lcd.print(b1);
-  //lcd.print(" c1=");
-  //lcd.print(c1);
-  //lcd.print(" d1=");
-  //lcd.print(d1);
-  //lcd.print(" e1=");
-  //lcd.print(e1);
-
-  //delay(100);
-
-  //__asm__ ("nop\n\t");
-
-
-  //delay(1000);
-  //lcd.setCursor(0,0);
-  //for(int i=0;i<10;i++){lcd.print(" ");lcd.print(sc[i]);}
-  //delay(1500);
-
-  //digitalWrite(10,LOW); //reset?
-
-  //ADCSRA &=(1<<ADIF);
-  //do{
-  //if(nn++>100){break;}
-  //if(ADCv){break;}
-  //}while(1);
-  //do{++nn;}while(ADCv==0);
-
-  //for(int i=0;i<30;i++){rez[i]=ADCval;lcd.print(rez[i]);lcd.print(" ");}
-  //for(int i=0;i<30;i++){lcd.print(rez[i]);lcd.print(" ");}
-
-  //snprintf(tp,256,"[!] %d %d %d %d %d %d",ADCv,rez[0],rez[1],rez[2],rez[3],rez[4]);
-  //lcd.print(tp);
-  //lcd.print("uuu");
-
-  //delay(10);
-
-
-  //cli();
-  //  PORTA = 0b11000001; // select input channel 1
-  //PORTA = 0b00000000; // select input channel 0 
-  //wait500ns;//220(0.5us)
-  // wait1us;wait1us;wait1us;//wait 3us for MOSFETs to fully open
-  //wait1us;//28-48(1us)
-  //wait250ns;//7-15(1.25us)
-  //wait250ns;//1-3(1.5us)
-  //wait1us;wait1us;//wait1us;//wait1us;//wait1us;wait1us;wait1us;wait1us;wait1us;
-  //delayMicroseconds(100);
-  //wait1us;wait1us;wait1us;wait1us;wait1us;wait1us;wait1us;wait1us;wait1us;wait1us;
-  //wait1us;wait1us;wait1us;wait1us;wait1us;wait1us;wait1us;wait1us;wait1us;wait1us;
-  //for (int i=0;i<10;i++){mRawADC(rez[i],2);//delayMicroseconds(2);
-  //}
-
-  //PORTA = 0b11000000; // select input channel 1
-  //for (int i=12;i<10;i++){mRawADC(rez[i],2);//if(rez[i]>60){break;}
-  //}  // 1 adc(2) ~ 3us
-  //for (int i=0;i<2;i++){mRawADC(rez[i],2);}  
-  /*q=RawADC(2);//analogRead(8); //3-7 0 3 62 2 156
-   qq=RawADC(2);//analogRead(8); //3-7 0 3 62 2 156
-   qqq=RawADC(2);//analogRead(8); //3-7 0 3 62 2 156
-   qqqq=RawADC(2);//analogRead(8); //3-7 0 3 62 2 156
-   qqqqq=RawADC(2);//analogRead(8); //3-7 0 3 62 2 156
-   */
-  //delay(100);
-
-  /*mRawADC(q,2);
-   mRawADC(qq,2);
-   mRawADC(qqq,2);
-   mRawADC(qqqq,2);
-   mRawADC(qqqqq,2);*/
-
-  sei();
-  //delay(1);
-  //PORTB = 0b00000000; // select input channel 0 
-  //sei();
-
-  //delay(10);
-}
-
-
-void Flash1B(void)
-{
-  TCNT2=0;
-// if(TCNT2>=33){v++;}
-  __asm__ __volatile__(
-  "FlashB:\n\t"
-  "ldi r24,0xC2\n\t"
-  "out 5,r25\n\t"
-  "sts 0x007A,r24\n\t"
-//  "ldi r25,69\n\t"
-  "1:\n\t"
-//  "dec r25\n\t"
-//  "brne 1b\n\t"
-  
-  
-  "lds r24,0x00B2\n\t" // load TCNT2
-  "cpi r24,69\n\t" // jump if < 69
-  "brcs 1b\n\t"
-
-//  "lds r24,0x007A\n\t"
-//  "sbrc r24,6\n\t"
-//  "rjmp 1b\n\t"
-/*
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-"nop\n\t""nop\n\t"//"nop\n\t""nop\n\t"//"nop\n\t""nop\n\t""nop\n\t""nop\n\t"
-*/
-  "out 5,r1\n\t"
-  "ret\n\t"
-  );
-}
-
-void Flash_B(byte mask)
-{
-PORTB=mask;
-ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
-//Pin2HIGH(PORTD,1); //digitalWrite(9,HIGH);//
-        //    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|1;
-        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   // NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-        //    delayMicroseconds(1);  
-        // Pin2LOW(PORTD,1); //digitalWrite(9,LOW//   
-
-//do{}while(bit_is_set(ADCSRA,ADSC));
-  __asm__ __volatile__ ("nop\n\t"
-  "nop\n\t"
-  "nop\n\t"
-  "nop\n\t"
-  "nop\n\t"
-  "nop\n\t"
-  "nop\n\t"
-  "nop\n\t"
-  "nop\n\t"
-  "nop\n\t"
-  "nop\n\t"
-  "nop\n\t"
-  "nop\n\t"
-  "nop\n\t"
-  );
-//          NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   NOP;  NOP; NOP; NOP; NOP; NOP;
-        //    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-
-        //    delayMicroseconds(10);  
-        //  Pin2HIGH(PORTD,1); //digitalWrite(9,HIGH);//
-        //   ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
-        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-        //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-
-        // do{}while(bit_is_set(ADCSRA,ADSC));
-        // v3=ADCW; 
-        NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-
-
-        //    delayMicroseconds(1);  
-PORTB=0;
-}
-void Flash_C(byte mask)
-{
-PORTC=mask;
-//Pin2HIGH(PORTD,1); //digitalWrite(9,HIGH);//
-ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
-        //    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|1;
-        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   // NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-        //    delayMicroseconds(1);  
-        // Pin2LOW(PORTD,1); //digitalWrite(9,LOW//   
-
-do{}while(bit_is_set(ADCSRA,ADSC));
-
-        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   
-        //    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-
-        //    delayMicroseconds(10);  
-        //  Pin2HIGH(PORTD,1); //digitalWrite(9,HIGH);//
-        //   ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
-        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-        //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-
-        // do{}while(bit_is_set(ADCSRA,ADSC));
-        // v3=ADCW; 
-
-/*        NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-        NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-        NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-        NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-        NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-*/
-
-        NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-
-
-        //    delayMicroseconds(1);  
-PORTC=0;
-}
-void Flash_D(byte mask)
-{
-PORTD=mask;
-//Pin2HIGH(PORTD,1); //digitalWrite(9,HIGH);//
-ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
-        //    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|1;
-        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   // NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-        //    delayMicroseconds(1);  
-        // Pin2LOW(PORTD,1); //digitalWrite(9,LOW//   
-
-do{}while(bit_is_set(ADCSRA,ADSC));
-
-        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;   
-        //    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-
-        //    delayMicroseconds(10);  
-        //  Pin2HIGH(PORTD,1); //digitalWrite(9,HIGH);//
-        //   ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|2;
-        //  NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-        //NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-
-        // do{}while(bit_is_set(ADCSRA,ADSC));
-        // v3=ADCW; 
-
-        NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;    NOP;
-
-        //    delayMicroseconds(1);  
-PORTD=0;
-}
 
 
 //byte pinmask,prt;
@@ -1755,16 +1293,19 @@ for(word z=0;z<25;z++)
                 if(!ERR){TSLstart(TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X);} // 192us
 //                if(!ERR){TSLstart(TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_0X);} // 192us
 
+Pin2LOW(PORTD,7);// start lighting
+
 for(byte q=0;q<11;q++)
 {
-cli();
-TCNT1=0;
-Pin2LOW(PORTD,7);// start lighting
+//cli();
+//TCNT1=0;
 GetVcc();
-do{}while(TCNT1<10000);
-Pin2HIGH(PORTD,7);//digitalWrite(G,HIGH); // stop light
-sei();
+delay(10);
+//do{}while(TCNT1<10000);
+//sei();
 }
+
+Pin2HIGH(PORTD,7);//digitalWrite(G,HIGH); // stop light
 
   //              if(!ERR){delay(103);TSLstop();}//322us
                 if(!ERR){TSLstop();}//322us
@@ -1853,6 +1394,29 @@ PORTD=0xF0;PORTD=0xB0;
 //PORTB=pb;
 cli();
 
+PORTD=0x70; delayMicroseconds(15); PORTD=0x30; //PORTD=0xB0;//NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; delayMicroseconds(15); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; delayMicroseconds(15); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; delayMicroseconds(15); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; delayMicroseconds(15); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; delayMicroseconds(15); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; delayMicroseconds(15); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; delayMicroseconds(15); PORTD=0x30;// PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; delayMicroseconds(15); PORTD=0x30;// PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0xB0;// restore pin7 high pin6 low
+
+/*
+PORTD=0x70; delayMicroseconds(10); PORTD=0x30; //PORTD=0xB0;//NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; delayMicroseconds(10); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; delayMicroseconds(10); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; delayMicroseconds(10); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; delayMicroseconds(10); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; delayMicroseconds(10); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; delayMicroseconds(10); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0x70; delayMicroseconds(10); PORTD=0x30;// PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
+PORTD=0xB0;// restore pin7 high pin6 low
+*/
+/*
 PORTD=0x70; PORTD=0x30; //PORTD=0xB0;//NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
 PORTD=0x70; PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
 PORTD=0x70; PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
@@ -1862,6 +1426,7 @@ PORTD=0x70; PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0
 PORTD=0x70; PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
 PORTD=0x70; PORTD=0x30;// PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
 PORTD=0xB0;// restore pin7 high pin6 low
+*/
 /*
 PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
 PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//1
@@ -2326,7 +1891,8 @@ void UpdateScreen(void)
     setAddrWindow(20,0,27,127);
   ta("ERR");th(ERR);
     ta(" CT");tn(1000,CurrentTouch);
-    ta(" Ti");tn(100000,ticks);
+    ta(" Ti");tn(1000,ticks);
+    ta(" L");tn(1000,LCD);
     ta(" H");tn(10,HR);
 //    th(rtc8);ta(" fn");tn(10000,fastnaptime);ta(" ln");tn(10000,longnaptime);
     setAddrWindow(30,0,37,127);
@@ -2385,6 +1951,10 @@ ta(" f");tn(10000,fastnaptime);ta(" l");tn(10000,longnaptime);   ta(" n");tn(100
     setAddrWindow(130,0,137,127);
     tn(1000,FT[0]);ta(" ");    tn(1000,FT[1]);ta(" ");    tn(1000,FT[2]);ta(" ");    tn(1000,FT[3]);ta(" ");    tn(1000,FT[4]);
 
+    setAddrWindow(140,0,147,127);
+
+  TouchSample();
+ta("Touch:");wh(TouchD[0]);wh(TouchD[1]);wh(TouchD[2]);wh(TouchD[3]);
 
     Cherry(103,108);
     
@@ -2434,67 +2004,47 @@ void loop() {
   do{
 //        __asm__ __volatile__("wdr\n\t");//  wdt_reset();
 
-//        Pin2HIGH(PORTD,5);//digitalWrite(G,HIGH); // stop light outputs
-//        Pin2HIGH(PORTB,6);//power supply to tpic6a595  (add caps?)
-  //      delayMicroseconds(11);// wait for rise. 10 minimum to avoid nasty bugs
-
-//Pin2Output(DDRB,7);Pin2HIGH(PORTB,7);// включаем питание  дисплея
 
 //Pin2Input(DDRD,0);Pin2HIGH(PORTD,0); // pull up on D0
 //PCICR |= 1<<PCIE2;
 //PCMSK2 = 1<<PCINT16; // D0
 
-  if (Update500) // every 500ms
-  {
-      Update500=false;
-      GetVcc();  
-   
-    
-  }
+
+
+//  if (Update500)   {      Update500=false;      }// every 500ms
 
   if (UpdateRTC) // every second
   {
       UpdateRTC=false;
+      GetVcc();  
       uptime++;
       RTC(); // 500us
-      SleepTime();
-
-
       CurrentTouch=TouchSensor();  //337-440us
+
+    if(!LCD)
+    {
+        if (CurrentTouch>=Etouch)
+        {
+            SleepTime(); // measure SleepTime
+            LCD=ticks+20;
+            LCD_ON();
+            // draw backgrounds
+            ShowBars();
+        }else{TouchD[(uptime&3)]=CurrentTouch;Etouch=TouchT();} // add sample
+    }
+    if(LCD){
+            FlasheS+=Flashes;Flashes=0;
       
-      // update screen?
-      if(LCD)
-      {
-           if (LCD<=ticks){LCD_OFF();}
-           else
-           {    
-//                if(!ERR){TSLstart();} // 192us
-  //              if(!ERR){delay(103);TSLstop();}//322us
+      UpdateScreen();
+      if(LCD<=ticks){LCD_OFF();LCD=0;}
+}
 
-                UpdateScreen();          
-           }
-       }
-       else
-       {
+      if (CurrentTouch<Etouch){TouchD[(uptime&3)]=CurrentTouch;Etouch=TouchT();} // add sample
 
-               if (CurrentTouch>=Etouch){
-         LCD=ticks+20;
-      LCD_ON();
-     
-                 // draw backgrounds
-                 ShowBars();
-//                 UpdateScreen();                 delay(7000);               LCD_OFF();
-               }
-       }
+  }
+  
 
-      if (CurrentTouch>=Etouch){ if ((++LongTouch==LONG_TOUCH_THRESHOLD)&&(LCD)){LCD+=900;Settings();LCD=ticks+20;} }
-      else{ LongTouch=0; TouchSample(); }
-
-      FlasheS+=Flashes;Flashes=0;
- }
-
-
-
+if(ERR==0x10){ERR=0;}// ignore TSL mising
 // если есть ошибки
 if (ERR)
 {
@@ -2514,37 +2064,48 @@ if (ERR)
     reboot;  // This will call location zero and cause a reboot.
 }
 
-FlashIntensity=1; // debug
+FlashIntensity=10; // debug
 
 
-if(FlashIntensity&&(!LCD))
+if(FlashIntensity)
 {
 long base=micros();
   //long m1=millis();
   FT[0]=0;
-  
-//    Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light
-  Pin2Output(DDRD,5);Pin2HIGH(PORTD,5);  // SRCLR to HIGH. when it is LOW all regs are cleared
-  Pin2Output(DDRB,1);
-  Pin2Output(DDRD,6); 
+
+
+
+//Pin2Output(DDRD,1);
+Pin2Output(DDRD,5);
+Pin2Output(DDRD,6);
+Pin2Output(DDRD,7);
+
 
   
-//                  if(!ERR){TSLstart();} // 192us
                                   if(!ERR){TSLstart(TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X);} // 192us
 //                                  if(!ERR){TSLstart(TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_0X);} // 192us
 while((micros()-base)<110000L)
 //while((micros()-base)<14000L)
 {
-    Flash(1,FlashIntensity); //84us    
-   
+
+PORTD|=(1<<5); delayMicroseconds(FlashIntensity); PORTD&=~(1<<5); // pd5 start stop
+PORTD|=(1<<6); delayMicroseconds(FlashIntensity); PORTD&=~(1<<6);  // pd6 start 
+PORTD|=(1<<7); delayMicroseconds(FlashIntensity); PORTD&=~(1<<7);  // pd7 start 
+
+  //  Flash(1,FlashIntensity); //84us    
+//    Flash(1,FlashIntensity); //84us    
+//    Flash(1,FlashIntensity); //84us    
+//    delayMicroseconds(120);   
+//    Flash(1,FlashIntensity); //84us    
+//    delayMicroseconds(1120);   
     FT[0]++;
 }
 //long m2=millis();
                   if(!ERR){TSLstop();}//322us
                   
-  Pin2LOW(PORTD,5);Pin2Input(DDRD,5);  // SRCLR to LOW. Clear regs
-  Pin2Input(DDRB,1);  // DATAPIN
-  Pin2Input(DDRD,6); // CLK&LATCH 
+//  Pin2LOW(PORTD,5);Pin2Input(DDRD,5);  // SRCLR to LOW. Clear regs
+//  Pin2Input(DDRB,1);  // DATAPIN
+//  Pin2Input(DDRD,6); // CLK&LATCH 
 //  Pin2LOW(PORTD,7);Pin2Input(DDRD,7);  // detach G control pin (it is pull upped by resistor) --- no so really
 
                   FT[3]=ERR;
@@ -2553,298 +2114,20 @@ while((micros()-base)<110000L)
                 if(Light.W[0]>LightMax0.W[0]){LightMax0.W[0]=Light.W[0];LightMax0.W[1]=Light.W[1];}
                 if(Light.W[1]>LightMax1.W[1]){LightMax1.W[0]=Light.W[0];LightMax1.W[1]=Light.W[1];}
 
-//    set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-//TCNT1=0;
-//    Flash(1,FlashIntensity); //48us
-  /*  FT[0]=micros()-base;
-    Flash(2,FlashIntensity); //84us    
-    FT[1]=micros()-base;
-    Flash(2,FlashIntensity); //84us
-    fastnap();    //120us
-    FT[2]=micros()-base;
-    Flash(2,FlashIntensity); //84us
-    longnap();   // 1300us
-    FT[3]=micros()-base;
-    Flash(2,FlashIntensity); //84us
-    FT[4]=micros()-base;
-*/
-//    Flash(3,FlashIntensity); //120us
-//    Flash(4,FlashIntensity); //156us
-//rtcl=TCNT1; 
 
-
-    Flashes++;
-
-    
-//    Flash(16,1);
-
-//    Flash(9,FlashIntensity);
-/*    
-//  if(it==1000){lmv=FlashM(8,FlashIntensity);}// измерение 0x0D пых=12us
-  if(it==1000){lmv=0;lvv=0;lm2=0;
-  
-
-  if (tsl.begin()) {
-    tsl.setGain(TSL2561_GAIN_0X);      // set 16x gain (for dim situations)
-      tsl.setTiming(TSL2561_INTEGRATIONTIME_101MS);  // shortest integration time (bright light)
-  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);
-  
-    delay(2);
-    TCNT1=0;
-    for( word i=0;i<50;i++){FlashZ(1,16);} 
-    tt1=TCNT1;    
-     delay(100);
-  
-  lvv = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
-  lvv <<= 16;
-  lvv |= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
-  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF);
-
-  } 
-  
-delay(1000);
-
-if (tsl.begin()) {
-    tsl.setGain(TSL2561_GAIN_0X);      // set 16x gain (for dim situations)
-      tsl.setTiming(TSL2561_INTEGRATIONTIME_101MS);  // shortest integration time (bright light)
-  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);
-  
-    delay(2);
-    TCNT1=0;
-    for( word i=0;i<200;i++){FlashZ(1,4);} 
-    tt1=TCNT1;    
-     delay(100);
-  
-  lmv = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
-  lmv <<= 16;
-  lmv |= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
-  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF);
-
-  } 
-  delay(1000);
-  if (tsl.begin()) {
-    tsl.setGain(TSL2561_GAIN_0X);      // set 16x gain (for dim situations)
-      tsl.setTiming(TSL2561_INTEGRATIONTIME_101MS);  // shortest integration time (bright light)
-  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON);
-  
-    delay(2);
-    TCNT1=0;
-    for( word i=0;i<800;i++){FlashZ(1,1);} 
-    tt1=TCNT1;    
-     delay(100);
-  
-  lm2 = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
-  lm2 <<= 16;
-  lm2 |= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
-  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF);
-  } 
-*/  
-  
+    Flashes++;  
     
 } // пыхнем
 else { set_sleep_mode(SLEEP_MODE_PWR_DOWN); unap(T1S); } // а иначе выходной :)
 
 
   
-  //
-// for(int i=0;i<10;i++){
-  
-  //digitalWrite(5,LOW);
-  
-  
-//  for(int i=0;i<100;i++) {
-//  cli();
-
-//Pin2LOW(PORTD,6);//digitalWrite(LATCHPIN,LOW);///already low
-
-  //delay(2000);
-
-
-  //for(long i=0;i<3000000;i++){NOP;}//~2100ms delay
-  //  pinMode(A5, INPUT); //LCD led backlight
-  //digitalWrite(A5,LOW);
-  //  pinMode(A5, OUTPUT); //LCD led backlight
-  //-------------------------------------------------------------------------------------------------[ power saving wait state ]
-  // digitalWrite(RST,LOW);
-  // digitalWrite(RST,HIGH);
-
-  //    Pin2LOW(PORTB,2); //digitalWrite(10,LOW);//
-  // Pin2HIGH(PORTB,2);//digitalWrite(10,HIGH//
-
-  //  Pin2LOW(PORTD,1); //digitalWrite(9,LOW//
-  //    Pin2Input(DDRD,1);//  pinMode(9,INPUT);
-
-//  Pin2LOW(PORTB,5); //SPI SCK pin low
- // Pin2LOW(PORTB,3); //SPI MOSI pin low
-
-  //    Pin2LOW(PORTB,5); //SPI SCK pin low
- // Pin2LOW(PORTB,2); //SPI SS pin low
-
-
-  //Pin2LOW(PORTD,0); //vcc A to low
-
-  //  PORTC=0; // switch off PORTC control pins
-  //    Pin2LOW(PORTC,3); //digitalWrite(1A3HIGH);//  power to current sensor
-
-  //PORTC=0x7; // select channel 7 (some unused channel for debug)
-
-
-
-
-//      pinMode(2,OUTPUT);digitalWrite(2,HIGH);delayMicroseconds(65);digitalWrite(2,LOW);pinMode(2,INPUT);// controlled charging(~100us)
-
-//  SPCR&=~(1<<SPE); //  SPI.end();
-//  ADCSRA&=~(1<<ADEN); //turn off ADC 
-//  ACSR = (1<<ACD); // turn off analog comparator
-
-
-  //set_sleep_mode (SLEEP_MODE_IDLE);// 29.6ma - don't work
-  //set_sleep_mode (SLEEP_MODE_ADC);// 6.3ma clock is off
-  //set_sleep_mode (SLEEP_MODE_PWR_SAVE);// 3.7ma
-  //set_sleep_mode (SLEEP_MODE_STANDBY);// 2.7ma 
-  //set_sleep_mode (SLEEP_MODE_PWR_DOWN);// 0.76ma
-
-
-
-
-/*
-NOP;NOP;
-//tim=TCNT1;    //291
-//rnd=(word(word(rand()*109)+89))%251;//rnd=rand(); // ~210us????????????????????????
-//rnd=rand();// still long time
-rnd=55;//if((it&0xF)==0){rnd=10;}
-// ADC for rnd?
-NOP;NOP;
-
-    */
-
-
-//if(rnd==0){break;}// long sleep. 8s?
-/*
-if((it&0xFFFF)==0)
-{
-    set_sleep_mode(SLEEP_MODE_PWR_DOWN);  //// in r24,0x33// andi r24,0xF1// ori r24,0x04// out 0x33,r24
-if((it==55555)&&(!TFT_IS_ON))// ultra long nap 8s once  in somewhere  2 minutes
-{
-  unap();
-  // reprogram the WDT  back to 16ms
-  cli();
-//  NOP;
-  __asm__ __volatile__("wdr\n\t");//  wdt_reset();
-//  NOP;
-  MCUSR &= ~(1<<WDRF);  // Clear the reset flag. 
-  WDTCSR |= (1<<WDCE) | (1<<WDE); //  In order to change WDE or the prescaler, we need to set WDCE (This will allow updates for 4 clock cycles).
- WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280us)
- //  WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//30ms
-  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (0<<WDP0);//60ms
-  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (1<<WDP0);//120ms
-  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (0<<WDP0);//240ms
-  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (1<<WDP0);//480ms
-  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);//960ms
- // WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);//2s
-  // WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
-//    WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
-    
-  sei();
-
-}
-else{ln++;longnap();fn++;fastnap();}  
-//else {fn++;fastnap();} 
-//else {sss=0;unap();} 
-//if ((it&0x3)==0){ln++;longnap();}else {fn++;fastnap();} // 1:3
-
-}*/
-
-
-/*  
-        Pin2Output(DDRD,2);
-      Pin2HIGH(PORTD,2);// start charging timeout capacitor
-      cnt1=0;
-      tc1=TCNT1;
-      TCNT1=0;
-  
-      do{
-
-            cli();
-            WDhappen=0;
-      pin2_interrupt_flag=0;
-      sleep_enable();
-      attachInterrupt(0, pin2_isr, LOW);
-      ticks=0;
-      set_sleep_mode (SLEEP_MODE_IDLE);
-     //   set_sleep_mode(SLEEP_MODE_PWR_DOWN);  
-
-
-      // power saving
-//      PORTB=0;
-  //    PORTC=0;
-    //  PORTD=0;
-//      SPCR&=~(1<<SPE); //  SPI.end();
-  //    ADCSRA&=~(1<<ADEN); //turn off ADC 
-    //  ACSR = (1<<ACD); // turn off analog comparator
-
-
-      Pin2LOW(PORTD,2);
-      Pin2Input(DDRD,2); // controlled charging (very impurtant set it 2 input (high impedance state))
-
-        sei();
-        sleep_cpu();
-//wake up here
-// check if it us or not
-        sleep_disable();
-        if(pin2_interrupt_flag||WDhappen){break;}
-      }while(1);
-
-  */
-  
-  
-  //    Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// start charging timeout capacitor (default state)
-
-  
-
-  // in r24,0x33
-// andi r24,0xFE
-// out 0x33,r24
-
-
 //  NOP;
 
 //  wdt_disable();// some serious stuff (its role in hangups prevention?) why disable?
   __asm__ __volatile__("wdr\n\t");//  wdt_reset(); why disable just reset WDT
 
 
-//Pin2Output(DDRD,0);// sreset mosfet 2n7000 control
-//Pin2Output(DDRD,1);// 3.3/5v mosfet 2n7000 control
-//Pin2Output(DDRD,2);// INT0 line
-
-//Pin2Output(DDRD,3);// INT1 line /TFT CS
-//Pin2Output(DDRD,4);// TFT DC
-//Pin2Output(DDRB,3);// MOSI
-//Pin2Output(DDRB,5);// CLK
-
-
-
-
-//Pin2Output(DDRB,0); // CLOCKPIN 8
-//Pin2Output(DDRD,1); // DATAPIN 9
-//Pin2Output(DDRB,2);
-//Pin2Output(DDRB,6);
-
-
-//Pin2Output(DDRC,2);
-//Pin2Output(DDRC,3);
-//Pin2Output(DDRC,4);
-//Pin2Output(DDRC,5);
-
-//Pin2Output(DDRD,5); // pin 5 G
-//Pin2Output(DDRD,6); // pin 6 LATCH
-//Pin2Output(DDRD,7); // pin 7 SRCLR
-
-
-
-//  pinMode(DATAPIN,OUTPUT);
-//  pinMode(CLOCKPIN,OUTPUT);
-//  pinMode(LATCHPIN,OUTPUT);
 
 //NOP;
 it++;
