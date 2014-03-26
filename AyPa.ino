@@ -369,8 +369,9 @@ void RequestFrom(byte addr,byte reg)
 
 }
 
-//byte Intensity[16] = {0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15}; // почасовая интенсивность яркости
-byte Intensity[16] = {10,11,12,13, 14,15,13,10, 5,0,0,0, 0,0,3,7}; // почасовая интенсивность яркости
+#define FLASH_CYCLE 95 // microseconds (+~5)
+
+byte Intensity[16] = {20,5,0,0, 0,0,0,0, 5,10,15,20, 25,30,30,25}; // интенсивность яркости (90min)
 byte FlashIntensity=0;
 
 long volatile ticks; // 172800 в день 1/2с
@@ -732,7 +733,7 @@ void setup() {
 //for(byte i=0;i<16;i++){if(mi<Intensity[i]){mi=Intensity[i];}} if(mi<16){mi=16;}// множитель для столбиков
 
 
-  TouchSample();
+//  TouchSample();
 
 /*
     TFT_ON(5);
@@ -1187,12 +1188,16 @@ WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280
 //DDRB=0xFF;
 
 
-    Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light (MUST be HIGH at all times except flashtime)
+//    Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light (MUST be HIGH at all times except flashtime)
 
 
     Pin2Input(DDRC,3);Pin2HIGH(PORTC,3); // pull up on A0
     PCMSK1 = 1<<PCINT11; // setup pin change interrupt on A3 pin (SQuareWave from RTC)
     PCICR |= 1<<PCIE1; 
+
+Pin2Output(DDRD,5);
+Pin2Output(DDRD,6);
+Pin2Output(DDRD,7);
 
     
 /*
@@ -2018,12 +2023,12 @@ void loop() {
   if (UpdateRTC) // every second
   {
       UpdateRTC=false;
-      GetVcc();  
+//      GetVcc();  
       uptime++;
       RTC(); // 500us
-      CurrentTouch=TouchSensor();  //337-440us
-      TouchD[(uptime&3)]=CurrentTouch;Etouch=TouchT();
-      
+  //    CurrentTouch=TouchSensor();  //337-440us
+    //  TouchD[(uptime&3)]=CurrentTouch;Etouch=TouchT();
+      /*
     if(!LCD)
     {
         if (CurrentTouch>=Etouch)
@@ -2034,20 +2039,13 @@ void loop() {
             // draw backgrounds
             ShowBars();
         }//else{TouchD[(uptime&3)]=CurrentTouch;Etouch=TouchT();} // add sample
-    }
-    if(LCD){
-            FlasheS+=Flashes;Flashes=0;
-      
-      UpdateScreen();
-      if(LCD<=ticks){LCD_OFF();LCD=0;}
-}
-
-//      if (CurrentTouch<Etouch){TouchD[(uptime&3)]=CurrentTouch;Etouch=TouchT();} // add sample
+    }*/
+//    if(LCD){            FlasheS+=Flashes;Flashes=0;            UpdateScreen();      if(LCD<=ticks){LCD_OFF();}
+//}
 
   }
-  
 
-if(ERR==0x10){ERR=0;}// ignore TSL mising
+//if(ERR==0x10){ERR=0;}// ignore TSL mising
 // если есть ошибки
 if (ERR)
 {
@@ -2072,6 +2070,15 @@ if (ERR)
 
 if(FlashIntensity)
 {
+  __asm__ __volatile__("wdr\n\t");//  wdt_reset(); why disable just reset WDT
+
+PORTD|=(1<<5); delayMicroseconds(FlashIntensity); PORTD&=~(1<<5); // pd5 start stop 
+PORTD|=(1<<6); delayMicroseconds(FlashIntensity); PORTD&=~(1<<6); // pd6 start stop
+PORTD|=(1<<7); delayMicroseconds(FlashIntensity); PORTD&=~(1<<7); // pd7 start stop
+
+
+delayMicroseconds(FLASH_CYCLE-FlashIntensity*3); 
+  /*
 long base=micros();
   //long m1=millis();
   FT[0]=0;
@@ -2081,7 +2088,7 @@ long base=micros();
 //Pin2Output(DDRD,1);
 Pin2Output(DDRD,5);
 Pin2Output(DDRD,6);
-//Pin2Output(DDRD,7);
+Pin2Output(DDRD,7);
 
 
   
@@ -2093,7 +2100,7 @@ while((micros()-base)<110000L)
 
 PORTD|=(1<<5); delayMicroseconds(FlashIntensity); PORTD&=~(1<<5); // pd5 start stop
 PORTD|=(1<<6); delayMicroseconds(FlashIntensity); PORTD&=~(1<<6);  // pd6 start 
-//PORTD|=(1<<7); delayMicroseconds(FlashIntensity); PORTD&=~(1<<7);  // pd7 start 
+PORTD|=(1<<7); delayMicroseconds(FlashIntensity); PORTD&=~(1<<7);  // pd7 start 
 
   //  Flash(1,FlashIntensity); //84us    
 //    Flash(1,FlashIntensity); //84us    
@@ -2111,15 +2118,15 @@ PORTD|=(1<<6); delayMicroseconds(FlashIntensity); PORTD&=~(1<<6);  // pd6 start
 //  Pin2Input(DDRD,6); // CLK&LATCH 
 //  Pin2LOW(PORTD,7);Pin2Input(DDRD,7);  // detach G control pin (it is pull upped by resistor) --- no so really
 
-                  FT[3]=ERR;
+  //                FT[3]=ERR;
   //                FT[4]=m2-m1;
   
                 if(Light.W[0]>LightMax0.W[0]){LightMax0.W[0]=Light.W[0];LightMax0.W[1]=Light.W[1];}
                 if(Light.W[1]>LightMax1.W[1]){LightMax1.W[0]=Light.W[0];LightMax1.W[1]=Light.W[1];}
 
 
-    Flashes++;  
-    
+//    Flashes++;  
+*/    
 } // пыхнем
 else { set_sleep_mode(SLEEP_MODE_PWR_DOWN); unap(T1S); } // а иначе выходной :)
 
@@ -2128,12 +2135,11 @@ else { set_sleep_mode(SLEEP_MODE_PWR_DOWN); unap(T1S); } // а иначе вых
 //  NOP;
 
 //  wdt_disable();// some serious stuff (its role in hangups prevention?) why disable?
-  __asm__ __volatile__("wdr\n\t");//  wdt_reset(); why disable just reset WDT
-
+  
 
 
 //NOP;
-it++;
+//it++;
 //oldnow=now;
   //delay(1000);               // wait for a second
     }while(1); // loop
