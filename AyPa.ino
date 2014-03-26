@@ -260,7 +260,7 @@ long LCD;
 
 void LCD_ON(void){
     Pin2Output(DDRB,0);Pin2HIGH(PORTB,0); 
-//    Pin2Output(DDRB,7);Pin2HIGH(PORTB,7);
+//    Pin2Output(DDRB,0);Pin2LOW(PORTB,0); 
   
     Pin2Output(DDRD,1);Pin2HIGH(PORTD,1); 
     Pin2Output(DDRD,4);Pin2LOW(PORTD,4); 
@@ -274,18 +274,19 @@ void LCD_ON(void){
     
 void LCD_OFF(void){ writecommand(ST7735_SLPIN); 
     Pin2LOW(PORTB,0); // sink charge first  then to input
-    Pin2LOW(PORTD,4); 
-    Pin2LOW(PORTD,1); 
+    Pin2HIGH(PORTB,0); // sink charge first  then to input
+//    Pin2LOW(PORTD,4); 
+//    Pin2LOW(PORTD,1); 
     Pin2LOW(PORTB,2); Pin2Input(DDRB,2); 
     Pin2LOW(PORTB,3); Pin2Input(DDRB,3); 
     Pin2LOW(PORTB,5); Pin2Input(DDRB,5); // need to close all  connected pins before sinking  remaining charge. otherwise it will be suck current from them :)
-//    Pin2LOW(PORTB,7); // sink charge first  then to input
 
     LCD=0; 
 
 //    delayMicroseconds(100);
-     Pin2Input(DDRD,1); 
-     Pin2Input(DDRD,4); 
+//     Pin2Input(DDRD,1); 
+//     Pin2Input(DDRD,4); 
+//    Pin2LOW(PORTB,0); // sink charge first  then to input
      Pin2Input(DDRB,0); 
   //  Pin2Input(DDRB,0); // continue to sink. D4 has only 0.7v then
 }// вЫключаем питание  дисплея
@@ -368,7 +369,8 @@ void RequestFrom(byte addr,byte reg)
 
 }
 
-byte Intensity[16] = {0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15}; // почасовая интенсивность яркости
+//byte Intensity[16] = {0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15}; // почасовая интенсивность яркости
+byte Intensity[16] = {10,11,12,13, 14,15,13,10, 5,0,0,0, 0,0,3,7}; // почасовая интенсивность яркости
 byte FlashIntensity=0;
 
 long volatile ticks; // 172800 в день 1/2с
@@ -1891,8 +1893,8 @@ void UpdateScreen(void)
     setAddrWindow(20,0,27,127);
   ta("ERR");th(ERR);
     ta(" CT");tn(1000,CurrentTouch);
-    ta(" Ti");tn(1000,ticks);
-    ta(" L");tn(1000,LCD);
+    ta(" Ti");tn(100,ticks);
+    ta(" L");tn(100,LCD);
     ta(" H");tn(10,HR);
 //    th(rtc8);ta(" fn");tn(10000,fastnaptime);ta(" ln");tn(10000,longnaptime);
     setAddrWindow(30,0,37,127);
@@ -2020,7 +2022,8 @@ void loop() {
       uptime++;
       RTC(); // 500us
       CurrentTouch=TouchSensor();  //337-440us
-
+      TouchD[(uptime&3)]=CurrentTouch;Etouch=TouchT();
+      
     if(!LCD)
     {
         if (CurrentTouch>=Etouch)
@@ -2030,7 +2033,7 @@ void loop() {
             LCD_ON();
             // draw backgrounds
             ShowBars();
-        }else{TouchD[(uptime&3)]=CurrentTouch;Etouch=TouchT();} // add sample
+        }//else{TouchD[(uptime&3)]=CurrentTouch;Etouch=TouchT();} // add sample
     }
     if(LCD){
             FlasheS+=Flashes;Flashes=0;
@@ -2039,7 +2042,7 @@ void loop() {
       if(LCD<=ticks){LCD_OFF();LCD=0;}
 }
 
-      if (CurrentTouch<Etouch){TouchD[(uptime&3)]=CurrentTouch;Etouch=TouchT();} // add sample
+//      if (CurrentTouch<Etouch){TouchD[(uptime&3)]=CurrentTouch;Etouch=TouchT();} // add sample
 
   }
   
@@ -2064,7 +2067,7 @@ if (ERR)
     reboot;  // This will call location zero and cause a reboot.
 }
 
-FlashIntensity=10; // debug
+//FlashIntensity=10; // debug
 
 
 if(FlashIntensity)
@@ -2078,7 +2081,7 @@ long base=micros();
 //Pin2Output(DDRD,1);
 Pin2Output(DDRD,5);
 Pin2Output(DDRD,6);
-Pin2Output(DDRD,7);
+//Pin2Output(DDRD,7);
 
 
   
@@ -2090,7 +2093,7 @@ while((micros()-base)<110000L)
 
 PORTD|=(1<<5); delayMicroseconds(FlashIntensity); PORTD&=~(1<<5); // pd5 start stop
 PORTD|=(1<<6); delayMicroseconds(FlashIntensity); PORTD&=~(1<<6);  // pd6 start 
-PORTD|=(1<<7); delayMicroseconds(FlashIntensity); PORTD&=~(1<<7);  // pd7 start 
+//PORTD|=(1<<7); delayMicroseconds(FlashIntensity); PORTD&=~(1<<7);  // pd7 start 
 
   //  Flash(1,FlashIntensity); //84us    
 //    Flash(1,FlashIntensity); //84us    
