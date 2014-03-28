@@ -174,9 +174,14 @@ void LcdWriteDataold(byte cmd)
   digitalWrite(CE,HIGH);  
 }*/
 
-void LcdSet(byte x,byte y)
+//void LcdSet(byte x,byte y)
+//{
+  //LcdWriteCmd(0b10000000|x*5);//set X (0..83)
+//  LcdWriteCmd(0b01000000|y);//set Y (0..5)
+//}
+void LcdSetPos(byte x,byte y)
 {
-  LcdWriteCmd(0b10000000|x*5);//set X (0..83)
+  LcdWriteCmd(0b10000000|x);//set X (0..83)
   LcdWriteCmd(0b01000000|y);//set Y (0..5)
 }
 
@@ -556,7 +561,7 @@ void SendChar(byte ch)
 //1828us (clocks with /8 prescaler)
 void LcdClear(void)
 {
-  LcdSet(0,0);//for(byte i=0;i<84;i++){sa(" ");} // clear ram manually (1828us)
+  LcdSetPos(0,0);//for(byte i=0;i<84;i++){sa(" ");} // clear ram manually (1828us)
 
 
 
