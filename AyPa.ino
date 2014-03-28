@@ -16,11 +16,19 @@
 
 #include "AyPa_m.h"
 #include "AyPa_fonts.h"
-//#include "AyPa_n.h"
-#include "AyPa_TFT.h"
+#include "AyPa_n.h"
+//#include "AyPa_TFT.h"
 //#include "AyPa_i2c.h"
 //#include "AyPa_rtc.h"
 
+//#include "DHT.h"
+//#define DHTPIN A0     // what pin we're connected to
+// Uncomment whatever type you're using!
+//#define DHTTYPE DHT11   // DHT 11 
+//#define DHTTYPE DHT22   // DHT 22  (AM2302)
+//#define DHTTYPE DHT21   // DHT 21 (AM2301)
+
+//DHT dht(DHTPIN, DHTTYPE);
 
 #define reboot {__asm__ __volatile__ ("rcall 0\n\t" );} //void(* resetFunc) (void) = 0; //declare reset function @ address 0
 /*
@@ -256,6 +264,7 @@ void TFT_OFF(void){ writecommand(ST7735_SLPIN);
     TFT_IS_ON=0; 
 }// вЫключаем питание  дисплея
 */
+/*
 long LCD;
 
 void LCD_ON(void){
@@ -290,7 +299,7 @@ void LCD_OFF(void){ writecommand(ST7735_SLPIN);
      Pin2Input(DDRB,0); 
   //  Pin2Input(DDRB,0); // continue to sink. D4 has only 0.7v then
 }// вЫключаем питание  дисплея
-
+*/
 //void RTC_ON(void){Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);Pin2Output(DDRC,1);Pin2Output(DDRC,2);}
 //void RTC_OFF(void){Pin2LOW(PORTD,0);Pin2Input(DDRC,1);Pin2Input(DDRC,2);Pin2LOW(PORTC,1);Pin2LOW(PORTC,2); delayMicroseconds(1);Pin2Input(DDRD,0);}
 
@@ -369,9 +378,10 @@ void RequestFrom(byte addr,byte reg)
 
 }
 
-#define FLASH_CYCLE 95 // microseconds (+~5)
+//#define FLASH_CYCLE 95 // microseconds (+~5)
+#define FLASH_CYCLE 65 // microseconds (+~5)
 
-byte Intensity[16] = {20,5,0,0, 0,0,0,0, 5,10,15,20, 25,30,30,25}; // интенсивность яркости (90min)
+byte Intensity[16] = {20,5,2,2, 2,2,2,2, 5,10,15,20, 25,30,30,25}; // интенсивность яркости (90min)
 byte FlashIntensity=0;
 
 long volatile ticks; // 172800 в день 1/2с
@@ -623,6 +633,50 @@ ISR(WDT_vect) // Watchdog timer interrupt.
 //  else{    reboot();     }// This will call location zero and cause a reboot.
 }
 
+byte DHTdata[5];
+
+byte DHT_ReadData(void) 
+{ 
+   byte i; 
+   byte v = 0; 
+   word d;
+
+   for(i = 0; i < 8 ; i++) 
+   { 
+      d=0;while (!digitalRead(A0)){if(--d==0){return 0xBA;}}; 
+      delayMicroseconds(30);
+      if (digitalRead(A0)) 
+      { 
+          v = v |(1<<(7 - i)); 
+          d=0;while (digitalRead(A0)){if(--d==0){return 0xBA;}}; 
+      } 
+   } 
+   return v;    
+} 
+
+boolean DHTread(void) {
+  byte i;
+  word d;
+
+ // DHTdata[0] = DHTdata[1] = DHTdata[2] = DHTdata[3] = DHTdata[4] = 0;
+  
+  // now pull it low for ~25 milliseconds
+  pinMode(A0, OUTPUT);
+  digitalWrite(A0, LOW);
+  delay(25);
+  digitalWrite(A0, HIGH);
+  delayMicroseconds(30);
+  pinMode(A0, INPUT);
+
+  d=0;while (!digitalRead(A0)){if(--d==0){return false;}}; // Here we wait while the DHT_IO pin remains low..... 
+  d=0;while (digitalRead(A0)){if(--d==0){return false;}};    // Here we wait while the DHT_IO pin remains high..... 
+  
+  for (i=0; i<5; i++){ DHTdata[i] = DHT_ReadData(); } 
+  if  (DHTdata[4] != ((DHTdata[0] + DHTdata[1] + DHTdata[2] + DHTdata[3]) & 0xFF)) {return false;}  // checksum  check
+
+  pinMode(A0, OUTPUT);  digitalWrite(A0, HIGH); // left A0 in HIGH state
+  return true;
+}
 
 word TouchD[4];
 //byte TouchPos=0;
@@ -728,7 +782,9 @@ void setup() {
   sei();
 
 
-
+//  dht.begin();
+pinMode(A0, INPUT);
+digitalWrite(A0, HIGH);  
 
 //for(byte i=0;i<16;i++){if(mi<Intensity[i]){mi=Intensity[i];}} if(mi<16){mi=16;}// множитель для столбиков
 
@@ -1199,6 +1255,8 @@ Pin2Output(DDRD,5);
 Pin2Output(DDRD,6);
 Pin2Output(DDRD,7);
 
+LcdInit();
+sa("АуРа");
     
 /*
       LCD_ON();
@@ -1253,9 +1311,9 @@ void FlashTest(void) // #2 pin used as test
   word max0,max1;
   word maxx0,maxx1;
   
-  DrawBox(16,0,159,127,0x00,0x00,0x00);    // очистка экрана
+//  DrawBox(16,0,159,127,0x00,0x00,0x00);    // очистка экрана
   
-  setAddrWindow(140,0,140+7,127);ta("Тестовый режим / TEST");
+//  setAddrWindow(140,0,140+7,127);ta("Тестовый режим / TEST");
 //  setAddrWindow(22,0,22+7,127);ta("---------------------");
 
 /*
@@ -1294,7 +1352,8 @@ void FlashTest(void) // #2 pin used as test
 for(byte n=20;n>0;n--)
 {
 
-  LCD_OFF();max0=0;max1=0;
+  //LCD_OFF();
+  max0=0;max1=0;
 for(word z=0;z<25;z++)
 {
                 if(!ERR){TSLstart(TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X);} // 192us
@@ -1322,9 +1381,9 @@ Pin2HIGH(PORTD,7);//digitalWrite(G,HIGH); // stop light
 
     }// for 100
 
-      LCD_ON();
+     // LCD_ON();
 
-  setAddrWindow(152,120,152+7,127);tn(10,n);
+  /*setAddrWindow(152,120,152+7,127);tn(10,n);
       
   setAddrWindow(2,0,2+7,127);
       ta("CH0 ");tn(10000,max0);ta(" CH1 ");tn(10000,max1);
@@ -1336,7 +1395,7 @@ Pin2HIGH(PORTD,7);//digitalWrite(G,HIGH); // stop light
     ta("Vcc");tn(100,VccN);ta(" L");tn(100,VccL);ta(" H");tn(100,VccH);ta(" ERR ");th(ERR);
   setAddrWindow(42,0,42+7,127);    
     ta("Vcc");tn(100,114000L/VccN);ta(" L");tn(100,114000L/VccL);ta(" H");tn(100,114000L/VccH); // 1125300L
-    
+    */
     delay(5000);
 
 } //for n 
@@ -1686,7 +1745,7 @@ void longnap(void)
 //  cli();t1111=TCNT1;sei();//atomic read
 }
 
-
+/*
 void NiceBack(byte x1,byte y1,byte x2,byte y2)
 {
   byte r,g,b;
@@ -1739,7 +1798,7 @@ void DrawBox(byte x,byte y, byte x2,byte y2,byte r,byte g,byte b)
 {
     setAddrWindow(x,y,x2,y2); Pin2HIGH(PORTD,4); for (word k=0;k<((x2-x+1)*(y2-y+1)*3);k++){spiwrite(r);spiwrite(g);spiwrite(b);}             
 }
-
+*/
 void ShowBars(void)
 {
   byte r,g,b;
@@ -1756,7 +1815,7 @@ void ShowBars(void)
   
   // gradient background
 //  setAddrWindow(0,4,15,123);
-NiceBack(0,0,128,15);
+//NiceBack(0,0,128,15);
 //NiceBack(0,16,127,31);
 /*
   setAddrWindow(0,0,15,127);
@@ -1784,9 +1843,9 @@ NiceBack(0,0,128,15);
     byte gg=Intensity[i];//if(!gg){gg=1;} 
 
     if(i!=HR){r=0x8c;g=0xac;b=0x8c;}else{r=0x8c;g=0xfc;b=0x4c;}
-    DrawBox(16-gg,i*8,15,i*8+6,r,g,b);    
+  //  DrawBox(16-gg,i*8,15,i*8+6,r,g,b);    
   }
-    DrawBox(17,HR*8,17,HR*8+6,0x8c,0xfc,0x4c);    
+    //DrawBox(17,HR*8,17,HR*8+6,0x8c,0xfc,0x4c);    
 
 }
 
@@ -1820,7 +1879,7 @@ void SleepTime(void)
     //if (pin0_interrupt_flag){nextnaptime=cnt1;}else { ERR=ERR_BROKEN_SLEEP; }
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 }
-
+/*
 boolean Touched(void)
 {
     byte x,e=2;
@@ -1829,13 +1888,13 @@ boolean Touched(void)
     do        
     {
         for (x=0;x<4;x++){ if (TouchSensor()>Etouch){ return true; } delay(200); }
-        DrawBox(100,15+e*30,123,15+23+e*36,0x00,0x00,0x00);    
+     //   DrawBox(100,15+e*30,123,15+23+e*36,0x00,0x00,0x00);    
          if(e==0){break;}
          e--;
      }while(1);
      return false;
-}
-
+}*/
+/*
 void Settings(void)
 {
     
@@ -1878,7 +1937,7 @@ void Cherry(byte x,byte y)
         }//  pos+=2;// row padding
     }
     while (pos<(24*24*3));
-}
+}*/
 
 
 #define LONG_TOUCH_THRESHOLD 4 // критерий длинного нажатия в  секундах
@@ -1890,7 +1949,7 @@ void Cherry(byte x,byte y)
 word rtcl;
 long uptime=0; // uptime в секундах
 word FT[5];
-
+/*
 void UpdateScreen(void)
 {
 //    DrawBox(0,0,159,127,0x00,0x00,0x00);    // очистка экрана
@@ -1964,7 +2023,7 @@ ta(" f");tn(10000,fastnaptime);ta(" l");tn(10000,longnaptime);   ta(" n");tn(100
 ta("Touch:");wh(TouchD[0]);wh(TouchD[1]);wh(TouchD[2]);wh(TouchD[3]);
 
     Cherry(103,108);
-    
+    */
 
 
     // 42x24
@@ -1994,8 +2053,23 @@ while(pos<(42*24*3+0x36));
     
     
 
-    setAddrWindow(152,0,159,127);ta("-----==<АУРА>==-----3");
+//    setAddrWindow(152,0,159,127);ta("-----==<АУРА>==-----3");
 
+//}
+
+word DHThum,DHTtmp;
+
+boolean DHTreadAll(void) {
+  if (DHTread()) {
+      DHThum = DHTdata[0];
+      DHThum *= 256;
+      DHThum += DHTdata[1];
+      DHTtmp = DHTdata[2] & 0x7F;
+      DHTtmp *= 256;
+      DHTtmp += DHTdata[3];
+      return true;
+  }
+  return false;
 }
 
 void GetVcc(void){ VccN=Vcc(); if (VccN<VccH){VccH=VccN;} if (VccN>VccL){VccL=VccN;} } //280us
@@ -2026,6 +2100,28 @@ void loop() {
 //      GetVcc();  
       uptime++;
       RTC(); // 500us
+      
+      if (!(uptime&0xF)){ // once in 8s
+    
+//        float h = dht.readHumidity();
+  //      float t = dht.readTemperature();
+
+  // check if returns are valid, if they are NaN (not a number) then something went wrong!
+  LcdSet(0,5);
+  
+  
+  if (!DHTreadAll()) {
+    sa("DHT fail");
+  } else {
+    sa("H:");
+    s3(DHThum);
+    sa("% T:");
+      if (DHTdata[2] & 0x80){sa("-");}else{sa("+");}
+    s3(DHTtmp);
+    sa("C");
+  }
+ }   
+      
   //    CurrentTouch=TouchSensor();  //337-440us
     //  TouchD[(uptime&3)]=CurrentTouch;Etouch=TouchT();
       /*
@@ -2050,18 +2146,20 @@ void loop() {
 if (ERR)
 {
   //  RTC_ON();
-    LCD_ON();
+    //LCD_ON();
 //    fillScreen(0x000000);
-    DrawBox(0,0,159,127,0x00,0x00,0xfc);    // очистка экрана
+sa("ERR:");s3(ERR);
+/*    DrawBox(0,0,159,127,0x00,0x00,0xfc);    // очистка экрана
 
     word cycles=TouchSensor();
     setAddrWindow(0,0,7,119);
     ta("ERR");wh(ERR);ta(" fn");tn(10000,fastnaptime);ta(" ln");tn(10000,longnaptime);
     setAddrWindow(10,0,17,119);
     ta("cycles:");tn(10000,cycles);
-
+*/
     delay(5500);
-    LCD_OFF(); 
+    //SPCR&=~(1<<SPE); //  SPI.end(); // turn off SPI ????
+   // LCD_OFF(); 
     reboot;  // This will call location zero and cause a reboot.
 }
 
@@ -2074,7 +2172,7 @@ if(FlashIntensity)
 
 PORTD|=(1<<5); delayMicroseconds(FlashIntensity); PORTD&=~(1<<5); // pd5 start stop 
 PORTD|=(1<<6); delayMicroseconds(FlashIntensity); PORTD&=~(1<<6); // pd6 start stop
-PORTD|=(1<<7); delayMicroseconds(FlashIntensity); PORTD&=~(1<<7); // pd7 start stop
+//PORTD|=(1<<7); delayMicroseconds(FlashIntensity); PORTD&=~(1<<7); // pd7 start stop
 
 
 delayMicroseconds(FLASH_CYCLE-FlashIntensity*3); 
