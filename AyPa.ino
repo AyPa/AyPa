@@ -1255,8 +1255,9 @@ Pin2Output(DDRD,5);
 Pin2Output(DDRD,6);
 Pin2Output(DDRD,7);
 
-LcdInit();
-sa("АуРа");
+LcdInit();LcdClear();
+LcdSet(12,0);
+ta("АуРа");
     
 /*
       LCD_ON();
@@ -2100,27 +2101,24 @@ void loop() {
 //      GetVcc();  
       uptime++;
       RTC(); // 500us
+      LcdSet(5,0);tn(100000,uptime);
+      LcdSet(0,1);ta("HR");tn(10,HR);
       
-      if (!(uptime&0xF)){ // once in 8s
-    
-//        float h = dht.readHumidity();
-  //      float t = dht.readTemperature();
+      if ((uptime&0x3)==2){ // once in 4s
 
-  // check if returns are valid, if they are NaN (not a number) then something went wrong!
-  LcdSet(0,5);
   
-  
-  if (!DHTreadAll()) {
-    sa("DHT fail");
-  } else {
-    sa("H:");
-    s3(DHThum);
-    sa("% T:");
-      if (DHTdata[2] & 0x80){sa("-");}else{sa("+");}
-    s3(DHTtmp);
-    sa("C");
-  }
- }   
+  if (DHTreadAll()) 
+  {
+      LcdSet(0,4);
+      ta("Влажность  %");
+      tn(10,(DHThum+5)/10);
+      ta("   ");
+      LcdSet(0,5);
+      ta("Температура");
+      if (DHTdata[2] & 0x80){ta("-");}else{ta("+");}
+      tn(10,(DHTtmp+5)/10);
+   }
+ }// UpdateRTC   
       
   //    CurrentTouch=TouchSensor();  //337-440us
     //  TouchD[(uptime&3)]=CurrentTouch;Etouch=TouchT();
@@ -2148,7 +2146,7 @@ if (ERR)
   //  RTC_ON();
     //LCD_ON();
 //    fillScreen(0x000000);
-sa("ERR:");s3(ERR);
+ta("ERR:");tn(100,ERR);
 /*    DrawBox(0,0,159,127,0x00,0x00,0xfc);    // очистка экрана
 
     word cycles=TouchSensor();

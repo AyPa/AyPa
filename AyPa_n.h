@@ -81,6 +81,82 @@ void LcdWriteData(byte cmd)
   digitalWrite(CE,HIGH);  
 }
 
+#define spiwrite(c){  SPDR = c;  while(!(SPSR&(1<<SPIF)));}
+
+void dd(byte ch)
+{
+  byte c;
+  
+  //for(byte j=0;j<24;j++)
+  spiwrite(0x00);// 1st space
+
+  for(byte j=0;j<3;j++)  // display digit
+  {
+    c=pgm_read_byte(&(Dig[ch++]));
+    spiwrite(c);
+//    for(byte i=0;i<8;i++)
+  //  {
+    //  if(c&0x01){      spiwrite(0xFC);spiwrite(0xFC);spiwrite(0xFC);}
+      //else{      spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);}
+//      c=c>>1;
+  //  }
+  }
+}
+
+void tn(long s, long v)
+{
+  byte c,ch;
+  long vv=v;  
+  
+  Pin2HIGH(PORTD,4); 
+  Pin2LOW(PORTD,1); ///digitalWrite(ce LOW);//3
+  
+  for(long n=s;n>0;n/=10){ch=vv/n;vv-=ch*n;dd(ch+ch+ch);}
+    
+  Pin2HIGH(PORTD,1);//    digitalWrite(ce,HIGH);
+}
+
+void ta(char *st)
+{
+  byte l=0,c;
+  word ch;
+  
+  Pin2HIGH(PORTD,4); 
+  Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
+  
+    do{
+    //    LcdWriteData(0);//space  (start with it - while it is sending can calc address)
+
+   //   for(byte j=0;j<24;j++)s
+   spiwrite(0x00);// 1st space
+//    SPDR = 0;// start transfer with space (while it is sending can calc address)
+    //calcs
+    c=st[l++];if (c>127){c=st[l++];}// 16bit code
+    ch=(c-32)*5;
+    //    c=Rus[ch++];//preload next char
+
+for(byte j=0;j<5;j++)  // display char
+{
+    c=pgm_read_byte(&(Rus[ch++]));
+    spiwrite(c);
+//  for(byte i=0;i<8;i++)
+  //{
+//    if(c&0x01){      spiwrite(0xFC);spiwrite(0xFC);spiwrite(0xFC);}
+//    else{      spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);}
+//    c=c>>1;
+//  }
+}
+
+
+
+    
+
+  }
+  while (st[l]!=0);//same same
+
+  Pin2HIGH(PORTD,1); // digitalWrite(CE,HIGH);    
+}
+
 /*
 void LcdWriteCmdold(byte cmd)
 {
@@ -482,8 +558,10 @@ void LcdClear(void)
 {
   LcdSet(0,0);//for(byte i=0;i<84;i++){sa(" ");} // clear ram manually (1828us)
 
+
+
 //for(byte i=0;i<(84);i++){SPDR = 0;while(!(SPSR&(1<<SPIF)));}// 361us - not working..
-  //for(byte i=0;i<6;i++){sa("              ");} // (1614us)
+  for(byte i=0;i<6;i++){ta("              ");} // (1614us)
 }
 
 void LcdInit(void)
