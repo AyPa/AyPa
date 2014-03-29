@@ -30,7 +30,8 @@
 
 //DHT dht(DHTPIN, DHTTYPE);
 
-#define reboot {__asm__ __volatile__ ("rcall 0\n\t" );} //void(* resetFunc) (void) = 0; //declare reset function @ address 0
+void (* reboot) (void) = 0; //declare reset function @ address 0
+
 /*
 #include <Wire.h>
 //#include "TSL2561.h"
@@ -384,8 +385,9 @@ void RequestFrom(byte addr,byte reg)
 byte Intensity[16] = {20,5,2,2, 2,2,2,2, 5,10,15,20, 25,30,30,25}; // интенсивность яркости (90min)
 byte FlashIntensity=0;
 
-long volatile ticks; // 172800 в день 1/2с
+byte volatile ticks=0; // 1/2с
 byte HR;
+byte fd;
 
 byte __attribute__ ((noinline)) unBCD(byte bcd){return (((bcd>>4)*10)+(bcd&0xF)); }
 
@@ -413,6 +415,8 @@ void RTC(void)
         ticks=unBCD(TimeS[1])*7200L+unBCD(TimeS[2])*120L+unBCD(TimeS[3])*2;
         HR=ticks/10800L;//90*120;
         FlashIntensity=Intensity[HR];
+        fd=FLASH_CYCLE-FlashIntensity*2;
+
         
     }
     else{ ERR=ERR_WHERE_IS_THE_CLOCK; SetTime(); ticks=0;}
@@ -630,7 +634,7 @@ ISR(WDT_vect) // Watchdog timer interrupt.
   WDsleep=0;
   }
   //debug
-  else{ reboot; }// This will call location zero and cause a reboot.
+  else{ reboot(); }// This will call location zero and cause a reboot.
 }
 
 byte DHTdata[5];
@@ -1131,8 +1135,7 @@ boolean volatile Update500=true; // Update once in 500ms
 
 ISR (PCINT1_vect)  // A3
 { 
-    if(++ticks>=172800){ticks=0;reboot;}
-    if((ticks&0x1)==0){UpdateRTC=true;}// update clock every second
+    if((++ticks&0x1)==0){UpdateRTC=true;}// update clock every second
     Update500=true;
     
     // alarms ?
@@ -1658,14 +1661,20 @@ void loop() {
   {
       UpdateRTC=false;
 //      GetVcc();  
-      if(++uptime==12*60*60){reboot;} // перезагрузка каждые 12 часов
+      if(++uptime==18*60*60){reboot;} // перезагрузка каждые 18 часов
       RTC(); // 500us
-      LcdSetPos(5*5,0);tn(100000,uptime);
+      LcdSetPos(0,0);tn(10000,uptime);
+
+//      FlasheS+=Flashes;
+      LcdSetPos(0,3);ta("Пых/c ");tn(10000,Flashes);
+      word ll=1000000/Flashes;ta(" ");tn(100,ll);
+      Flashes=0;
       
       if ((uptime&0xFF)==3){ // раз в 256 секунд
 
-      LcdSetPos(0,1);ta("HR ");tn(10,HR);ta(" Int ");tn(10,FlashIntensity);
-
+      LcdSetPos(0,1);ta("HR ");tn(10,HR);
+      LcdSetPos(0,2);tn(10,FlashIntensity);ta("-");tn(10,FlashIntensity);ta("-");tn(10,fd);
+      
   
   if (DHTreadAll()) 
   {
@@ -1722,7 +1731,7 @@ ta("ERR:");tn(100,ERR);
     delay(5500);
     //SPCR&=~(1<<SPE); //  SPI.end(); // turn off SPI ????
    // LCD_OFF(); 
-    reboot;  // This will call location zero and cause a reboot.
+    reboot();  // This will call location zero and cause a reboot.
 }
 
 //FlashIntensity=10; // debug
@@ -1735,8 +1744,12 @@ PORTD|=(1<<5); delayMicroseconds(FlashIntensity); PORTD&=~(1<<5); // pd5 start s
 PORTD|=(1<<6); delayMicroseconds(FlashIntensity); PORTD&=~(1<<6); // pd6 start stop
 //PORTD|=(1<<7); delayMicroseconds(FlashIntensity); PORTD&=~(1<<7); // pd7 start stop
 
-word dd=FLASH_CYCLE-FlashIntensity*2;
-if(dd){delayMicroseconds(dd);}
+
+if(fd){delayMicroseconds(fd);}
+
+    Flashes++;  
+
+
   /*
 long base=micros();
   //long m1=millis();
@@ -1784,7 +1797,6 @@ PORTD|=(1<<7); delayMicroseconds(FlashIntensity); PORTD&=~(1<<7);  // pd7 start
                 if(Light.W[1]>LightMax1.W[1]){LightMax1.W[0]=Light.W[0];LightMax1.W[1]=Light.W[1];}
 
 
-//    Flashes++;  
 */    
 } // пыхнем
 //else { set_sleep_mode(SLEEP_MODE_PWR_DOWN); unap(T1S); } // а иначе выходной :)
