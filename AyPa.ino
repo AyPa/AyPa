@@ -5,6 +5,7 @@
 #include <avr/power.h>
 #include <avr/sleep.h>
 #include <avr/pgmspace.h>
+#include <avr/eeprom.h>
 #include <Arduino.h>
 
 
@@ -197,7 +198,7 @@ ISR (TIMER1_COMPA_vect){
 }*/
 
 
-#define SetADC(bandgap,input,us){ ADCSRA|=(1<<ADEN);delayMicroseconds(2);ADMUX=(bandgap<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input;delayMicroseconds((us>>1));} // input (0..7,8,14) (bg/vcc analogReference )
+#define SetADC(bandgap,input,us){ ADCSRA|=(1<<ADEN);delayMicroseconds(2);ADMUX=(bandgap<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input;delayMicroseconds(us);} // input (0..7,8,14) (bg/vcc analogReference )
 #define ADCoff{ ADCSRA&=~(1<<ADEN); }
 #define mRawADC(v,p) ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|p;do{}while(bit_is_set(ADCSRA,ADSC));v=ADCW; 
 /*
@@ -367,6 +368,7 @@ void RequestFrom(byte addr,byte reg)
     TWDR=addr; // SLA+W
     TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
     wait4int();//    if (TWSR!=0x18){return false;} // got ack
+
     TWDR=reg;
     TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with reg number
     wait4int();//    if (TWSR!=0x28){return false;} // got ack
@@ -380,24 +382,26 @@ void RequestFrom(byte addr,byte reg)
 }
 
 //#define FLASH_CYCLE 95 // microseconds (+~5)
-#define FLASH_CYCLE 65 // microseconds (+~5)
+//#define FLASH_CYCLE 65 // microseconds (+~5)
 
-byte Intensity[16] = {20,5,2,2, 2,2,2,2, 5,10,15,20, 25,30,30,25}; // интенсивность яркости (90min)
+byte Intensity[16] = {20,5,0,0, 0,0,0,2, 5,10,15,20, 20,20,20,20}; // интенсивность яркости (90min)
 byte FlashIntensity=0;
 
 byte volatile ticks=0; // 1/2с
 byte HR;
-byte fd;
 
 byte __attribute__ ((noinline)) unBCD(byte bcd){return (((bcd>>4)*10)+(bcd&0xF)); }
 
 void RTC(void)
 {  
     Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2HIGH(PORTC,4);Pin2HIGH(PORTC,5);   // activate internal pullups for twi.
- 
+// delayMicroseconds(100);
     RequestFrom((0x68<<1),7);
+grr=TWSR;
     TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + send ack
     wait4int();//    if (TWSR!=0x50){ ERR=ERR_I2C; return;} // ack sent
+grr2=TWSR;
+
     if((TWSR==0x50)&&(TWDR==0x10))
     {
         RequestFrom((0x68<<1),0);
@@ -415,12 +419,9 @@ void RTC(void)
         ticks=unBCD(TimeS[1])*7200L+unBCD(TimeS[2])*120L+unBCD(TimeS[3])*2;
         HR=ticks/10800L;//90*120;
         FlashIntensity=Intensity[HR];
-        fd=FLASH_CYCLE-FlashIntensity*2;
-
-        
     }
-    else{ ERR=ERR_WHERE_IS_THE_CLOCK; SetTime(); ticks=0;}
-    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);        // send stop and forget     // wait for stop condition to be exectued on bus  (TWINT is not set after a stop condition!)
+    else{ ERR=ERR_WHERE_IS_THE_CLOCK; SetTime(); }
+    if(!ERR) { TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO); }       // send stop and forget     // wait for stop condition to be exectued on bus  (TWINT is not set after a stop condition!)
 
     Pin2LOW(PORTC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,4);Pin2Input(DDRC,5); // если STOP не успевает - поставь задержку
 }
@@ -685,11 +686,9 @@ Pin2Input(DDRB,1);//  pinMode(A0, INPUT);
   for (i=0; i<5; i++){ DHTdata[i] = DHT_ReadData(); } 
   if  (DHTdata[4] == ((DHTdata[0] + DHTdata[1] + DHTdata[2] + DHTdata[3]) & 0xFF)) {res=true;}  // checksum  check
 
-//Pin2Input(DDRB,2);//  pinMode(A0, OUTPUT);
 Pin2Input(DDRB,1);
-Pin2HIGH(PORTB,1);//  digitalWrite(A0, HIGH);
+Pin2HIGH(PORTB,1);
 
-//  pinMode(A0, OUTPUT);  digitalWrite(A0, HIGH); // left A0 in HIGH state
   return res;
 }
 
@@ -740,6 +739,10 @@ word TouchT(void)
 // the setup routine runs once when you press reset:
 byte v;
 byte   extreset;
+
+word uptime=0; // uptime в секундах
+
+
 void setup() {                
   byte pmask,idx;
 
@@ -748,6 +751,15 @@ void setup() {
      // Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// start charging timeout capacitor (default state)
 
   extreset=MCUSR;
+  
+      if(eeprom_read_byte((byte*)0)!=0xAA) // our signature
+      {
+//          eeprom_update_byte((byte*)0,0xAA);
+          eeprom_write_byte((byte*)0,0xAA);
+        
+      }
+      else{uptime=eeprom_read_word((word*)2);} // continue where it stops
+
 
 //    Pin2Input(DDRD,2);Pin2HIGH(PORTD,2);// pinMode(1,INPUT_PULLUP);      
 //    attachInterrupt(0, pin2_isr, RISING);
@@ -757,17 +769,19 @@ void setup() {
 
 //TWI setup
     TWSR&=~((1<<TWPS0)|(1<<TWPS1));
-//    TWBR=40; // 1215
+  //  TWBR=40; // 1215
 //    TWBR=32; //  TWBR = ((F_CPU / TWI_FREQ) - 16) / 2;   // 1023
 //    TWBR=24; // 833
 //    TWBR=20; // 741
 //    TWBR=16; // 649
 //    TWBR=12; // 558
-//    TWBR=8; // 475
-    TWBR=4; // 403
+    TWBR=8; // 475
+//    TWBR=4; // 403
 //    TWBR=2; // 370 unstable
 //    TWBR=1; // unstable
 
+
+    SetADC(0,14,500); // vcc
 
   //setup timer1
   cli();
@@ -781,13 +795,36 @@ void setup() {
   //  TCCR1B |= (1 << WGM12);  //  TCCR1B |= (1 << CS10);
   // TIMSK1 |= (1 << OCIE1A);// no interrupts just counting 1 tick is 1 microsecond
 
-  // setup timer2 
-  TCCR2A=0x00;
-  TCCR2B=(1 << WGM12)|(0<<CS22)|(0<<CS21)|(1<<CS20); // /no prescaler;
+// setup timer2 
+
+TCNT2   = 0; 
+//TCCR2B |= (1 << WGM22); // Configure timer 2 for CTC mode 
+//TCCR2A |= (1 << WGM21); // Configure timer 2 for CTC mode 
+//TCCR2B |= (1 << CS22); // Start timer at Fcpu/64 
+//  TCCR2B=(1<<WGM22)|(1<<CS22)|(0<<CS21)|(0<<CS20); // /256
+  TCCR2B=(1<<WGM22)|(1<<CS22)|(0<<CS21)|(1<<CS20); // /1024
+TIMSK2 |= (1 << OCIE2A); // Enable CTC interrupt 
+OCR2A   = 250; // Set CTC compare value 
+
+//TCNT2   = 0; 
+//TCCR2A = 0;//(1 << WGM21); // Configure timer 2 for CTC mode 
+//TCCR2A =  (1 << WGM22)|(1 << CS22) | (0 << CS21) | (1 << CS20);  //prescaller 1024 
+//TIMSK2 = (1 << OCIE2A); // Enable CTC interrupt 
+//OCR2A   = 25; // Set CTC compare value 
+
+
+//  TCCR2A = 0x00;   // clear timer registers 
+  //TCCR2B = 0x00; 
+//  TIMSK2 = 0x00;
+  
+//  TCCR2B=(1 << WGM12)|(0<<CS22)|(0<<CS21)|(1<<CS20); // /no prescaler;
 //  TCCR2B=(1<<WGM12)|(0<<CS22)|(1<<CS21)|(0<<CS20); // /8; 1us clock
-  TCNT2=0x00;
-//  ICR2=0x00;
-  OCR2A=0xFF;
+//  TCCR2B=(1<<WGM12)|(1<<CS22)|(0<<CS21)|(0<<CS20); // /8; 1us clock
+//  TCCR2A |=  (1 << COM2A0) | (1 << COM2B0);   // Normal mode & toogle on OC2A & OC2B 
+//  TCNT2=0x00;
+//  OCR2A=255;
+//  OCR2B=255;
+  //TIMSK2 |= (1 << OCIE2B);// no interrupts just counting 1 tick is 1 microsecond
 
 // every 1/2 second interrupt from RTC
 //Pin2Input(DDRC,0);Pin2HIGH(PORTC,0); // pull up on A0
@@ -812,9 +849,14 @@ Pin2HIGH(PORTB,1);//  digitalWrite(A0, HIGH);  // internal pull up
 
 setup_watchdog(T2S); // если в течении 2s не сбросить сторожевого пса то перезагрузка. (защита от зависаний)
 
-    Pin2Input(DDRC,3);Pin2HIGH(PORTC,3); // pull up on A0
-    PCMSK1 = 1<<PCINT11; // setup pin change interrupt on A3 pin (SQuareWave from RTC)
-    PCICR |= 1<<PCIE1; 
+//    Pin2Input(DDRC,3);Pin2HIGH(PORTC,3); // pull up on A0
+// IDEA
+// IDEA 2 just get VCC! :)))
+
+
+//    Pin2Input(DDRC,3);Pin2HIGH(PORTC,3); // pull up on A0
+  //  PCMSK1 = 1<<PCINT11; // setup pin change interrupt on A3 pin (SQuareWave from RTC)
+    //PCICR |= 1<<PCIE1; 
 
 Pin2Output(DDRD,5);
 Pin2Output(DDRD,6);
@@ -843,13 +885,25 @@ ISR(TIMER1_OVF_vect)
  //    PIND=(1<<PD0);
  t1ovf++;
  }
+ */
+ long volatile t2ovf=0;
  
- ISR(TIMER2_OVF_vect)
- {
- //Toggle pin PD0 every second
- //    PIND=(1<<PD0);
- t2ovf++;
- }*/
+// ISR(TIMER2_OVF_vect)
+boolean volatile UpdateS=true;
+ISR (TIMER2_COMPA_vect){if(++t2ovf==250){UpdateS=true; t2ovf=0;} // every 2 s
+// start vcc measurement
+ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(1<<ADIE)|2;
+}
+
+word ADCresult;
+byte volatile ADCready=0;
+ISR(ADC_vect)
+{
+        ADCresult=ADCW; 
+        ADCready=1;
+//	PORTD = ADCH;			// Output ADCH to PortD
+//	ADCSRA |= 1<<ADSC;		// Start Conversion
+}
 
 
 uint16_t st1,st2,delta,flash_duration;
@@ -1130,13 +1184,13 @@ byte pin7_interrupt_flag=0;
 //  bbb++;
 //}
 
-boolean volatile UpdateRTC=true; // Update RTC at least once (to reset it if needed)
-boolean volatile Update500=true; // Update once in 500ms
+//boolean volatile UpdateRTC=true; // Update RTC at least once (to reset it if needed)
+//boolean volatile Update500=true; // Update once in 500ms
 
 ISR (PCINT1_vect)  // A3
 { 
-    if((++ticks&0x1)==0){UpdateRTC=true;}// update clock every second
-    Update500=true;
+//    if((++ticks&0x1)==0){UpdateRTC=true;}// update clock every second
+//    Update500=true;
     
     // alarms ?
 } 
@@ -1509,7 +1563,6 @@ void Cherry(byte x,byte y)
   volatile word lasttouch,ltp,CurrentTouch;
   byte LongTouch=0;
 word rtcl;
-word uptime=0; // uptime в секундах
 word FT[5];
 /*
 void UpdateScreen(void)
@@ -1637,6 +1690,9 @@ boolean  res=false;
 
 void GetVcc(void){ VccN=Vcc(); if (VccN<VccH){VccH=VccN;} if (VccN>VccL){VccL=VccN;} } //280us
 
+byte FanTimeout=0;
+byte RunningFan=0;
+
 // the loop routine runs over and over again forever:
 void loop() {
   long now;
@@ -1649,31 +1705,54 @@ void loop() {
         __asm__ __volatile__("wdr\n\t");//  wdt_reset();
 
 
-//Pin2Input(DDRD,0);Pin2HIGH(PORTD,0); // pull up on D0
-//PCICR |= 1<<PCIE2;
-//PCMSK2 = 1<<PCINT16; // D0
-
-
-
-//  if (Update500)   {      Update500=false;      }// every 500ms
-
-  if (UpdateRTC) // every second
+  if(ADCready)
   {
-      UpdateRTC=false;
+      ADCready=0;
+      if (ADCresult>260)
+      {
+//          eeprom_update_dword (uint32_t *__p, uint32_t __value);
+//          eeprom_update_word((word*)2,uptime);
+          eeprom_write_word((word*)2,uptime);
+        // write counter to EEPROM and wait till reboot
+          LcdSetPos(0,2);tn(100,ADCresult);ta("!!!!!! ");
+          delay(3000); // after 2s watchdog will inforce reboot
+      }
+  }
+
+  if (UpdateS) // every 2 seconds
+  {
+//    TCNT1=0;
+      UpdateS=false;
 //      GetVcc();  
-      if(++uptime==18*60*60){reboot;} // перезагрузка каждые 18 часов
-      RTC(); // 500us
+      uptime++;
+      if(uptime>=43200){eeprom_write_word((word*)2,0);reboot();} // reboot every 24h
+      if(FanTimeout){FanTimeout--;}
+      if(RunningFan){if((--RunningFan)==0){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);FanTimeout=31;}}
+      
+//      if(++uptime==18*60*60){reboot;} // перезагрузка каждые 18 часов (надо совместить перезагрузку и наступление очередного часа - чтобы записать в eeprom)
+  
+  
+//      RTC(); // 500us
       LcdSetPos(0,0);tn(10000,uptime);
+//      LcdSetPos(0,2);tn(1000,VccN);ta(" H ");tn(1000,VccH);ta(" L ");tn(1000,VccL);
+LcdSetPos(0,2);ta("VCC ");tn(1000,ADCresult);
+
+  //    t2ovf=0;
+//      delay(1000);
+    //  long rrr=t2ovf;
+      
 
 //      FlasheS+=Flashes;
       LcdSetPos(0,3);ta("Пых/c ");tn(10000,Flashes);
       word ll=1000000/Flashes;ta(" ");tn(100,ll);
       Flashes=0;
-      
-      if ((uptime&0xFF)==3){ // раз в 256 секунд
 
-      LcdSetPos(0,1);ta("HR ");tn(10,HR);
-      LcdSetPos(0,2);tn(10,FlashIntensity);ta("-");tn(10,FlashIntensity);ta("-");tn(10,fd);
+      LcdSetPos(0,1);ta("HR ");tn(10,HR);//ta(" ");th(HR);ta(" F ");tn(10,RunningFan);ta(" ");tn(100,FanTimeout);
+      
+      if ((uptime&0xF)==3){ // раз в 16 секунд
+
+//      LcdSetPos(0,2);tn(10,FlashIntensity);ta("-");tn(10,FlashIntensity);
+  //    byte gg=TCNT1; tn(100000,gg);
       
   
   if (DHTreadAll()) 
@@ -1686,12 +1765,14 @@ void loop() {
       ta("Температура");
       if (DHTdata[2] & 0x80){ta("-");}else{ta("+");}
       LcdSetPos(76,5);
-      tn(10,(DHTtmp+5)/10);
+      DHTtmp=(DHTtmp+5)/10;
+      tn(10,DHTtmp);
+      if((!FanTimeout)&&(DHTtmp>28)){Pin2Output(DDRB,0);Pin2HIGH(PORTB,0);if(RunningFan<90){RunningFan+=30;}else{RunningFan=1;}}// запускаем вентилятор 
    }
    
    
    
- }// UpdateRTC   
+ }// UpdateS   
       
   //    CurrentTouch=TouchSensor();  //337-440us
     //  TouchD[(uptime&3)]=CurrentTouch;Etouch=TouchT();
@@ -1712,6 +1793,7 @@ void loop() {
 
   }
 
+/*
 //if(ERR==0x10){ERR=0;}// ignore TSL mising
 // если есть ошибки
 if (ERR)
@@ -1719,33 +1801,53 @@ if (ERR)
   //  RTC_ON();
     //LCD_ON();
 //    fillScreen(0x000000);
-ta("ERR:");tn(100,ERR);
-/*    DrawBox(0,0,159,127,0x00,0x00,0xfc);    // очистка экрана
+LcdClear();ta("Ошибка ");th(ERR);
 
-    word cycles=TouchSensor();
-    setAddrWindow(0,0,7,119);
-    ta("ERR");wh(ERR);ta(" fn");tn(10000,fastnaptime);ta(" ln");tn(10000,longnaptime);
-    setAddrWindow(10,0,17,119);
-    ta("cycles:");tn(10000,cycles);
-*/
-    delay(5500);
+ta(" ");th(grr);ta(" ");th(grr2);
+
+  //  delay(3500);
+delay(1000);
+        __asm__ __volatile__("wdr\n\t");//  wdt_reset();
+LcdSetPos(0,1);
+ta("Перезагрузка");
+delay(1000);
     //SPCR&=~(1<<SPE); //  SPI.end(); // turn off SPI ????
    // LCD_OFF(); 
     reboot();  // This will call location zero and cause a reboot.
 }
-
-//FlashIntensity=10; // debug
+*/
+FlashIntensity=2; // debug
 
 
 if(FlashIntensity)
 {
+  
+  for(byte i=0;i<10;i++)
+  {
+  
+TCNT1=0;
+PORTD|=(1<<5); 
+while(TCNT1<FlashIntensity);//delayMicroseconds(FlashIntensity); 
+PORTD&=~(1<<5); // pd5 start stop 
 
-PORTD|=(1<<5); delayMicroseconds(FlashIntensity); PORTD&=~(1<<5); // pd5 start stop 
-PORTD|=(1<<6); delayMicroseconds(FlashIntensity); PORTD&=~(1<<6); // pd6 start stop
+TCNT1=0;
+PORTD|=(1<<6); 
+while(TCNT1<FlashIntensity);//delayMicroseconds(FlashIntensity); 
+PORTD&=~(1<<6); // pd6 start stop
+
+//TCNT1=0;
+//PORTD|=(1<<7); 
+//while(TCNT1<FlashIntensity);//delayMicroseconds(FlashIntensity); 
+//PORTD&=~(1<<7); // pd7 start stop
+
 //PORTD|=(1<<7); delayMicroseconds(FlashIntensity); PORTD&=~(1<<7); // pd7 start stop
-
-
-if(fd){delayMicroseconds(fd);}
+  }
+  
+//byte fd=40-FlashIntensity*2;
+//if(fd){
+  //TCNT1=0;while(TCNT1<fd);
+  //delayMicroseconds(fd);
+//}
 
     Flashes++;  
 
