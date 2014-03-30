@@ -389,6 +389,7 @@ byte FlashIntensity=0;
 
 byte volatile ticks=0; // 1/2с
 byte HR;
+//byte MN;
 
 byte __attribute__ ((noinline)) unBCD(byte bcd){return (((bcd>>4)*10)+(bcd&0xF)); }
 
@@ -662,12 +663,102 @@ byte DHT_ReadData(void)
    return v;    
 } 
 
+#define TIMEOUT (F_CPU/1600);
+#define DHTLIB_OK				0
+#define DHTLIB_ERROR_CHECKSUM	-1
+#define DHTLIB_ERROR_TIMEOUT	-2
+#define DHTLIB_INVALID_VALUE	-999
+
+int dhtread(uint8_t pin)
+{
+    // INIT BUFFERVAR TO RECEIVE DATA
+    uint8_t mask = 128;
+    uint8_t idx = 0;
+
+    // EMPTY BUFFER
+    for (uint8_t i=0; i< 5; i++) DHTdata[i] = 0;
+
+    // REQUEST SAMPLE
+    pinMode(pin, OUTPUT);
+    digitalWrite(pin, LOW);
+    delay(20);
+    digitalWrite(pin, HIGH);
+    delayMicroseconds(40);
+    pinMode(pin, INPUT);
+
+    // GET ACKNOWLEDGE or TIMEOUT
+    unsigned int loopCnt = TIMEOUT;
+    while(digitalRead(pin) == LOW)
+    if (--loopCnt == 0) return DHTLIB_ERROR_TIMEOUT;
+
+    loopCnt = TIMEOUT;
+    while(digitalRead(pin) == HIGH)
+    if (--loopCnt == 0) return DHTLIB_ERROR_TIMEOUT;
+
+    // READ THE OUTPUT - 40 BITS => 5 BYTES
+    for (uint8_t i=0; i<40; i++)
+    {
+        loopCnt = TIMEOUT;
+        while(digitalRead(pin) == LOW)
+        if (--loopCnt == 0) return DHTLIB_ERROR_TIMEOUT;
+
+        unsigned long t = micros();
+
+        loopCnt = TIMEOUT;
+        while(digitalRead(pin) == HIGH)
+        if (--loopCnt == 0) return DHTLIB_ERROR_TIMEOUT;
+
+        if ((micros() - t) > 40) DHTdata[idx] |= mask;
+        mask >>= 1;
+        if (mask == 0)   // next byte?
+        {
+            mask = 128;
+            idx++;
+        }
+    }
+
+    return DHTLIB_OK;
+}
+
+int read22(void)
+{
+    // READ VALUES
+//    int rv = dhtread(pin);
+    int rv = dhtread(9); // PB1
+    if (rv != DHTLIB_OK)
+    {
+//        humidity    = DHTLIB_INVALID_VALUE;  // invalid value, or is NaN prefered?
+  //      temperature = DHTLIB_INVALID_VALUE;  // invalid value
+        return rv; // propagate error value
+    }
+
+    // CONVERT AND STORE
+//    humidity = word(bits[0], bits[1]) * 0.1;
+
+//    if (bits[2] & 0x80) // negative temperature
+  //  {
+    //    temperature = -0.1 * word(bits[2] & 0x7F, bits[3]);
+//    }
+  //  else
+    //{
+      //  temperature = 0.1 * word(bits[2], bits[3]);
+//    }
+
+    // TEST CHECKSUM
+    uint8_t sum = DHTdata[0] + DHTdata[1] + DHTdata[2] + DHTdata[3];
+    if (DHTdata[4] != sum) return DHTLIB_ERROR_CHECKSUM;
+
+    return DHTLIB_OK;
+}
+
+
 boolean DHTread(void) {
   byte i;
   word d;
   boolean res=false;
   
-  
+  Pin2Input(DDRB,1);Pin2HIGH(PORTB,1);//  digitalWrite(A0, HIGH);  // internal pull up
+  delay(500);
 Pin2Output(DDRB,1);//  pinMode(A0, OUTPUT);
 Pin2LOW(PORTB,1);//  digitalWrite(A0, LOW);
   delay(25);
@@ -740,7 +831,7 @@ word TouchT(void)
 byte v;
 byte   extreset;
 
-word uptime=0; // uptime в секундах
+word volatile uptime; // uptime в секундах
 
 
 void setup() {                
@@ -758,8 +849,9 @@ void setup() {
           eeprom_write_byte((byte*)0,0xAA);
         
       }
-      else{uptime=eeprom_read_word((word*)2);} // continue where it stops
+      else{uptime=(eeprom_read_byte((byte*)1)<<8)|eeprom_read_byte((byte*)2);} // continue where it stops
 
+    Pin2Input(DDRC,3);Pin2HIGH(PORTC,3); // internal pull up on A3 pin (reset  clock button)
 
 //    Pin2Input(DDRD,2);Pin2HIGH(PORTD,2);// pinMode(1,INPUT_PULLUP);      
 //    attachInterrupt(0, pin2_isr, RISING);
@@ -886,13 +978,21 @@ ISR(TIMER1_OVF_vect)
  t1ovf++;
  }
  */
- long volatile t2ovf=0;
+word volatile t2ovf=0;
  
 // ISR(TIMER2_OVF_vect)
 boolean volatile UpdateS=true;
-ISR (TIMER2_COMPA_vect){if(++t2ovf==250){UpdateS=true; t2ovf=0;} // every 2 s
-// start vcc measurement
-ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(1<<ADIE)|2;
+boolean volatile UpdateM=true;
+byte volatile ic=0;
+ISR (TIMER2_COMPA_vect)
+{
+    t2ovf++;
+    if(t2ovf==125)
+    {
+        t2ovf=0; uptime++; UpdateS=true;
+        if(++ic==64){UpdateM=true; ic=0;} // inc uptime everysecond invoke UpdatS every 64s
+    }
+    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(1<<ADIE)|2; // start vcc measurement (every 1/125s)
 }
 
 word ADCresult;
@@ -1676,7 +1776,9 @@ word DHThum,DHTtmp;
 
 boolean DHTreadAll(void) {
 boolean  res=false;
-  if (DHTread()) {
+  //if (DHTread()) {
+if(read22()==DHTLIB_OK)
+{
       DHThum = DHTdata[0];
       DHThum *= 256;
       DHThum += DHTdata[1];
@@ -1707,35 +1809,47 @@ void loop() {
 
   if(ADCready)
   {
-      ADCready=0;
       if (ADCresult>260)
       {
-//          eeprom_update_dword (uint32_t *__p, uint32_t __value);
-//          eeprom_update_word((word*)2,uptime);
-          eeprom_write_word((word*)2,uptime);
-        // write counter to EEPROM and wait till reboot
-          LcdSetPos(0,2);tn(100,ADCresult);ta("!!!!!! ");
+          byte b1=uptime>>8;
+          byte b2=uptime&0xFF;
+          if(eeprom_read_byte((byte*)1)!=b1){eeprom_write_byte((byte*)1,b1);}
+          if(eeprom_read_byte((byte*)2)!=b2){eeprom_write_byte((byte*)2,b2);}
           delay(3000); // after 2s watchdog will inforce reboot
       }
+      ADCready=0;
   }
 
-  if (UpdateS) // every 2 seconds
+  if (UpdateS) // every second
   {
 //    TCNT1=0;
       UpdateS=false;
+      LcdSetPos(0,0);tn(10000,uptime);// 963us
+      if(FanTimeout){FanTimeout--;}else if(RunningFan){if((--RunningFan)==0){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);FanTimeout=30;}}
+      ta("F");tn(10,RunningFan);tn(10,FanTimeout);
+
+//  word c=TCNT1;//tn(10000,c);  
+  }
+  
+  if (UpdateM) // every 64 seconds
+  {
+//    TCNT1=0;
+      UpdateM=false;
 //      GetVcc();  
-      uptime++;
-      if(uptime>=43200){eeprom_write_word((word*)2,0);reboot();} // reboot every 24h
-      if(FanTimeout){FanTimeout--;}
-      if(RunningFan){if((--RunningFan)==0){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);FanTimeout=31;}}
+      if((uptime>=43200)||((PINC&(1<<3))==0)){
+          if(eeprom_read_byte((byte*)1)!=0){eeprom_write_byte((byte*)1,0);}
+          if(eeprom_read_byte((byte*)2)!=0){eeprom_write_byte((byte*)2,0);}
+    reboot();} // reboot every 24h or when
+      HR=uptime/(90*60);
       
 //      if(++uptime==18*60*60){reboot;} // перезагрузка каждые 18 часов (надо совместить перезагрузку и наступление очередного часа - чтобы записать в eeprom)
   
   
 //      RTC(); // 500us
-      LcdSetPos(0,0);tn(10000,uptime);
+//      LcdSetPos(0,0);tn(10000,uptime);
 //      LcdSetPos(0,2);tn(1000,VccN);ta(" H ");tn(1000,VccH);ta(" L ");tn(1000,VccL);
-LcdSetPos(0,2);ta("VCC ");tn(1000,ADCresult);
+LcdSetPos(0,2);ta("VCC ");tn(1000,ADCresult);//ta(" A3 ");th(PINC&(1<<3));
+
 
   //    t2ovf=0;
 //      delay(1000);
@@ -1743,18 +1857,20 @@ LcdSetPos(0,2);ta("VCC ");tn(1000,ADCresult);
       
 
 //      FlasheS+=Flashes;
-      LcdSetPos(0,3);ta("Пых/c ");tn(10000,Flashes);
+      LcdSetPos(0,3);ta("Пыхи ");tn(10000,Flashes);
       word ll=1000000/Flashes;ta(" ");tn(100,ll);
       Flashes=0;
 
-      LcdSetPos(0,1);ta("HR ");tn(10,HR);//ta(" ");th(HR);ta(" F ");tn(10,RunningFan);ta(" ");tn(100,FanTimeout);
+      LcdSetPos(0,1);ta("HR ");tn(10,HR);
       
-      if ((uptime&0xF)==3){ // раз в 16 секунд
+//      if ((uptime&0xF)==3){ // раз в 32 секунды
 
 //      LcdSetPos(0,2);tn(10,FlashIntensity);ta("-");tn(10,FlashIntensity);
   //    byte gg=TCNT1; tn(100000,gg);
       
-  
+  for(byte i=0;i<3;i++)
+  {
+//    DHTdata[0]=DHTdata[1]=DHTdata[2]=DHTdata[3]=0;
   if (DHTreadAll()) 
   {
       LcdSetPos(0,4);
@@ -1767,8 +1883,10 @@ LcdSetPos(0,2);ta("VCC ");tn(1000,ADCresult);
       LcdSetPos(76,5);
       DHTtmp=(DHTtmp+5)/10;
       tn(10,DHTtmp);
-      if((!FanTimeout)&&(DHTtmp>28)){Pin2Output(DDRB,0);Pin2HIGH(PORTB,0);if(RunningFan<90){RunningFan+=30;}else{RunningFan=1;}}// запускаем вентилятор 
+      if((!FanTimeout)&&(DHTtmp>28)){Pin2Output(DDRB,0);Pin2HIGH(PORTB,0);if(RunningFan<90){RunningFan+=66;}else{RunningFan=1;}}// запускаем вентилятор 
+      break;
    }
+//  }
    
    
    
@@ -1816,7 +1934,8 @@ delay(1000);
     reboot();  // This will call location zero and cause a reboot.
 }
 */
-FlashIntensity=2; // debug
+FlashIntensity=3; // debug
+if((HR>=4)&&(HR<8)){FlashIntensity=0;} // c 12 ночи до 6 утра спим и не отсвечиваем.
 
 
 if(FlashIntensity)
