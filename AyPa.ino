@@ -1825,8 +1825,8 @@ void loop() {
 //    TCNT1=0;
       UpdateS=false;
       LcdSetPos(0,0);tn(10000,uptime);// 963us
-      if(FanTimeout){FanTimeout--;}else if(RunningFan){if((--RunningFan)==0){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);FanTimeout=30;}}
-      ta("F");tn(10,RunningFan);tn(10,FanTimeout);
+      if(FanTimeout){FanTimeout--;}else if(RunningFan){if((--RunningFan)==0){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);FanTimeout=60;}}
+      ta(" F");tn(10,RunningFan);tn(10,FanTimeout);
 
 //  word c=TCNT1;//tn(10000,c);  
   }
@@ -1883,7 +1883,7 @@ LcdSetPos(0,2);ta("VCC ");tn(1000,ADCresult);//ta(" A3 ");th(PINC&(1<<3));
       LcdSetPos(76,5);
       DHTtmp=(DHTtmp+5)/10;
       tn(10,DHTtmp);
-      if((!FanTimeout)&&(DHTtmp>28)){Pin2Output(DDRB,0);Pin2HIGH(PORTB,0);if(RunningFan<90){RunningFan+=66;}else{RunningFan=1;}}// запускаем вентилятор 
+      if((!FanTimeout)&&(DHTtmp>28)){Pin2Output(DDRB,0);Pin2HIGH(PORTB,0);if(RunningFan<90){RunningFan+=90;}else{RunningFan=1;}}// запускаем вентилятор 
       break;
    }
 //  }
