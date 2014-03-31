@@ -831,6 +831,8 @@ byte volatile ADCfree=1;
 word NextSoilMoistureCheck=0;
 word volatile uptime; // uptime в секундах
 
+word MCUtemp;
+
 word moisture;
 void SoilMoisture(){
 //  int reading;
@@ -853,6 +855,11 @@ void SoilMoisture(){
 //    SetADC(1,0,500); // A0
   //     mRawADC(reading,2);
   moisture=analogRead(moisture_input);  // take a reading
+  
+      SetADC(1,8,500);  //  select temperature sensor 352 (need calibration)  
+       mRawADC(MCUtemp,2); // прочитаем заодно и этот датчик
+  
+      SetADC(0,14,1); // restore vcc adc channel
    ADCfree=1;
 
 
@@ -1847,7 +1854,8 @@ void LcdBack(void)
     LcdClear();
 
     LcdSetPos(12*5,0);ta("АуРа");
-    LcdSetPos(9*5,2);ta("Вл");
+    LcdSetPos(0,1);ta("Ч"); LcdSetPos(14,1);ta("Инт"); LcdSetPos(41,1);ta("t"); LcdSetPos(60,1);ta("Вл");
+    LcdSetPos(0,2);ta("U");   
     LcdSetPos(0,3);ta("Пыхи ");     
     LcdSetPos(0,4);ta("Влажность");
     LcdSetPos(0,5);ta("Температура");
@@ -1866,10 +1874,10 @@ void eeprom_update_byte(byte*addr,byte v){ if(eeprom_read_byte((byte*)addr)!=v){
 
 // the loop routine runs over and over again forever:
 void loop() {
-  long now;
+//  long now;
 //  long oldnow=millis();
-  word t,t1,n;
-  word Temp;
+  //word t,t1,n;
+//  word Temp;
 
 while(1){
 
@@ -1923,7 +1931,7 @@ while(1){
   if(uptime>NextTmpHumCheck)
   {
         NextTmpHumCheck=uptime+99;
-          LcdBack();
+//          LcdBack();
    if (DHTreadAll()) 
   {
       LcdSetPos(70,4);ta("%");tn(10,(DHThum+5)/10);
@@ -1937,8 +1945,10 @@ while(1){
    }
   }
 
-      LcdSetPos(0,2);ta("VCC ");tn(1000,ADCresult);
-      LcdSetPos(0,1);ta("Час ");tn(10,HR);ta(" Инт");tn(10,FlashIntensity);
+      LcdSetPos(6,1);tn(10,HR);
+      LcdSetPos(32,1);tn(10,FlashIntensity);
+      LcdSetPos(47,1);tn(100,MCUtemp);
+      LcdSetPos(6,2);tn(100,ADCresult);
 
 //      if (ADCfree)
   //    {
@@ -1951,8 +1961,8 @@ while(1){
 //moisture=uptime;
 
         
-        LcdSetPos(10*6,2);
-        tn(10000,moisture);
+        LcdSetPos(72,1);
+        tn(100,moisture);
     //  }
       
       }
