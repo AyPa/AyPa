@@ -821,15 +821,19 @@ word TouchT(void)
 
 word ADCresult;
 byte volatile ADCready=0;
+byte volatile ADCfree=1;
 
 #define moisture_input A0
 #define divider_top A2
 #define divider_bottom A1
 //int moisture; // analogical value obtained from the experiment
 
-int moisture;
-int SoilMoisture(){
-  int reading;
+word NextSoilMoistureCheck=0;
+word volatile uptime; // uptime в секундах
+
+word moisture;
+void SoilMoisture(){
+//  int reading;
   // set driver pins to outputs
   pinMode(divider_top,OUTPUT);
   pinMode(divider_bottom,OUTPUT);
@@ -839,30 +843,41 @@ int SoilMoisture(){
   digitalWrite(divider_bottom,HIGH);
 
   // wait a moment for capacitance effects to settle
-  delay(1000);
+  delay(300);
 
-  while(!ADCready);// у нас примерно 125 раз в секунду измеряется напряжение питание. здесь мы пожертвуем одним измерением ради датчика влажности почвы
-  cli();
+  while(!ADCfree);
+  ADCfree=0;// to avoid collision with Vcc  
+//  while(!ADCready);// у нас примерно 125 раз в секунду измеряется напряжение питание. здесь мы пожертвуем одним измерением ради датчика влажности почвы
+//  cli();
 //TCNT1=0;
-//    SetADC(0,0,500); // A0
-  //      mRawADC(reading,2);
+//    SetADC(1,0,500); // A0
+  //     mRawADC(reading,2);
+  moisture=analogRead(moisture_input);  // take a reading
+   ADCfree=1;
 
-  reading=analogRead(moisture_input);  // take a reading
-  //reading=TCNT1;
-  ADCready=0;
-  sei();
+
+//  reading=TCNT1;
+//  ADCready=0;
+  //sei();
 
   // reverse the current
   digitalWrite(divider_top,HIGH);
   digitalWrite(divider_bottom,LOW);
 
   // give as much time in 'reverse' as in 'forward'
-  delay(1000);
+  delay(300);
 
   // stop the current
   digitalWrite(divider_bottom,LOW);
 
-  return reading;
+
+// back to high imp state
+  pinMode(divider_top,INPUT);
+  pinMode(divider_bottom,INPUT);
+  digitalWrite(divider_top,LOW);
+  digitalWrite(divider_bottom,LOW);
+
+//  return reading;
 }
 
 //byte pp[10]={
@@ -873,14 +888,20 @@ int SoilMoisture(){
 byte v;
 byte   extreset;
 
-word volatile uptime; // uptime в секундах
+//#define SoilMoistureCheckInterval 250
 
+
+byte setupdone=0;
 
 void setup() {                
 //  byte pmask,idx;
 
   wdt_disable();
 
+if (setupdone)
+{
+  LcdInit();LcdClear();ta("2nd run of setup?"); delay(10000);
+}
      // Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// start charging timeout capacitor (default state)
 
   extreset=MCUSR;
@@ -994,7 +1015,11 @@ Pin2Output(DDRD,6);
 Pin2Output(DDRD,7);
 
     
-moisture=SoilMoisture();// первоначальное значение влажности почвы
+      LcdBack();
+
+//LastSoilMoistureCheck=uptime-SoilMoistureCheckInterval;
+//LastSoilMoistureCheck=0;//uptime-SoilMoistureCheckInterval;
+setupdone=1;
 }
 
 /*
@@ -1008,23 +1033,24 @@ ISR(TIMER1_OVF_vect)
 word volatile t2ovf=0;
  
 boolean volatile UpdateS=true;
-boolean volatile UpdateM=true;
-byte volatile ic=0;
+//boolean volatile UpdateM=true;
+//byte volatile ic=0;
 ISR (TIMER2_COMPA_vect)
 {
-    t2ovf++;
-    if(t2ovf==125)
+//    t2ovf++;
+    if(++t2ovf==125)
     {
         t2ovf=0; uptime++; UpdateS=true;
-        if(++ic==64){UpdateM=true; ic=0;} // inc uptime everysecond invoke UpdatS every 64s
+//        if(++ic==64){UpdateM=true; ic=0;} // inc uptime everysecond invoke UpdatS every 64s
     }
-    ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(1<<ADIE)|2; // start vcc measurement (every 1/125s)
+    if(ADCfree){ADCfree=0;ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(1<<ADIE)|2;} // start vcc measurement (every 1/125s)
 }
 
 ISR(ADC_vect)
 {
-        ADCresult=ADCW; 
+        ADCresult=ADCW;
         ADCready=1;
+        ADCfree=1;
 }
 
 
@@ -1821,7 +1847,7 @@ void LcdBack(void)
     LcdClear();
 
     LcdSetPos(12*5,0);ta("АуРа");
-
+    LcdSetPos(9*5,2);ta("Вл");
     LcdSetPos(0,3);ta("Пыхи ");     
     LcdSetPos(0,4);ta("Влажность");
     LcdSetPos(0,5);ta("Температура");
@@ -1831,6 +1857,7 @@ void LcdBack(void)
 byte FanTimeout=0;
 byte RunningFan=0;
 word LastTimeFan=0;
+word NextTmpHumCheck=0;
 
 void FanON(byte d){Pin2Output(DDRB,0);Pin2HIGH(PORTB,0);RunningFan=d;}
 void FanOFF(byte t){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);FanTimeout=t;}
@@ -1844,35 +1871,21 @@ void loop() {
   word t,t1,n;
   word Temp;
 
-  
-  do{
-        __asm__ __volatile__("wdr\n\t");//  wdt_reset();
-
+while(1){
 
   if(ADCready)
   {
-      if (ADCresult>260)
-      {
-  //        byte b1=uptime>>8;
-//          byte b2=uptime&0xFF;
-          eeprom_update_byte((byte*)1,(uptime>>8));
-          eeprom_update_byte((byte*)2,(uptime&0xFF));
-
-//          if(eeprom_read_byte((byte*)1)!=b1){eeprom_write_byte((byte*)1,b1);}
-  //        if(eeprom_read_byte((byte*)2)!=b2){eeprom_write_byte((byte*)2,b2);}
-          delay(3000); // after 2s watchdog will inforce reboot
-      }
+      if (ADCresult>260){eeprom_update_byte((byte*)1,(uptime>>8));eeprom_update_byte((byte*)2,(uptime&0xFF)); delay(3000);}// wait till power off (after 2s watchdog will inforce reboot)
       ADCready=0;
   }
+  
 
-  if (UpdateM) // every 64 seconds
-  {
+//  if (UpdateM) // every 64 seconds
+  //{
 //    TCNT1=0;
-      UpdateM=false;
+    //  UpdateM=false;
 //      GetVcc();  
-      LcdBack();
-      HR=uptime/(90*60);
-      FlashIntensity=Intensity[HR];
+//      LcdBack();
       
 //      if(++uptime==18*60*60){reboot;} // перезагрузка каждые 18 часов (надо совместить перезагрузку и наступление очередного часа - чтобы записать в eeprom)
   
@@ -1880,17 +1893,6 @@ void loop() {
 //      RTC(); // 500us
 //      LcdSetPos(0,0);tn(10000,uptime);
 //      LcdSetPos(0,2);tn(1000,VccN);ta(" H ");tn(1000,VccH);ta(" L ");tn(1000,VccL);
-LcdSetPos(0,2);ta("VCC ");tn(1000,ADCresult);ta(" Вл ");tn(100,moisture);
-
-
-  //    t2ovf=0;
-//      delay(1000);
-    //  long rrr=t2ovf;
-      
-
-//      FlasheS+=Flashes;
-
-      LcdSetPos(0,1);ta("Час ");tn(10,HR);ta(" Инт");tn(10,FlashIntensity);
       
 //      if ((uptime&0xF)==3){ // раз в 32 секунды
 
@@ -1900,7 +1902,28 @@ LcdSetPos(0,2);ta("VCC ");tn(1000,ADCresult);ta(" Вл ");tn(100,moisture);
      
 //  for(byte i=0;i<3;i++)
   //{
+// }//for
+      
 
+//  }//UpdateM
+
+  if (UpdateS) // every second
+  {
+    //    TCNT1=0;
+      UpdateS=false;
+              __asm__ __volatile__("wdr\n\t");//  wdt_reset();
+
+      if ((uptime>=43200)||((PINC&(1<<3))==0)){eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0);reboot();} // reboot every 24h or when reset button (A3) is pressed
+
+      LcdSetPos(0,0);tn(10000,uptime);// 963us
+
+      HR=uptime/(90*60);
+      FlashIntensity=Intensity[HR];
+
+  if(uptime>NextTmpHumCheck)
+  {
+        NextTmpHumCheck=uptime+99;
+          LcdBack();
    if (DHTreadAll()) 
   {
       LcdSetPos(70,4);ta("%");tn(10,(DHThum+5)/10);
@@ -1909,45 +1932,42 @@ LcdSetPos(0,2);ta("VCC ");tn(1000,ADCresult);ta(" Вл ");tn(100,moisture);
       LcdSetPos(76,5);
       DHTtmp=(DHTtmp+5)/10;
       tn(10,DHTtmp);
-//            if ((uptime-LastTimeFan)>5400){RunningFan+=30;Pin2Output(DDRB,0);Pin2HIGH(PORTB,0);LastTimeFan=uptime;} 
-      // раз в час нужен ветерок CО2 свежего подкачать (но не ночью c 12 до 6 утра)
-
-      if ((!FanTimeout)&&(!RunningFan))
-      {
-          if ((DHTtmp>28)||(uptime-LastTimeFan)>5400){if((HR<4)||(HR>7)){FanON(30);}}
-      }
-//      break;
+      // иногда нужен ветерок CО2 свежего подкачать (но не ночью c 12 до 6 утра)
+      if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>28)||(uptime-LastTimeFan)>5400){if((HR<4)||(HR>7)){FanON(20);}}}
    }
-// }//for
+  }
+
+      LcdSetPos(0,2);ta("VCC ");tn(1000,ADCresult);
+      LcdSetPos(0,1);ta("Час ");tn(10,HR);ta(" Инт");tn(10,FlashIntensity);
+
+//      if (ADCfree)
+  //    {
+        if (uptime>NextSoilMoistureCheck)
+        {
+          NextSoilMoistureCheck=uptime+300;
+          SoilMoisture();
+//          moisture=NextSoilMoistureCheck;
+//          moisture=NextTmpHumCheck;//SoilMoistureCheckInterval;//uptime-LastSoilMoistureCheck;
+//moisture=uptime;
+
+        
+        LcdSetPos(10*6,2);
+        tn(10000,moisture);
+    //  }
       
+      }
 
-  }//UpdateM
-
-  if (UpdateS) // every second
-  {
-//    TCNT1=0;
-      UpdateS=false;
-      if((uptime>=43200)||((PINC&(1<<3))==0)){
-          eeprom_update_byte((byte*)1,0);
-          eeprom_update_byte((byte*)2,0);
-//          if(eeprom_read_byte((byte*)1)!=0){eeprom_write_byte((byte*)1,0);}
-  //        if(eeprom_read_byte((byte*)2)!=0){eeprom_write_byte((byte*)2,0);}
-    reboot();} // reboot every 24h or when
-
-      LcdSetPos(0,0);tn(10000,uptime);// 963us
       
       if(FanTimeout){FanTimeout--;}else if(RunningFan){if((--RunningFan)==0){FanOFF(60);LastTimeFan=uptime;}}
+
+      LcdSetPos(22,0);
       
-      //ta(" ");
       tn(10,RunningFan);tn(10,FanTimeout);tn(10000,LastTimeFan);
 
       LcdSetPos(5*6,3);tn(10000,Flashes);
       word ll=1000000/Flashes;ta(" ");tn(100,ll);
       Flashes=0;
       
-//      if(!(uptime&0xFFF)){moisture=SoilMoisture();}// раз в 4096
-//       if(!(uptime&0x3FF)){moisture=SoilMoisture();}// раз в 1024 секунды (~15минут)
-       if(!(uptime&0xFF)){moisture=SoilMoisture();}// раз в 256 секунд (~4минуты)
       
   }
   
@@ -1977,11 +1997,15 @@ delay(1000);
 */
 
 
-//if((HR>=4)&&(HR<8)){FlashIntensity=0;} // c 12 ночи до 6 утра спим и не отсвечиваем.
 
 
 if(FlashIntensity)
 {
+
+Pin2Output(DDRD,5);
+Pin2Output(DDRD,6);
+//Pin2Output(DDRD,7);
+  
 for(byte i=0;i<10;i++)
 {
     TCNT1=0;PORTD|=(1<<5); while(TCNT1<FlashIntensity);PORTD&=~(1<<5); // pd5 start stop 
@@ -1990,55 +2014,9 @@ for(byte i=0;i<10;i++)
 }
     Flashes++;  
 
-
-  /*
-long base=micros();
-  //long m1=millis();
-  FT[0]=0;
-
-
-
-//Pin2Output(DDRD,1);
-Pin2Output(DDRD,5);
-Pin2Output(DDRD,6);
-Pin2Output(DDRD,7);
-
-
-  
-                                  if(!ERR){TSLstart(TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X);} // 192us
-//                                  if(!ERR){TSLstart(TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_0X);} // 192us
-while((micros()-base)<110000L)
-//while((micros()-base)<14000L)
-{
-
-PORTD|=(1<<5); delayMicroseconds(FlashIntensity); PORTD&=~(1<<5); // pd5 start stop
-PORTD|=(1<<6); delayMicroseconds(FlashIntensity); PORTD&=~(1<<6);  // pd6 start 
-PORTD|=(1<<7); delayMicroseconds(FlashIntensity); PORTD&=~(1<<7);  // pd7 start 
-
-  //  Flash(1,FlashIntensity); //84us    
-//    Flash(1,FlashIntensity); //84us    
-//    Flash(1,FlashIntensity); //84us    
-//    delayMicroseconds(120);   
-//    Flash(1,FlashIntensity); //84us    
-//    delayMicroseconds(1120);   
-    FT[0]++;
-}
-//long m2=millis();
-                  if(!ERR){TSLstop();}//322us
-                  
-//  Pin2LOW(PORTD,5);Pin2Input(DDRD,5);  // SRCLR to LOW. Clear regs
-//  Pin2Input(DDRB,1);  // DATAPIN
-//  Pin2Input(DDRD,6); // CLK&LATCH 
-//  Pin2LOW(PORTD,7);Pin2Input(DDRD,7);  // detach G control pin (it is pull upped by resistor) --- no so really
-
-  //                FT[3]=ERR;
-  //                FT[4]=m2-m1;
-  
-                if(Light.W[0]>LightMax0.W[0]){LightMax0.W[0]=Light.W[0];LightMax0.W[1]=Light.W[1];}
-                if(Light.W[1]>LightMax1.W[1]){LightMax1.W[0]=Light.W[0];LightMax1.W[1]=Light.W[1];}
-
-
-*/    
+Pin2Input(DDRD,5);
+Pin2Input(DDRD,6);
+//Pin2Input(DDRD,7);
 } // пыхнем
 //else { set_sleep_mode(SLEEP_MODE_PWR_DOWN); unap(T1S); } // а иначе выходной :)
 
@@ -2054,7 +2032,7 @@ PORTD|=(1<<7); delayMicroseconds(FlashIntensity); PORTD&=~(1<<7);  // pd7 start
 //it++;
 //oldnow=now;
   //delay(1000);               // wait for a second
-    }while(1); // loop
+    } // eternal loop
 }
 
 
