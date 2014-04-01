@@ -384,7 +384,7 @@ void RequestFrom(byte addr,byte reg)
 //#define FLASH_CYCLE 95 // microseconds (+~5)
 //#define FLASH_CYCLE 65 // microseconds (+~5)
 
-byte Intensity[16] = {3,2,1,0, 0,0,0,0, 1,2,3,4, 4,4,4,4}; // интенсивность яркости (90min)
+byte Intensity[16] = {4,2,1,0, 0,0,0,0, 1,2,3,4, 4,4,4,4}; // интенсивность яркости (90min)
 byte FlashIntensity=0;
 
 byte volatile ticks=0; // 1/2с
@@ -829,6 +829,7 @@ byte volatile ADCfree=1;
 //int moisture; // analogical value obtained from the experiment
 
 word NextSoilMoistureCheck=0;
+word NextTmpHumCheck=0;
 word volatile uptime; // uptime в секундах
 
 word MCUtemp;
@@ -898,28 +899,24 @@ byte   extreset;
 //#define SoilMoistureCheckInterval 250
 
 
-byte setupdone=0;
+//byte setupdone=0;
 
 void setup() {                
 //  byte pmask,idx;
 
   wdt_disable();
 
-if (setupdone)
-{
-  LcdInit();LcdClear();ta("2nd run of setup?"); delay(10000);
-}
+//if (setupdone){  LcdInit();LcdClear();ta("2nd run of setup?"); delay(10000);}
      // Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// start charging timeout capacitor (default state)
 
   extreset=MCUSR;
   
-      if(eeprom_read_byte((byte*)0)!=0xAA) // our signature
-      {
-//          eeprom_update_byte((byte*)0,0xAA);
-          eeprom_write_byte((byte*)0,0xAA);
-        
-      }
-      else{uptime=(eeprom_read_byte((byte*)1)<<8)|eeprom_read_byte((byte*)2);} // continue where it stops
+  if(eeprom_read_byte((byte*)0)!=0xAA){eeprom_write_byte((byte*)0,0xAA); uptime=0;} // our signature
+  else{ 
+  if (PINC&(1<<3)){ uptime=(eeprom_read_byte((byte*)1)<<8)|eeprom_read_byte((byte*)2); }
+  else {eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0); uptime=0; }
+  } // continue from where it stops 
+  // if A3 button is held pressed during startup - uptime is set to 0
 
     Pin2Input(DDRC,3);Pin2HIGH(PORTC,3); // internal pull up on A3 pin (reset  clock button)
 
@@ -930,14 +927,14 @@ if (setupdone)
 //delay(2000);      if(!sss){ERR=ERR_NO_SQW;}
 
 //TWI setup
-    TWSR&=~((1<<TWPS0)|(1<<TWPS1));
+  //  TWSR&=~((1<<TWPS0)|(1<<TWPS1));
   //  TWBR=40; // 1215
 //    TWBR=32; //  TWBR = ((F_CPU / TWI_FREQ) - 16) / 2;   // 1023
 //    TWBR=24; // 833
 //    TWBR=20; // 741
 //    TWBR=16; // 649
 //    TWBR=12; // 558
-    TWBR=8; // 475
+//    TWBR=8; // 475
 //    TWBR=4; // 403
 //    TWBR=2; // 370 unstable
 //    TWBR=1; // unstable
@@ -1023,10 +1020,8 @@ Pin2Output(DDRD,7);
 
     
       LcdBack();
+ NextSoilMoistureCheck=uptime;NextTmpHumCheck=uptime;
 
-//LastSoilMoistureCheck=uptime-SoilMoistureCheckInterval;
-//LastSoilMoistureCheck=0;//uptime-SoilMoistureCheckInterval;
-setupdone=1;
 }
 
 /*
@@ -1060,6 +1055,9 @@ ISR(ADC_vect)
         ADCfree=1;
 }
 
+word Flashes=0; // число вспышек в секунду
+
+/*
 
 uint16_t st1,st2,delta,flash_duration;
 uint8_t flash_start_mask,flash_stop_mask; // channel for flash
@@ -1072,114 +1070,6 @@ byte tqq;
 
 //byte pinmask,prt;
 //word max0=0,max1=0,max01=0,max10=0;
-
-word VccN;
-word VccH=1023;
-word VccL=0;
-
-
-void FlashTest(void) // #2 pin used as test
-{
-  word max0,max1;
-  word maxx0,maxx1;
-  
-//  DrawBox(16,0,159,127,0x00,0x00,0x00);    // очистка экрана
-  
-//  setAddrWindow(140,0,140+7,127);ta("Тестовый режим / TEST");
-//  setAddrWindow(22,0,22+7,127);ta("---------------------");
-
-/*
-  setAddrWindow(30,0,30+7,127);ta("Сейчас на вывод TEST ");
-  setAddrWindow(40,0,40+7,127);ta("будет подан постоян-"); 
-  setAddrWindow(50,0,50+7,127);ta("ный ток. Используй");
-  setAddrWindow(60,0,60+7,127);ta("подстроечный резистор");
-  setAddrWindow(70,0,70+7,127);ta("для его ограничения.");
-  setAddrWindow(80,0,80+7,127);ta("Максимум 700mA");
-
-  setAddrWindow(95,0,95+7,127);ta("The continious cur-");
-  setAddrWindow(105,0,105+7,127);ta("rent will be applied"); 
-  setAddrWindow(115,0,115+7,127);ta("to TEST output now.");
-  setAddrWindow(125,0,125+7,127);ta("Use adjustment resis-");
-  setAddrWindow(135,0,135+7,127);ta("tor to limit it. Do");
-  setAddrWindow(145,0,145+7,127);ta("not go beyond 700mA.");  */
-  
-  delay(3000);
-
-  
-  
-//  Pin2Output(DDRD,7);Pin2HIGH(PORTD,7);  // G stop light
-  Pin2Output(DDRD,5);Pin2HIGH(PORTD,5);  // SRCLR to HIGH. when it is LOW all regs are cleared
-  Pin2Output(DDRB,1);
-  Pin2Output(DDRD,6); 
-
-    Pin2HIGH(PORTB,1);  // DATAPIN to HIGH  
-    Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
-    Pin2LOW(PORTB,1); // next data are zeroes
-    Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
-    Pin2HIGH(PORTD,6);Pin2LOW(PORTD,6); // clock pulse 
-
-//    TSL2561_ON;
-
-  maxx0=0;maxx1=0;
-for(byte n=20;n>0;n--)
-{
-
-  //LCD_OFF();
-  max0=0;max1=0;
-for(word z=0;z<25;z++)
-{
-                if(!ERR){TSLstart(TSL2561_INTEGRATIONTIME_101MS |TSL2561_GAIN_0X);} // 192us
-//                if(!ERR){TSLstart(TSL2561_INTEGRATIONTIME_13MS |TSL2561_GAIN_0X);} // 192us
-
-Pin2LOW(PORTD,7);// start lighting
-
-for(byte q=0;q<11;q++)
-{
-//cli();
-//TCNT1=0;
-GetVcc();
-delay(10);
-//do{}while(TCNT1<10000);
-//sei();
-}
-
-Pin2HIGH(PORTD,7);//digitalWrite(G,HIGH); // stop light
-
-  //              if(!ERR){delay(103);TSLstop();}//322us
-                if(!ERR){TSLstop();}//322us
-  
-          if(Light.W[0]>max0){max0=Light.W[0];max1=Light.W[1];}
-          if(Light.W[0]>maxx0){maxx0=Light.W[0];maxx1=Light.W[1];}
-
-    }// for 100
-
-     // LCD_ON();
-
-  /*setAddrWindow(152,120,152+7,127);tn(10,n);
-      
-  setAddrWindow(2,0,2+7,127);
-      ta("CH0 ");tn(10000,max0);ta(" CH1 ");tn(10000,max1);
-//      ta(" ");tn(100,Light.W[0]);ta(" ");tn(100,Light.W[1]);
-  setAddrWindow(12,0,12+7,127);
-      ta("CH0 ");tn(10000,maxx0);ta(" CH1 ");tn(10000,maxx1);
-
-  setAddrWindow(32,0,32+7,127);
-    ta("Vcc");tn(100,VccN);ta(" L");tn(100,VccL);ta(" H");tn(100,VccH);ta(" ERR ");th(ERR);
-  setAddrWindow(42,0,42+7,127);    
-    ta("Vcc");tn(100,114000L/VccN);ta(" L");tn(100,114000L/VccL);ta(" H");tn(100,114000L/VccH); // 1125300L
-    */
-    delay(5000);
-
-} //for n 
-
-  Pin2LOW(PORTD,5);Pin2Input(DDRD,5);  // SRCLR to LOW. Clear regs
-  Pin2Input(DDRB,1);  // DATAPIN
-  Pin2Input(DDRD,6); // CLK&LATCH 
-//  Pin2LOW(PORTD,7);Pin2Input(DDRD,7);  // detach G control pin (it is pull upped by resistor) --- no so really
-
-  VccH=1023;VccL=0;
-}
-
 word Flashes=0; // число вспышек в секунду
 long FlasheS=0; // общее число вспышек
 
@@ -1243,38 +1133,7 @@ PORTD=0x70; delayMicroseconds(15); PORTD=0x30;// PORTD=0xB0;// NOP;//PORTD=0xB0;
 PORTD=0x70; delayMicroseconds(15); PORTD=0x30;// PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
 PORTD=0xB0;// restore pin7 high pin6 low
 
-/*
-PORTD=0x70; delayMicroseconds(10); PORTD=0x30; //PORTD=0xB0;//NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0x70; delayMicroseconds(10); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0x70; delayMicroseconds(10); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0x70; delayMicroseconds(10); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0x70; delayMicroseconds(10); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0x70; delayMicroseconds(10); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0x70; delayMicroseconds(10); PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0x70; delayMicroseconds(10); PORTD=0x30;// PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0xB0;// restore pin7 high pin6 low
-*/
-/*
-PORTD=0x70; PORTD=0x30; //PORTD=0xB0;//NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0x70; PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0x70; PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0x70; PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0x70; PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0x70; PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0x70; PORTD=0x30; //PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0x70; PORTD=0x30;// PORTD=0xB0;// NOP;//PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0xB0;// restore pin7 high pin6 low
-*/
-/*
-PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//pin0
-PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//1
-PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6);//2
-PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6); //3
-PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6); //4
-PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6); //pin5
-PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6); //pin6
-PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2LOW(PORTD,6); ////Pin2LOW(PORTD,7); NOP;  Pin2HIGH(PORTD,7); // pin7
-*/
+
 
 //PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
 //PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
@@ -1283,16 +1142,6 @@ PORTD=0x70; NOP; PORTD=0xB0;//PORTD=0xF0;PORTD=0xB0;  //Pin2HIGH(PORTD,6);  Pin2
 //PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
 //PORTD=0x30; NOP; PORTD=0x30; PORTD=0xB0;
 
-/*
-PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
-PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
-PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
-PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
-PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
-PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
-PORTD=0x30; NOP; PORTD=0x70; PORTD=0xB0;
-PORTD=0x30; NOP; PORTD=0x30; PORTD=0xB0;
-*/
 
 //PORTD=0xB0; //4,5,7
 
@@ -1303,15 +1152,7 @@ PORTD=0x30; NOP; PORTD=0x30; PORTD=0xB0;
 
 
 sei();
-/*
-cli();
-if(Duration==5){ __asm__ __volatile__("cbi 0x0B,7\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""sbi 0x0B,7\n\t"); }
-else if(Duration==4){ __asm__ __volatile__("cbi 0x0B,7\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""sbi 0x0B,7\n\t"); }
-else if(Duration==3){ __asm__ __volatile__("cbi 0x0B,7\n\t""nop\n\t""nop\n\t""nop\n\t""sbi 0x0B,7\n\t"); }
-else if(Duration==2){ __asm__ __volatile__("cbi 0x0B,7\n\t""nop\n\t""nop\n\t""sbi 0x0B,7\n\t"); }
-else if(Duration==1){ __asm__ __volatile__("cbi 0x0B,7\n\t""nop\n\t""sbi 0x0B,7\n\t"); }
-sei();
-*/
+
 
 
 //}// for
@@ -1619,7 +1460,7 @@ void ShowBars(void)
     //DrawBox(17,HR*8,17,HR*8+6,0x8c,0xfc,0x4c);    
 
 }
-
+/*
 word fastnaptime;
 word longnaptime;
 word nextnaptime;
@@ -1649,7 +1490,7 @@ void SleepTime(void)
   //  nextnap();
     //if (pin0_interrupt_flag){nextnaptime=cnt1;}else { ERR=ERR_BROKEN_SLEEP; }
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-}
+}*/
 /*
 boolean Touched(void)
 {
@@ -1846,7 +1687,7 @@ if(read22()==DHTLIB_OK)
 }
 
 
-void GetVcc(void){ VccN=Vcc(); if (VccN<VccH){VccH=VccN;} if (VccN>VccL){VccL=VccN;} } //280us
+//void GetVcc(void){ VccN=Vcc(); if (VccN<VccH){VccH=VccN;} if (VccN>VccL){VccL=VccN;} } //280us
 
 void LcdBack(void)
 {
@@ -1859,13 +1700,13 @@ void LcdBack(void)
     LcdSetPos(0,3);ta("Пыхи ");     
     LcdSetPos(0,4);ta("Влажность");
     LcdSetPos(0,5);ta("Температура");
-
 }
 
 byte FanTimeout=0;
 byte RunningFan=0;
 word LastTimeFan=0;
-word NextTmpHumCheck=0;
+
+word co1=0;
 
 void FanON(byte d){Pin2Output(DDRB,0);Pin2HIGH(PORTB,0);RunningFan=d;}
 void FanOFF(byte t){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);FanTimeout=t;}
@@ -1921,16 +1762,29 @@ while(1){
       UpdateS=false;
               __asm__ __volatile__("wdr\n\t");//  wdt_reset();
 
-      if ((uptime>=43200)||((PINC&(1<<3))==0)){eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0);reboot();} // reboot every 24h or when reset button (A3) is pressed
+//      if ((uptime>=43200)||((PINC&(1<<3))==0)){eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0);reboot();} // reboot every 24h or when reset button (A3) is pressed
+      if (uptime>=43200){eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0);reboot();} // reboot every 24h
 
       LcdSetPos(0,0);tn(10000,uptime);// 963us
+//co1++;
 
-      HR=uptime/(90*60);
-      FlashIntensity=Intensity[HR];
+ 
 
-  if(uptime>NextTmpHumCheck)
+  if(uptime>=NextTmpHumCheck)
   {
-        NextTmpHumCheck=uptime+99;
+        NextTmpHumCheck=uptime+15;
+ // LcdSetPos(18,2);ta("N");tn(100,co1);co1=0;
+      HR=uptime/(90*60);      FlashIntensity=Intensity[HR];
+      LcdSetPos(6,1);tn(10,HR);
+      LcdSetPos(32,1);tn(10,FlashIntensity);
+      LcdSetPos(47,1);tn(100,MCUtemp);
+      LcdSetPos(6,2);tn(100,ADCresult);
+
+ word ll=1000000/Flashes;
+
+  LcdSetPos(5*6,3);tn(10000,ll);   
+    
+
 //          LcdBack();
    if (DHTreadAll()) 
   {
@@ -1945,14 +1799,13 @@ while(1){
    }
   }
 
-      LcdSetPos(6,1);tn(10,HR);
-      LcdSetPos(32,1);tn(10,FlashIntensity);
-      LcdSetPos(47,1);tn(100,MCUtemp);
-      LcdSetPos(6,2);tn(100,ADCresult);
+//  LcdSetPos(5*6,3);tn(10000,Flashes);     ta(" ");tn(100,ll);   
+  Flashes=0;
+
 
 //      if (ADCfree)
   //    {
-        if (uptime>NextSoilMoistureCheck)
+        if (uptime>=NextSoilMoistureCheck)
         {
           NextSoilMoistureCheck=uptime+300;
           SoilMoisture();
@@ -1964,47 +1817,22 @@ while(1){
         LcdSetPos(72,1);
         tn(100,moisture);
     //  }
+
+
       
       }
 
       
       if(FanTimeout){FanTimeout--;}else if(RunningFan){if((--RunningFan)==0){FanOFF(60);LastTimeFan=uptime;}}
 
-      LcdSetPos(22,0);
-      
-      tn(10,RunningFan);tn(10,FanTimeout);tn(10000,LastTimeFan);
+//      LcdSetPos(22,0);    tn(10,RunningFan);tn(10,FanTimeout);tn(10000,LastTimeFan);
 
-      LcdSetPos(5*6,3);tn(10000,Flashes);
-      word ll=1000000/Flashes;ta(" ");tn(100,ll);
-      Flashes=0;
       
       
   }
   
 
-/*
-//if(ERR==0x10){ERR=0;}// ignore TSL mising
-// если есть ошибки
-if (ERR)
-{
-  //  RTC_ON();
-    //LCD_ON();
-//    fillScreen(0x000000);
-LcdClear();ta("Ошибка ");th(ERR);
 
-ta(" ");th(grr);ta(" ");th(grr2);
-
-  //  delay(3500);
-delay(1000);
-        __asm__ __volatile__("wdr\n\t");//  wdt_reset();
-LcdSetPos(0,1);
-ta("Перезагрузка");
-delay(1000);
-    //SPCR&=~(1<<SPE); //  SPI.end(); // turn off SPI ????
-   // LCD_OFF(); 
-    reboot();  // This will call location zero and cause a reboot.
-}
-*/
 
 
 
@@ -2012,20 +1840,29 @@ delay(1000);
 if(FlashIntensity)
 {
 
-Pin2Output(DDRD,5);
-Pin2Output(DDRD,6);
+//Pin2Output(DDRD,5);
+//Pin2Output(DDRD,6);
 //Pin2Output(DDRD,7);
   
-for(byte i=0;i<10;i++)
+for(byte i=0;i<100;i++)
 {
-    TCNT1=0;PORTD|=(1<<5); while(TCNT1<FlashIntensity);PORTD&=~(1<<5); // pd5 start stop 
-    TCNT1=0;PORTD|=(1<<6); while(TCNT1<FlashIntensity);PORTD&=~(1<<6); // pd6 start stop
+//    TCNT1=0;PORTD|=(1<<5); while(TCNT1<FlashIntensity);PORTD&=~(1<<5); // pd5 start stop 
+  //  TCNT1=0;PORTD|=(1<<6); while(TCNT1<FlashIntensity);PORTD&=~(1<<6); // pd6 start stop
     //TCNT1=0;PORTD|=(1<<7); while(TCNT1<FlashIntensity);PORTD&=~(1<<7); // pd7 start stop 
+    
+//    PORTD|=(1<<5); delayMicroseconds(FlashIntensity);PORTD&=~(1<<5); // pd5 start stop 
+  //  PORTD|=(1<<6); delayMicroseconds(FlashIntensity);PORTD&=~(1<<6); // pd5 start stop 
+    TCNT1=0;PORTD|=(1<<5); while(TCNT1<FlashIntensity);PORTD&=~(1<<5); // pd6 start stop
+    TCNT1=0;PORTD|=(1<<7); while(TCNT1<FlashIntensity);PORTD&=~(1<<7); // pd7 start stop 
+    TCNT1=0;PORTD|=(1<<6); while(TCNT1<FlashIntensity);PORTD&=~(1<<6); // pd6 start stop
+
+    TCNT1=0;while(TCNT1<(8-FlashIntensity*2)); // delay
+//    delayMicroseconds(10-FlashIntensity*2);
 }
     Flashes++;  
 
-Pin2Input(DDRD,5);
-Pin2Input(DDRD,6);
+//Pin2Input(DDRD,5);
+//Pin2Input(DDRD,6);
 //Pin2Input(DDRD,7);
 } // пыхнем
 //else { set_sleep_mode(SLEEP_MODE_PWR_DOWN); unap(T1S); } // а иначе выходной :)
