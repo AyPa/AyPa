@@ -384,7 +384,7 @@ void RequestFrom(byte addr,byte reg)
 //#define FLASH_CYCLE 95 // microseconds (+~5)
 //#define FLASH_CYCLE 65 // microseconds (+~5)
 
-byte Intensity[16] = {4,2,1,0, 0,0,0,0, 1,2,3,4, 4,4,4,4}; // интенсивность яркости (90min)
+byte Intensity[16] = {3,2,1,0, 0,0,0,0, 1,2,3,3, 3,3,3,3}; // интенсивность яркости (90min)
 byte FlashIntensity=0;
 
 byte volatile ticks=0; // 1/2с
@@ -613,7 +613,7 @@ byte sleeps=0;
 #define T4S 8
 #define T8S 9
  
-#define system_sleep(mode,flags) { set_sleep_mode(mode); sleeps=0;do{sleep_enable();sleep_cpu();sleep_disable();if(flags){break;}else{sleeps++;}}while(1);}
+//#define system_sleep(mode,flags) { set_sleep_mode(mode); sleeps=0;do{sleep_enable();sleep_cpu();sleep_disable();if(flags){break;}else{sleeps++;}}while(1);}
  
 // Watchdog timeout values
 // 0=16ms, 1=32ms, 2=64ms, 3=128ms, 4=250ms, 5=500ms, 6=1sec, 7=2sec, 8=4sec, 9=8sec
@@ -621,22 +621,22 @@ byte sleeps=0;
  
 // Turn off the Watchdog
 // Watchdog sleep function - combines all the above functions into one
-#define watchdogSleep(mode,timeout){setup_watchdog(timeout);system_sleep(mode,WDhappen);wdt_disable();}
+//#define watchdogSleep(mode,timeout){setup_watchdog(timeout);system_sleep(mode,WDhappen);wdt_disable();}
  
- volatile word  cnt1; // vars updated in ISR should be declared as volatile and accessed with cli()/sei() ie atomic
+ //volatile word  cnt1; // vars updated in ISR should be declared as volatile and accessed with cli()/sei() ie atomic
 
 ISR(WDT_vect) // Watchdog timer interrupt.
 { 
   //reboot();  //reboot
   //  r2=TCNT1;
-  if(WDsleep)
-  {
+ // if(WDsleep)
+  //{
 //  cnt1=TCNT1;
-  WDhappen=1;
-  WDsleep=0;
-  }
-  //debug
-  else{ reboot(); }// This will call location zero and cause a reboot.
+ // WDhappen=1;
+  //WDsleep=0;
+  //}
+  //else{
+  SaveUptime(); reboot(); //}// This will call location zero and cause a reboot.
 }
 
 byte DHTdata[5];
@@ -911,6 +911,8 @@ void setup() {
 
   extreset=MCUSR;
   
+  
+  
   if(eeprom_read_byte((byte*)0)!=0xAA){eeprom_write_byte((byte*)0,0xAA); uptime=0;} // our signature
   else{ 
   if (PINC&(1<<3)){ uptime=(eeprom_read_byte((byte*)1)<<8)|eeprom_read_byte((byte*)2); }
@@ -1014,13 +1016,13 @@ setup_watchdog(T2S); // если в течении 2s не сбросить ст
   //  PCMSK1 = 1<<PCINT11; // setup pin change interrupt on A3 pin (SQuareWave from RTC)
     //PCICR |= 1<<PCIE1; 
 
-Pin2Output(DDRD,5);
-Pin2Output(DDRD,6);
-Pin2Output(DDRD,7);
+
+//DDRD|=(1<<5)|(1<<6)|(1<<7); // same same\
+Pin2Output(DDRD,5);Pin2Output(DDRD,6);Pin2Output(DDRD,7);
 
     
       LcdBack();
- NextSoilMoistureCheck=uptime;NextTmpHumCheck=uptime;
+ NextSoilMoistureCheck=NextTmpHumCheck=uptime;
 
 }
 
@@ -1032,20 +1034,18 @@ ISR(TIMER1_OVF_vect)
  t1ovf++;
  }
  */
-word volatile t2ovf=0;
+byte volatile t2ovf=0;
  
 boolean volatile UpdateS=true;
 //boolean volatile UpdateM=true;
 //byte volatile ic=0;
 ISR (TIMER2_COMPA_vect)
 {
-//    t2ovf++;
     if(++t2ovf==125)
     {
         t2ovf=0; uptime++; UpdateS=true;
-//        if(++ic==64){UpdateM=true; ic=0;} // inc uptime everysecond invoke UpdatS every 64s
+        if(ADCfree){ADCfree=0;ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(1<<ADIE)|2;} // start vcc measurement (every 1/125s)
     }
-    if(ADCfree){ADCfree=0;ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(1<<ADIE)|2;} // start vcc measurement (every 1/125s)
 }
 
 ISR(ADC_vect)
@@ -1702,6 +1702,8 @@ void LcdBack(void)
     LcdSetPos(0,5);ta("Температура");
 }
 
+void SaveUptime(void){eeprom_update_byte((byte*)1,(uptime>>8));eeprom_update_byte((byte*)2,(uptime&0xFF));}
+
 byte FanTimeout=0;
 byte RunningFan=0;
 word LastTimeFan=0;
@@ -1724,7 +1726,7 @@ while(1){
 
   if(ADCready)
   {
-      if (ADCresult>260){eeprom_update_byte((byte*)1,(uptime>>8));eeprom_update_byte((byte*)2,(uptime&0xFF)); delay(3000);}// wait till power off (after 2s watchdog will inforce reboot)
+      if (ADCresult>260){SaveUptime(); delay(3000);}// wait till power off (after 2s watchdog will inforce reboot)
       ADCready=0;
   }
   
@@ -1760,12 +1762,12 @@ while(1){
   {
     //    TCNT1=0;
       UpdateS=false;
-              __asm__ __volatile__("wdr\n\t");//  wdt_reset();
+      __asm__ __volatile__("wdr\n\t");//  wdt_reset();
 
 //      if ((uptime>=43200)||((PINC&(1<<3))==0)){eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0);reboot();} // reboot every 24h or when reset button (A3) is pressed
-      if (uptime>=43200){eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0);reboot();} // reboot every 24h
+      if (uptime>=43200){uptime=0;SaveUptime();reboot();} // reboot every 24h
 
-      LcdSetPos(0,0);tn(10000,uptime);// 963us
+      if(uptime&1){LcdSetPos(0,0);tn(10000,uptime);}// 963us
 //co1++;
 
  
@@ -1780,9 +1782,7 @@ while(1){
       LcdSetPos(47,1);tn(100,MCUtemp);
       LcdSetPos(6,2);tn(100,ADCresult);
 
- word ll=1000000/Flashes;
 
-  LcdSetPos(5*6,3);tn(10000,ll);   
     
 
 //          LcdBack();
@@ -1797,30 +1797,26 @@ while(1){
       // иногда нужен ветерок CО2 свежего подкачать (но не ночью c 12 до 6 утра)
       if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>28)||(uptime-LastTimeFan)>5400){if((HR<4)||(HR>7)){FanON(20);}}}
    }
-  }
 
-//  LcdSetPos(5*6,3);tn(10000,Flashes);     ta(" ");tn(100,ll);   
-  Flashes=0;
-
-
-//      if (ADCfree)
-  //    {
+// hide this here
         if (uptime>=NextSoilMoistureCheck)
         {
-          NextSoilMoistureCheck=uptime+300;
+          NextSoilMoistureCheck=uptime+3000;
           SoilMoisture();
-//          moisture=NextSoilMoistureCheck;
-//          moisture=NextTmpHumCheck;//SoilMoistureCheckInterval;//uptime-LastSoilMoistureCheck;
-//moisture=uptime;
-
-        
         LcdSetPos(72,1);
         tn(100,moisture);
-    //  }
-
-
-      
       }
+
+
+  }// next humtmp check
+
+if(uptime&1){
+  LcdSetPos(60,3);tn(10000,Flashes);  //   ta(" ");tn(100,ll);   
+   word ll=1000000L/Flashes;
+  LcdSetPos(5*6,3);tn(10000,ll);   
+}
+Flashes=0;
+
 
       
       if(FanTimeout){FanTimeout--;}else if(RunningFan){if((--RunningFan)==0){FanOFF(60);LastTimeFan=uptime;}}
@@ -1839,46 +1835,50 @@ while(1){
 
 if(FlashIntensity)
 {
-
-//Pin2Output(DDRD,5);
-//Pin2Output(DDRD,6);
-//Pin2Output(DDRD,7);
   
-for(byte i=0;i<100;i++)
-{
-//    TCNT1=0;PORTD|=(1<<5); while(TCNT1<FlashIntensity);PORTD&=~(1<<5); // pd5 start stop 
-  //  TCNT1=0;PORTD|=(1<<6); while(TCNT1<FlashIntensity);PORTD&=~(1<<6); // pd6 start stop
-    //TCNT1=0;PORTD|=(1<<7); while(TCNT1<FlashIntensity);PORTD&=~(1<<7); // pd7 start stop 
-    
-//    PORTD|=(1<<5); delayMicroseconds(FlashIntensity);PORTD&=~(1<<5); // pd5 start stop 
-  //  PORTD|=(1<<6); delayMicroseconds(FlashIntensity);PORTD&=~(1<<6); // pd5 start stop 
-    TCNT1=0;PORTD|=(1<<5); while(TCNT1<FlashIntensity);PORTD&=~(1<<5); // pd6 start stop
-    TCNT1=0;PORTD|=(1<<7); while(TCNT1<FlashIntensity);PORTD&=~(1<<7); // pd7 start stop 
-    TCNT1=0;PORTD|=(1<<6); while(TCNT1<FlashIntensity);PORTD&=~(1<<6); // pd6 start stop
+//  PORTD&=~(1<<5);   PORTD&=~(1<<6); 
+//  PORTD|=(1<<5);   PORTD|=(1<<6); PORTD|=(1<<7); 
+//    PORTB|=(1<<6);    PORTB|=(1<<7); 
+//delayMicroseconds(20);
+//PORTB&=~(1<<6);  PORTB&=~(1<<7); 
+  //Pin2Input(DDRB,6);  Pin2Input(DDRB,7);
 
-    TCNT1=0;while(TCNT1<(8-FlashIntensity*2)); // delay
-//    delayMicroseconds(10-FlashIntensity*2);
-}
+//  PORTD&=~(1<<5);   PORTD&=~(1<<6);  PORTD&=~(1<<7); 
+Pin2Output(DDRB,6);
+Pin2Output(DDRB,7);
+
+   if(FlashIntensity==3)
+   {
+      for(byte i=0;i<100;i++)
+      {
+//        TCNT1=0; PORTB|=(1<<6);  while(TCNT1<FlashIntensity); PORTB&=~(1<<6); 
+  //      TCNT1=0; PORTB|=(1<<7);  while(TCNT1<FlashIntensity); PORTB&=~(1<<7); 
+        TCNT1=0; PORTB|=(1<<6);  while(TCNT1<3); PORTB&=~(1<<6); 
+        TCNT1=0; PORTB|=(1<<7);  while(TCNT1<7); PORTB&=~(1<<7); 
+      }
+   }
+   else
+   {
+  
+    byte till=(6-FlashIntensity*2); // 49900/s 18.9W
+    for(byte i=0;i<100;i++)
+    {
+        //Pin2Output(DDRB,6);
+        TCNT1=0; PORTB|=(1<<6);  while(TCNT1<FlashIntensity); PORTB&=~(1<<6); //Pin2Input(DDRB,6); 
+        //Pin2Output(DDRB,7);
+        TCNT1=0; PORTB|=(1<<7);  while(TCNT1<FlashIntensity); PORTB&=~(1<<7); //Pin2Input(DDRB,7); 
+
+//      TCNT1=0;PORTD|=(1<<5); while(TCNT1<FlashIntensity);PORTD&=~(1<<5); 
+  //      TCNT1=0;PORTD|=(1<<6); while(TCNT1<FlashIntensity);PORTD&=~(1<<6); 
+        TCNT1=0;while(TCNT1<till); // delay
+//        if((i&3)==3){TCNT1=0;while(TCNT1<19);} // после каждой 4й перерыв (9-9-9-30) ?50
+    }
+   }
+
     Flashes++;  
 
-//Pin2Input(DDRD,5);
-//Pin2Input(DDRD,6);
-//Pin2Input(DDRD,7);
 } // пыхнем
-//else { set_sleep_mode(SLEEP_MODE_PWR_DOWN); unap(T1S); } // а иначе выходной :)
 
-
-  
-//  NOP;
-
-//  wdt_disable();// some serious stuff (its role in hangups prevention?) why disable?
-  
-
-
-//NOP;
-//it++;
-//oldnow=now;
-  //delay(1000);               // wait for a second
     } // eternal loop
 }
 
