@@ -1767,14 +1767,15 @@ while(1){
 //      if ((uptime>=43200)||((PINC&(1<<3))==0)){eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0);reboot();} // reboot every 24h or when reset button (A3) is pressed
       if (uptime>=43200){uptime=0;SaveUptime();reboot();} // reboot every 24h
 
-      if(uptime&1){LcdSetPos(0,0);tn(10000,uptime);}// 963us
+    //  if(uptime&1){LcdSetPos(0,0);tn(10000,uptime);}// 963us
+  LcdSetPos(0,0);tn(10000,uptime);// 963us
 //co1++;
 
  
 
   if(uptime>=NextTmpHumCheck)
   {
-        NextTmpHumCheck=uptime+15;
+        NextTmpHumCheck=uptime+30;
  // LcdSetPos(18,2);ta("N");tn(100,co1);co1=0;
       HR=uptime/(90*60);      FlashIntensity=Intensity[HR];
       LcdSetPos(6,1);tn(10,HR);
@@ -1795,7 +1796,7 @@ while(1){
       DHTtmp=(DHTtmp+5)/10;
       tn(10,DHTtmp);
       // иногда нужен ветерок CО2 свежего подкачать (но не ночью c 12 до 6 утра)
-      if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>28)||(uptime-LastTimeFan)>5400){if((HR<4)||(HR>7)){FanON(20);}}}
+      if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=28)||(uptime-LastTimeFan)>5400){if(DHTtmp>=31){delay(60000);}else if((HR<4)||(HR>7)){FanON(30);}}}
    }
 
 // hide this here
@@ -1821,9 +1822,6 @@ Flashes=0;
       
       if(FanTimeout){FanTimeout--;}else if(RunningFan){if((--RunningFan)==0){FanOFF(60);LastTimeFan=uptime;}}
 
-//      LcdSetPos(22,0);    tn(10,RunningFan);tn(10,FanTimeout);tn(10000,LastTimeFan);
-
-      
       
   }
   
