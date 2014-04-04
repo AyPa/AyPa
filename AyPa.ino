@@ -385,7 +385,9 @@ void RequestFrom(byte addr,byte reg)
 //#define FLASH_CYCLE 65 // microseconds (+~5)
 
 byte Intensity[24] = {0,0,0,0,0,0, 1,2,3,3,3,3, 3,3,3,3,3,3, 3,3,3,3,2,1}; // почасовая интенсивность 
+//byte DelayFla[24] = {0,0,0,0,0,0, 2,1,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,1,2}; // пауза между вспышками
 byte FlashIntensity=0;
+//byte FlashDelay=0;
 
 byte volatile ticks=0; // 1/2с
 byte HR;
@@ -636,7 +638,8 @@ ISR(WDT_vect) // Watchdog timer interrupt.
   //WDsleep=0;
   //}
   //else{
-  SaveUptime(); reboot(); //}// This will call location zero and cause a reboot.
+//  SaveUptime(); 
+  reboot(); //}// This will call location zero and cause a reboot.
 }
 
 byte DHTdata[5];
@@ -830,7 +833,7 @@ byte volatile ADCfree=1;
 
 word NextSoilMoistureCheck=0;
 word NextTmpHumCheck=0;
-word volatile uptime; // uptime в секундах
+word volatile uptime=0; // uptime в секундах
 
 word MCUtemp;
 
@@ -896,10 +899,11 @@ void SoilMoisture(){
 byte v;
 byte   extreset;
 
-
+//word uptimeS;
 word bts=0; // timestamp
 
 //byte setupdone=0;
+byte portbmask;
 
 void setup() {                
 //  byte pmask,idx;
@@ -912,21 +916,25 @@ void setup() {
   extreset=MCUSR;
   
     Pin2Input(DDRC,3);Pin2HIGH(PORTC,3); // pull up on A3 (user button)
-  //delay(2);// pull up settle time
+  //delay(100);// pull up settle time
   
-  if(eeprom_read_byte((byte*)0)!=0xAA){eeprom_write_byte((byte*)0,0xAA); uptime=0;} // our signature
-  else{
-    
-  if ((PINC&(1<<3))>0){ eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0); } // if A3 is low (button is pressed during startup)
-//  uptime=(eeprom_read_byte((byte*)1)<<8)|eeprom_read_byte((byte*)2); 
-//}
-//  else {eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0); uptime=0; }
-  //} // continue from where it stops 
+//  uptime=0;
+//  if(eeprom_read_byte((byte*)0)!=0xAA){eeprom_write_byte((byte*)0,0xAA);} // our signature
+//  else{
+//v=PINC&(1<<3);    
+//8 if A3 is not pressed
+//0 if A3 is pressed
+//  if ((PINC&(1<<3))==0){ uptime=0; } // if A3 is low (button is pressed during startup)
+  //eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0);
   // if A3 button is held pressed during startup - uptime is set to 0
-
-  uptime=(eeprom_read_byte((byte*)1)<<8)|eeprom_read_byte((byte*)2); 
-  bts=uptime;// to prevent false trigger on startup
-}
+  //else
+  //{
+//  if (PINC&(1<<3)==0){ 
+//  uptime=(eeprom_read_byte((byte*)1)<<8)|eeprom_read_byte((byte*)2); //}
+//  uptimeS=uptime+5;// 5 seconds to reset
+  //}
+//  bts=uptime;// to prevent false trigger on startup
+//}
 
 
     PCMSK1 = 1<<PCINT11; // setup pin change interrupt on A3 pin 
@@ -1032,19 +1040,22 @@ Pin2Output(DDRD,5);Pin2Output(DDRD,6);Pin2Output(DDRD,7);
       LcdBack();
  NextSoilMoistureCheck=NextTmpHumCheck=uptime;
 
+    Pin2Output(DDRB,6);
+    Pin2Output(DDRB,7);
+    portbmask=PINB&(~((1<<6)|(1<<7))); 
 }
+
+byte FanTimeout=0; // время отдыха вентилятора после выключения
+byte RunningFan=0; // время действующего вентилятора
+word LastTimeFan=0; //  время последнего включения вентилятора
 
 //ISR (PCINT1_vect){ if (PINC&(1<<3)==0){ HR++; HR&=0xF; FlashIntensity=Intensity[HR]; }}  // A3 user button handler
 
 ISR (PCINT1_vect){ if(uptime!=bts){//A3 is low here
 
-//  if(PINC&(1<<3)==0)
-  //{
-HR++; uptime+=(60*60/2); if(HR==24){HR=0;uptime=0;};  
-//PINC&(1>>3);
-  //}
-  //else{HR--;uptime-=(60*60/2); if(HR<0){HR=23;uptime=23*60*60/2;}; }
-FlashIntensity=Intensity[HR]; 
+//if (uptime<uptimeS){uptime=0; eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0); reboot(); }
+//else{
+HR++; uptime+=(60*60/2); if(HR==24){HR=0;uptime=0;};  FlashIntensity=Intensity[HR]; LastTimeFan=uptime;
 bts=uptime;
 }}  // A3 user button handler
 
@@ -1062,15 +1073,16 @@ boolean volatile UpdateS=true;
 //long wctr;
 ISR (TIMER2_COMPA_vect)
 {
-    if (++t2ovf==249) // everry 2s
+//    if (++t2ovf==249) // everry 2s   8sec slow on 38min
+    if (++t2ovf==248) // everry 2s
     {
         t2ovf=0; uptime++; UpdateS=true;
-        if(ADCfree){ADCfree=0;ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(1<<ADIE)|2;} // start vcc measurement (every 1/125s)
+//        if(ADCfree){ADCfree=0;ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(1<<ADIE)|2;} // start vcc measurement (every 1/125s)
     }
 }
 
-word LastVcc=0;
-ISR(ADC_vect){ ADCresult=ADCW; if(LastVcc<ADCresult) { if(ADCresult>260){SaveUptime();reboot();} } LastVcc=ADCresult; ADCfree=1;} // 1.25s delay after SaveUptime
+//word LastVcc=0;
+//ISR(ADC_vect){ ADCresult=ADCW; if(LastVcc<ADCresult) { if(ADCresult>260){SaveUptime();reboot();} } LastVcc=ADCresult; ADCfree=1;} // 1.25s delay after SaveUptime
 
 
 word Flashes=0; // число вспышек в секунду
@@ -1721,18 +1733,26 @@ void LcdBack(void)
     LcdSetPos(0,5);ta("Температура");
 }
 
-void SaveUptime(void){eeprom_update_byte((byte*)1,(uptime>>8));eeprom_update_byte((byte*)2,(uptime&0xFF));}
+//void SaveUptime(void){eeprom_update_byte((byte*)1,(uptime>>8));eeprom_update_byte((byte*)2,(uptime&0xFF));}
 
-byte FanTimeout=0; // время отдыха вентилятора после выключения
-byte RunningFan=0; // время действующего вентилятора
-word LastTimeFan=0; //  время последнего включения вентилятора
+
 
 //word co1=0;
 
 void FanON(byte d){Pin2Output(DDRB,0);Pin2HIGH(PORTB,0);RunningFan=d;}
 void FanOFF(byte t){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);FanTimeout=t;}
 
-void eeprom_update_byte(byte*addr,byte v){ if(eeprom_read_byte((byte*)addr)!=v){eeprom_write_byte((byte*)addr,v);}}
+void Delay1(void)
+{
+  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;
+      __asm__ __volatile__("Jump0:   rjmp   Delay1\n\t");
+}
+
+
+
+
+//void*() df=Delay1;
+//void eeprom_update_byte(byte*addr,byte v){ if(eeprom_read_byte((byte*)addr)!=v){eeprom_write_byte((byte*)addr,v);}}
 
 // the loop routine runs over and over again forever:
 void loop() {
@@ -1757,15 +1777,16 @@ while(1){
       __asm__ __volatile__("wdr\n\t");//  wdt_reset();
 
 //      if ((uptime>=43200)||((PINC&(1<<3))==0)){eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0);reboot();} // reboot every 24h or when reset button (A3) is pressed
-      if (uptime>=43200){uptime=0;SaveUptime();reboot();} // reboot every 24h
+//      if (uptime>=43200){uptime=0;SaveUptime();reboot();} // reboot every 24h
+      if (uptime>=43200){reboot();} // reboot every 24h
 
 //     if((uptime&7)==0){
        LcdSetPos(0,0);tn(10000,uptime);
 
 HR=uptime/(60*60/2);      FlashIntensity=Intensity[HR];
 byte mn=(uptime-HR*60*60/2)/30;
-       LcdSetPos(6,1);tn(10,HR);tn(10,mn);
-      LcdSetPos(32,1);tn(10,FlashIntensity);
+byte sc=(uptime-HR*60*60/2-mn*30)*2;
+       LcdSetPos(6,1);tn(10,HR);tn(10,mn);tn(10,sc);
 
   //long mm=millis(); wctr=1000000L;while(--wctr>0);  long ww=millis();tn(10000,ww-mm);
   
@@ -1778,7 +1799,7 @@ byte mn=(uptime-HR*60*60/2)/30;
  // LcdSetPos(18,2);ta("N");tn(100,co1);co1=0;
       
   //    LcdSetPos(6,1);tn(10,HR);
-//      LcdSetPos(32,1);tn(10,FlashIntensity);
+      LcdSetPos(32,1);tn(10,FlashIntensity);
       LcdSetPos(47,1);tn(100,MCUtemp);
       LcdSetPos(6,2);tn(100,ADCresult);
 
@@ -1800,22 +1821,22 @@ byte mn=(uptime-HR*60*60/2)/30;
      if (uptime>=NextSoilMoistureCheck){ NextSoilMoistureCheck=uptime+1000; SoilMoisture(); LcdSetPos(72,1); tn(100,moisture); }// hide this here
   }// next humtmp check
 
-/*
-if(uptime&1){
-  Flashes/=2;
+
+//if(uptime&1){
+  //Flashes/=2;
   LcdSetPos(60,3);tn(10000,Flashes);
  
-   word ll=1000000L/Flashes;
-  LcdSetPos(5*6,3);tn(10000,ll);   
-}
-Flashes=0;*/
+   //word ll=1000000L/Flashes;
+//  LcdSetPos(5*6,3);tn(10000,ll);   
+//}
+Flashes=0;
 
 
       
       if(FanTimeout){FanTimeout--;}else if(RunningFan){if((--RunningFan)==0){FanOFF(32);LastTimeFan=uptime;}}
 
       
-  }
+  }// UpdateS
   
 
 
@@ -1823,8 +1844,8 @@ Flashes=0;*/
 
 
 
-if(FlashIntensity)
-{
+//if(FlashIntensity)
+//{
   
 //  PORTD&=~(1<<5);   PORTD&=~(1<<6); 
 //  PORTD|=(1<<5);   PORTD|=(1<<6); PORTD|=(1<<7); 
@@ -1834,38 +1855,66 @@ if(FlashIntensity)
   //Pin2Input(DDRB,6);  Pin2Input(DDRB,7);
 
 //  PORTD&=~(1<<5);   PORTD&=~(1<<6);  PORTD&=~(1<<7); 
-Pin2Output(DDRB,6);
-Pin2Output(DDRB,7);
 
-   if(FlashIntensity==3)
+   if(FlashIntensity==3)// 8x3 24us of light 52us 45%
    {
-      for(byte i=0;i<100;i++)
-      {
-        TCNT1=0; PORTB|=(1<<6);  while(TCNT1<FlashIntensity); PORTB&=~(1<<6); 
-        TCNT1=0; PORTB|=(1<<7);  while(TCNT1<FlashIntensity); PORTB&=~(1<<7); 
-      }
+      //for(byte i=0;i<100;i++)
+  //    {
+//        TCNT1=0; PORTB|=(1<<6);  while(TCNT1<FlashIntensity); PORTB&=~(1<<6); 
+  //      TCNT1=0; PORTB|=(1<<7);  while(TCNT1<FlashIntensity); PORTB&=~(1<<7); 
+  cli();
+        TCNT1=0; PORTB=portbmask|(1<<6);  while(TCNT1<3); PORTB=portbmask|(1<<7); while(TCNT1<6); PORTB=portbmask; 
+        PORTB=portbmask|(1<<6);  while(TCNT1<9); PORTB=portbmask|(1<<7); while(TCNT1<12); PORTB=portbmask; 
+        PORTB=portbmask|(1<<6);  while(TCNT1<15); PORTB=portbmask|(1<<7); while(TCNT1<18); PORTB=portbmask; 
+        PORTB=portbmask|(1<<6);  while(TCNT1<21); PORTB=portbmask|(1<<7); while(TCNT1<24); PORTB=portbmask; 
+        
+        PORTB=portbmask|(1<<6);  while(TCNT1<27); PORTB=portbmask|(1<<7); while(TCNT1<30); PORTB=portbmask; 
+        PORTB=portbmask|(1<<6);  while(TCNT1<33); PORTB=portbmask|(1<<7); while(TCNT1<36); PORTB=portbmask; 
+        PORTB=portbmask|(1<<6);  while(TCNT1<39); PORTB=portbmask|(1<<7); while(TCNT1<42); PORTB=portbmask; 
+        PORTB=portbmask|(1<<6);  while(TCNT1<45); PORTB=portbmask|(1<<7); while(TCNT1<48); PORTB=portbmask; 
+  sei();
+    //  }
    }
-   else
+   else if(FlashIntensity==2)
    {
-  
-    byte till=(6-FlashIntensity*2); 
-    for(byte i=0;i<100;i++)
-    {
+//3-0 2-3 1-6  
+//    byte till=(6-FlashIntensity*2); 
+  //  for(byte i=0;i<100;i++)
+    //{
         //Pin2Output(DDRB,6);
-        TCNT1=0; PORTB|=(1<<6);  while(TCNT1<FlashIntensity); PORTB&=~(1<<6); //Pin2Input(DDRB,6); 
+      //  TCNT1=0; PORTB|=(1<<6);  while(TCNT1<FlashIntensity); PORTB&=~(1<<6); //Pin2Input(DDRB,6); 
         //Pin2Output(DDRB,7);
-        TCNT1=0; PORTB|=(1<<7);  while(TCNT1<FlashIntensity); PORTB&=~(1<<7); //Pin2Input(DDRB,7); 
-
-//      TCNT1=0;PORTD|=(1<<5); while(TCNT1<FlashIntensity);PORTD&=~(1<<5); 
-  //      TCNT1=0;PORTD|=(1<<6); while(TCNT1<FlashIntensity);PORTD&=~(1<<6); 
-        TCNT1=0;while(TCNT1<till); // delay
+        //TCNT1=0; PORTB|=(1<<7);  while(TCNT1<FlashIntensity); PORTB&=~(1<<7); //Pin2Input(DDRB,7); 
+        cli();
+        TCNT1=0; PORTB=portbmask|(1<<6);  while(TCNT1<3); PORTB=portbmask|(1<<7); while(TCNT1<6); PORTB=portbmask; 
+        sei();
+        TCNT1=0;while(TCNT1<3); // delay 3us (3+3+3)
+        
 //        if((i&3)==3){TCNT1=0;while(TCNT1<19);} // после каждой 4й перерыв (9-9-9-30) ?50
-    }
+//    }
+   }
+   else if(FlashIntensity==1)
+   {
+//3-0 2-3 1-6  
+//    byte till=(6-FlashIntensity*2); 
+  //  for(byte i=0;i<100;i++)
+    //{
+        //Pin2Output(DDRB,6);
+      //  TCNT1=0; PORTB|=(1<<6);  while(TCNT1<FlashIntensity); PORTB&=~(1<<6); //Pin2Input(DDRB,6); 
+        //Pin2Output(DDRB,7);
+        //TCNT1=0; PORTB|=(1<<7);  while(TCNT1<FlashIntensity); PORTB&=~(1<<7); //Pin2Input(DDRB,7); 
+        cli();
+        TCNT1=0; PORTB=portbmask|(1<<6);  while(TCNT1<3); PORTB=portbmask|(1<<7); while(TCNT1<6); PORTB=portbmask; 
+        sei();
+        TCNT1=0;while(TCNT1<6); // delay 6us (6+3+3)
+        
+//        if((i&3)==3){TCNT1=0;while(TCNT1<19);} // после каждой 4й перерыв (9-9-9-30) ?50
+//    }
    }
 
-  //  Flashes++;  
+    Flashes++;  
 
-} // пыхнем
+//} // пыхнем
 
     } // eternal loop
 }
