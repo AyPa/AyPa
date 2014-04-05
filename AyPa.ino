@@ -1901,7 +1901,7 @@ byte nn;
   //word t,t1,n;
 //  word Temp;
 
-while(1){
+//while(1){
 
 //  if(ADCready)
   //{
@@ -1921,10 +1921,251 @@ while(1){
 //  if ((timer0_overflow_count&0x1FF)==0){ uptime++;UpdateS=true; } 
 
 //check with interrupts disabled
-  if ((timer0_overflow_count&0x1FF)==0) // do something 2ms
+//if((timer0_overflow_count&0xff)==0)
+//  if ((timer0_overflow_count&0x1FF)==0) // do something 2ms
 //  if (UpdateS) // every 1/2s
-  {
-        TCNT1=0;
+//  {
+    
+//  }// UpdateS
+//  sei();
+  
+//  if ((timer0_overflow_count&0xFF)==0){ uptime++;UpdateS=true; }
+
+
+//FlashIntensity=4;//debug
+
+// 0,1,2,3,4
+//4 8us windows
+
+//4: x x x x
+//3: x x x o
+//2: x o x o
+//1: x o o o
+//0: o o o o
+//NOP;NOP;
+//word tt=TCNT1;
+
+//NOP;
+//cli();
+//  ra=0;
+  //uptime=TCNT2;
+//nn=0;do{nn++;}
+//  ra=TCNT0;  while(TCNT0==ra);  // catch initial sync
+//cli();
+//  if(FlashIntensity){
+//NOP;
+      __asm__ __volatile__(
+"Next:\n\t"    
+      "in r20,0x26\n\t" //TCNT0
+      "3:\n\t"
+      "in r21,0x26\n\t" //TCNT0
+      "cp r21,r20\n\t"
+      "breq 3b\n\t"
+      
+      "lds r26,FlashIntensity\n\t"
+      "mov r25,r1\n\t" // clear r25
+      "or r26,r26\n\t"
+      "breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
+      "ldi r25,0b01000000\n\t" // r25: 01000000
+      "2:\n\t"
+
+      "in r24,3\n\t" // PINB (bits 6&7 are 0)
+      "or r24,r25\n\t" // r24: bit6 ON
+      
+      "cli\n\t"
+      
+      "out 5,r24\n\t" // set pin 6 ON
+      
+      "ldi r23,7\n\t"
+      "1:\n\t"
+      "dec r23\n\t" // 1 clk
+      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
+      "add r24,r25\n\t"      // выключаем 6 включаем 7
+
+      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
+      "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
+
+      "ldi r23,7\n\t"
+      "1:\n\t"
+      "dec r23\n\t" // 1 clk
+      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
+
+      "out 5,r24\n\t" // set pin 6 OFF pin 7 OFF
+//      "sei\n\t"    
+//      );
+//  nn=PINB;
+
+
+//  PORTB|=(1<<6);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<6); 
+//  PORTB|=(1<<7);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<7);   
+//  }
+  //ra=0;
+  // just use nops!
+
+//  ra=TCNT0;  while(TCNT0==ra);  // catch sync
+/*  if(FlashIntensity>=3){
+ // while(TCNT2&0b00011111);  // catch sync
+//    Flash();
+  PORTB|=(1<<6);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<6); 
+  PORTB|=(1<<7);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<7);   
+  }
+*/
+//      __asm__ __volatile__(
+//          "3:\n\t"
+  //    "in r20,0x26\n\t" //TCNT0
+    //  "cp r21,r20\n\t"
+      //"breq 3b\n\t"
+      
+  
+//      "lds r26,FlashIntensity\n\t"
+      "mov r25,r1\n\t" // clear r25
+      "cpi r26,3\n\t"
+//      "or r26,r26\n\t"
+      "brlo 2f\n\t"// Branch if r23 < 3 (unsigned)
+//      "breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
+      "ldi r25,0b01000000\n\t" // r25: 01000000
+      "2:\n\t"
+
+      "in r24,3\n\t" // PINB (bits 6&7 are 0)
+      "or r24,r25\n\t" // r24: bit6 ON
+      
+    //  "cli\n\t"
+      
+      "out 5,r24\n\t" // set pin 6 ON
+      
+      "ldi r23,8\n\t"
+      "1:\n\t"
+      "dec r23\n\t" // 1 clk
+      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
+      "add r24,r25\n\t"      // выключаем 6 включаем 7
+
+      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
+      "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
+
+      "ldi r23,8\n\t"
+      "1:\n\t"
+      "dec r23\n\t" // 1 clk
+      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
+
+      "out 5,r24\n\t" // set pin 6 OFF pin 7 OFF
+  //    "sei\n\t"
+//      );
+
+
+  //    __asm__ __volatile__(
+//          "3:\n\t"
+  //    "in r21,0x26\n\t" //TCNT0
+    //  "cp r21,r20\n\t"
+      //"breq 3b\n\t"
+      
+  
+//      "lds r26,FlashIntensity\n\t"
+      "mov r25,r1\n\t" // clear r25
+      "cpi r26,2\n\t"
+//      "or r26,r26\n\t"
+      "brlo 2f\n\t"// Branch if r23 < 2 (unsigned)
+//      "breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
+      "ldi r25,0b01000000\n\t" // r25: 01000000
+      "2:\n\t"
+
+      "in r24,3\n\t" // PINB (bits 6&7 are 0)
+      "or r24,r25\n\t" // r24: bit6 ON
+//  "cli\n\t"
+      "out 5,r24\n\t" // set pin 6 ON
+      
+      "ldi r23,8\n\t"
+      "1:\n\t"
+      "dec r23\n\t" // 1 clk
+      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
+      "add r24,r25\n\t"      // выключаем 6 включаем 7
+
+      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
+      "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
+
+      "ldi r23,8\n\t"
+      "1:\n\t"
+      "dec r23\n\t" // 1 clk
+      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
+
+      "out 5,r24\n\t" // set pin 6 OFF pin 7 OFF
+//      "sei\n\t"
+  //    );
+
+//  ra=0;if(FlashIntensity>=2){ra=1;}
+//  ra=TCNT0;  while(TCNT0==ra);  // catch sync
+ // while(TCNT2&0b00011111);  // catch sync
+// if(FlashIntensity>=2){
+//    Flash();
+  //PORTB|=(1<<6);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<6); 
+//  PORTB|=(1<<7);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<7);   
+// }
+//  ra=0;if(FlashIntensity>=4){ra=1;}
+//  ra=TCNT0;  while(TCNT0==ra);  // catch sync
+//  if(FlashIntensity>=4){
+ // while(TCNT2&0b00011111);  // catch sync
+//    Flash();
+//  PORTB|=(1<<6);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<6); 
+  //PORTB|=(1<<7);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<7);   
+//  }
+//      __asm__ __volatile__(
+//          "3:\n\t"
+  //    "in r20,0x26\n\t" //TCNT0
+    //  "cp r21,r20\n\t"
+      //"breq 3b\n\t"
+      
+  
+//      "lds r26,FlashIntensity\n\t"
+      "mov r25,r1\n\t" // clear r25
+      "cpi r26,4\n\t"
+//      "or r26,r26\n\t"
+      "brlo 2f\n\t"// Branch if r23 < 4 (unsigned)
+//      "breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
+      "ldi r25,0b01000000\n\t" // r25: 01000000
+      "2:\n\t"
+
+      "in r24,3\n\t" // PINB (bits 6&7 are 0)
+      "or r24,r25\n\t" // r24: bit6 ON
+//"cli\n\t"
+      "out 5,r24\n\t" // set pin 6 ON
+      
+      "ldi r23,8\n\t"
+      "1:\n\t"
+      "dec r23\n\t" // 1 clk
+      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
+      "add r24,r25\n\t"      // выключаем 6 включаем 7
+
+      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
+      "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
+
+    "lds r24,Flashes\n\t" // занесли под пыху
+    "lds r25,Flashes+1\n\t"
+    "adiw r24,1\n\t"
+    "sts Flashes+1,r25\n\t"
+    "sts Flashes,r24\n\t" //Flashes++;
+      "lds r22,timer0_overflow_count\n\t"
+      "lds r21,timer0_overflow_count+1\n\t"
+      "andi r21,1\n\t"
+
+
+      "ldi r23,4\n\t" // сокращение последней вспышки
+      "1:\n\t"
+      "dec r23\n\t" // 1 clk
+      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
+
+      "out 5,r24\n\t" // set pin 6 OFF pin 7 OFF
+
+      "sei\n\t"
+      
+      "or r22,r21\n\t"
+      "breq Check\n\t"
+      "rjmp Next\n\t"
+      
+"Check:\n\t"
+
+//      "sei\n\t"
+      );
+      
+              TCNT1=0;
   //    UpdateS=false;
       __asm__ __volatile__("wdr\n\t");//  wdt_reset();
 
@@ -1932,11 +2173,13 @@ while(1){
 //      if (uptime>=43200){uptime=0;SaveUptime();reboot();} // reboot every 24h
 //      if (uptime>=43200){reboot();} // reboot every 24h
 long hh=timer0_overflow_count>>9;
+
+sei();
 //     if((uptime&7)==0){
 //       LcdSetPos(0,0);tn(10000,uptime);
 
 //       LcdSetPos(0,0);tn(1000000,timer0_overflow_count);
-      HR=hh/3600; sei(); if (HR==24){reboot();} // reboot every 24h
+      HR=hh/3600; if (HR==24){reboot();} // reboot every 24h
 //      HR=timer0_overflow_count/(60*512); sei(); if (HR==24){reboot();} // reboot every 24h
 
 //long ll=(timer0_overflow_count-HR*7200000);
@@ -2006,229 +2249,10 @@ delay(2);
 //       LcdSetPos(37,0);tn(100000,timer0_overflow_count);
        LcdSetPos(36,0);tn(100000,Flashes);Flashes=0;
 
-      
-  }// UpdateS
-  
-//  if ((timer0_overflow_count&0xFF)==0){ uptime++;UpdateS=true; }
-
-
-//FlashIntensity=4;//debug
-
-// 0,1,2,3,4
-//4 8us windows
-
-//4: x x x x
-//3: x x x o
-//2: x o x o
-//1: x o o o
-//0: o o o o
-//NOP;NOP;
-//word tt=TCNT1;
-
-//NOP;
-//cli();
-//  ra=0;
-  //uptime=TCNT2;
-//nn=0;do{nn++;}
-//  ra=TCNT0;  while(TCNT0==ra);  // catch initial sync
-//cli();
-//  if(FlashIntensity){
-//NOP;
-
-      __asm__ __volatile__(
-      "in r20,0x26\n\t" //TCNT0
-      "3:\n\t"
-      "in r21,0x26\n\t" //TCNT0
-      "cp r21,r20\n\t"
-      "breq 3b\n\t"
-      
-      "lds r26,FlashIntensity\n\t"
-      "mov r25,r1\n\t" // clear r25
-      "or r26,r26\n\t"
-      "breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
-      "ldi r25,0b01000000\n\t" // r25: 01000000
-      "2:\n\t"
-
-      "in r24,3\n\t" // PINB (bits 6&7 are 0)
-      "or r24,r25\n\t" // r24: bit6 ON
-      
-      "cli\n\t"
-      
-      "out 5,r24\n\t" // set pin 6 ON
-      
-      "ldi r23,6\n\t"
-      "1:\n\t"
-      "dec r23\n\t" // 1 clk
-      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
-      "add r24,r25\n\t"      // выключаем 6 включаем 7
-
-      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
-      "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
-
-      "ldi r23,6\n\t"
-      "1:\n\t"
-      "dec r23\n\t" // 1 clk
-      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
-
-      "out 5,r24\n\t" // set pin 6 OFF pin 7 OFF
-      "sei\n\t"    
-      );
-//  nn=PINB;
-
-
-//  PORTB|=(1<<6);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<6); 
-//  PORTB|=(1<<7);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<7);   
-//  }
-  //ra=0;
-  // just use nops!
-
-//  ra=TCNT0;  while(TCNT0==ra);  // catch sync
-/*  if(FlashIntensity>=3){
- // while(TCNT2&0b00011111);  // catch sync
-//    Flash();
-  PORTB|=(1<<6);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<6); 
-  PORTB|=(1<<7);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<7);   
-  }
-*/
-      __asm__ __volatile__(
-          "3:\n\t"
-      "in r20,0x26\n\t" //TCNT0
-      "cp r21,r20\n\t"
-      "breq 3b\n\t"
-      
-  
-//      "lds r26,FlashIntensity\n\t"
-      "mov r25,r1\n\t" // clear r25
-      "cpi r26,3\n\t"
-//      "or r26,r26\n\t"
-      "brlo 2f\n\t"// Branch if r23 < 3 (unsigned)
-//      "breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
-      "ldi r25,0b01000000\n\t" // r25: 01000000
-      "2:\n\t"
-
-      "in r24,3\n\t" // PINB (bits 6&7 are 0)
-      "or r24,r25\n\t" // r24: bit6 ON
-      
-      "cli\n\t"
-      
-      "out 5,r24\n\t" // set pin 6 ON
-      
-      "ldi r23,6\n\t"
-      "1:\n\t"
-      "dec r23\n\t" // 1 clk
-      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
-      "add r24,r25\n\t"      // выключаем 6 включаем 7
-
-      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
-      "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
-
-      "ldi r23,6\n\t"
-      "1:\n\t"
-      "dec r23\n\t" // 1 clk
-      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
-
-      "out 5,r24\n\t" // set pin 6 OFF pin 7 OFF
-      "sei\n\t"
-      );
-
-
-      __asm__ __volatile__(
-          "3:\n\t"
-      "in r21,0x26\n\t" //TCNT0
-      "cp r21,r20\n\t"
-      "breq 3b\n\t"
-      
-  
-//      "lds r26,FlashIntensity\n\t"
-      "mov r25,r1\n\t" // clear r25
-      "cpi r26,2\n\t"
-//      "or r26,r26\n\t"
-      "brlo 2f\n\t"// Branch if r23 < 2 (unsigned)
-//      "breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
-      "ldi r25,0b01000000\n\t" // r25: 01000000
-      "2:\n\t"
-
-      "in r24,3\n\t" // PINB (bits 6&7 are 0)
-      "or r24,r25\n\t" // r24: bit6 ON
-  "cli\n\t"
-      "out 5,r24\n\t" // set pin 6 ON
-      
-      "ldi r23,6\n\t"
-      "1:\n\t"
-      "dec r23\n\t" // 1 clk
-      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
-      "add r24,r25\n\t"      // выключаем 6 включаем 7
-
-      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
-      "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
-
-      "ldi r23,6\n\t"
-      "1:\n\t"
-      "dec r23\n\t" // 1 clk
-      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
-
-      "out 5,r24\n\t" // set pin 6 OFF pin 7 OFF
-      "sei\n\t"
-      );
-
-//  ra=0;if(FlashIntensity>=2){ra=1;}
-//  ra=TCNT0;  while(TCNT0==ra);  // catch sync
- // while(TCNT2&0b00011111);  // catch sync
-// if(FlashIntensity>=2){
-//    Flash();
-  //PORTB|=(1<<6);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<6); 
-//  PORTB|=(1<<7);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<7);   
-// }
-//  ra=0;if(FlashIntensity>=4){ra=1;}
-//  ra=TCNT0;  while(TCNT0==ra);  // catch sync
-//  if(FlashIntensity>=4){
- // while(TCNT2&0b00011111);  // catch sync
-//    Flash();
-//  PORTB|=(1<<6);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<6); 
-  //PORTB|=(1<<7);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<7);   
-//  }
-      __asm__ __volatile__(
-          "3:\n\t"
-      "in r20,0x26\n\t" //TCNT0
-      "cp r21,r20\n\t"
-      "breq 3b\n\t"
-      
-  
-//      "lds r26,FlashIntensity\n\t"
-      "mov r25,r1\n\t" // clear r25
-      "cpi r26,4\n\t"
-//      "or r26,r26\n\t"
-      "brlo 2f\n\t"// Branch if r23 < 4 (unsigned)
-//      "breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
-      "ldi r25,0b01000000\n\t" // r25: 01000000
-      "2:\n\t"
-
-      "in r24,3\n\t" // PINB (bits 6&7 are 0)
-      "or r24,r25\n\t" // r24: bit6 ON
-"cli\n\t"
-      "out 5,r24\n\t" // set pin 6 ON
-      
-      "ldi r23,2\n\t"
-      "1:\n\t"
-      "dec r23\n\t" // 1 clk
-      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
-      "add r24,r25\n\t"      // выключаем 6 включаем 7
-
-      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
-      "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
-
-      "ldi r23,2\n\t" // сокращение последней вспышки
-      "1:\n\t"
-      "dec r23\n\t" // 1 clk
-      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
-
-      "out 5,r24\n\t" // set pin 6 OFF pin 7 OFF
-      "sei\n\t"
-      );
+        __asm__ __volatile__("rjmp Next\n\t");
 
 //  TCNT1=tt;
 
-Flashes++;
 //sei();
 //if(FlashIntensity)
 //{
@@ -2402,7 +2426,7 @@ Flashes++;
 
 //} // пыхнем
 
-    } // eternal loop
+//    } // eternal loop
 }
 
 
