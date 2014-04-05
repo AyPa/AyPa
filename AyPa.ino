@@ -385,7 +385,14 @@ void RequestFrom(byte addr,byte reg)
 //#define FLASH_CYCLE 65 // microseconds (+~5)
 
 //byte Intensity[24] = {0,0,0,0,0,0, 1,2,3,3,3,3, 3,3,3,3,3,3, 3,3,3,3,2,1}; // почасовая интенсивность 
-byte Intensity[24] = {4,0,0,0,0,0, 1,2,3,4,4,4, 4,4,4,4,4,4, 4,4,4,3,2,1}; // почасовая интенсивность 
+//byte Intensity[24] = {3,0,0,0,0,0, 1,2,3,4,4,4, 4,4,4,4,4,4, 4,4,4,3,2,1}; // почасовая интенсивность 
+//byte Intensity[24] = {0xE,0,0,0,0,0, 0x8,0xA,0xB,0xF,0xF,0xF, 0xF,0xF,0xF,0xF,0xF,0xF, 0xF,0xF,0xF,0xE,0xA,0x8}; // почасовая интенсивность 
+byte Intensity[24] = {0xF,0,0,0,0,0, 0x8,0xA,0xB,0xF,0xF,0xF, 0xF,0xF,0xF,0xF,0xF,0xF, 0xF,0xF,0xF,0xE,0xA,0x8}; // почасовая интенсивность 
+// 0xF 1111 (4)
+// 0xE 1110 (3)
+// 0xA 1010 (2)
+// 0x8 1000 (1)
+// 0x0 0000 (0)
 byte FlashIntensity=0;
 
 byte volatile ticks=0; // 1/2с
@@ -1881,13 +1888,6 @@ void FanOFF(byte t){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);FanTimeout=t;}
 
 
 
-void Flash(void)
-{
-    cli();
-    PORTB|=(1<<6);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;   PORTB&=~(1<<6); 
-    PORTB|=(1<<7);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;   PORTB&=~(1<<7);   
-    sei();
-}
 
 //void*() df=Delay1;
 //void eeprom_update_byte(byte*addr,byte v){ if(eeprom_read_byte((byte*)addr)!=v){eeprom_write_byte((byte*)addr,v);}}
@@ -1954,44 +1954,101 @@ byte nn;
 //cli();
 //  if(FlashIntensity){
 //NOP;
+
+// FlashIntensity здесь постоянна
+// 1) 6ON  7OFF
+// 2) 6OFF 7ON
+// 3) 6ON  7OFF
+// 4) 6OFF 7ON
+// 5) 6ON  7OFF
+// 6) 6OFF 7ON
+// 7) 6ON  7OFF
+// 8) 6OFF 7OFF
+
+/*Call-Used Registers The call-used or call-clobbered general purpose registers (GPRs) are registers that might be destroyed (clobbered) by a function call
+R18–R27, R30, R31
+These GPRs are call clobbered. An ordinary function may use them without restoring the contents. Interrupt service routines (ISRs) must save and restore each register they use.
+R0, T-Flag
+The temporary register and the T-flag in SREG are also call-clobbered, but this knowledge is not exposed explicitly to the compiler (R0 is a fixed register).
+Call-Saved Registers
+R2–R17, R28, R29
+The remaining GPRs are call-saved, i.e. a function that uses such a registers must restore its original content. This applies even if the register is used to pass a function argument.
+R1
+The zero-register is implicity call-saved (implicit because R1 is a fixed register).*/
+
+//Initial registers
+
+//r18: 6OFF 7OFF
+//r19: 6ON 7OFF
+//r20: 6OFF 7ON
+//r21: xxxx1234 control, Если бит установлен то включить соответствующий слот
       __asm__ __volatile__(
+"Start:\n\t"
+      "in r18,3\n\t" // r18=PINB (6OFF 7OFF)
+      "mov r19,r18\n\t"
+      "mov r20,r18\n\t"
+      "ori r19, 0b01000000\n\t" // bit 6 is ON
+      "ori r20, 0b10000000\n\t" // bit 7 is ON
+      "lds r21,FlashIntensity\n\t"
+ //     "ldi r21,0b00001111\n\t" // all 4 slots are ON
+   //   );
+
+     // __asm__ __volatile__(
 "Next:\n\t"    
-      "in r20,0x26\n\t" //TCNT0
+//34415 без синхры  7-7
+//33579 без синхры  8-8
+//32654 без синхры  +nop 8-8
+//32399 без синхры  8-8 c прерываниями
+//33044 без синхры  9-9 c прерываниями
+
+//32375 с синхрой 7-7 первая
+
+/*      "in r20,0x26\n\t" //TCNT0
       "3:\n\t"
       "in r21,0x26\n\t" //TCNT0
       "cp r21,r20\n\t"
-      "breq 3b\n\t"
+      "breq 3b\n\t"*/
       
-      "lds r26,FlashIntensity\n\t"
-      "mov r25,r1\n\t" // clear r25
-      "or r26,r26\n\t"
-      "breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
-      "ldi r25,0b01000000\n\t" // r25: 01000000
-      "2:\n\t"
+//      "lds r26,FlashIntensity\n\t"
+  //    "mov r25,r1\n\t" // clear r25
+    //  "or r26,r26\n\t"
+      //"breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
+//      "ldi r25,0b01000000\n\t" // r25: 01000000
+  //    "2:\n\t"
 
-      "in r24,3\n\t" // PINB (bits 6&7 are 0)
-      "or r24,r25\n\t" // r24: bit6 ON
+    //  "in r24,3\n\t" // PINB (bits 6&7 are 0)
+      //"or r24,r25\n\t" // r24: bit6 ON
+      
+      // up till here
       
       "cli\n\t"
       
-      "out 5,r24\n\t" // set pin 6 ON
-      
-      "ldi r23,7\n\t"
+      "sbrc r21,0\n\t" // out выполнится только если бит 0 в r21 установлен
+      "out 5,r19\n\t" // set pin 6 ON
+
+//      "nop\n\t"      
+      "ldi r23,9\n\t"
       "1:\n\t"
       "dec r23\n\t" // 1 clk
       "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
-      "add r24,r25\n\t"      // выключаем 6 включаем 7
+      //"add r24,r25\n\t"      // выключаем 6 включаем 7
 
-      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
-      "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
+      "sbrc r21,0\n\t" // out выполнится только если бит 0 в r21 установлен
+      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
 
-      "ldi r23,7\n\t"
+//      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
+  //    "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
+
+  //    "nop\n\t"      
+      "ldi r23,9\n\t"
       "1:\n\t"
       "dec r23\n\t" // 1 clk
       "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
 
-      "out 5,r24\n\t" // set pin 6 OFF pin 7 OFF
-//      "sei\n\t"    
+
+      "out 5,r18\n\t" // set pin 6 OFF pin7 OFF - можно без sbrc здесь
+
+      "sei\n\t"    
 //      );
 //  nn=PINB;
 
@@ -2018,37 +2075,40 @@ byte nn;
       
   
 //      "lds r26,FlashIntensity\n\t"
-      "mov r25,r1\n\t" // clear r25
-      "cpi r26,3\n\t"
+//      "mov r25,r1\n\t" // clear r25
+  //    "cpi r26,3\n\t"
 //      "or r26,r26\n\t"
-      "brlo 2f\n\t"// Branch if r23 < 3 (unsigned)
+    //  "brlo 2f\n\t"// Branch if r23 < 3 (unsigned)
 //      "breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
-      "ldi r25,0b01000000\n\t" // r25: 01000000
-      "2:\n\t"
+//      "ldi r25,0b01000000\n\t" // r25: 01000000
+  //    "2:\n\t"
 
-      "in r24,3\n\t" // PINB (bits 6&7 are 0)
-      "or r24,r25\n\t" // r24: bit6 ON
+    //  "in r24,3\n\t" // PINB (bits 6&7 are 0)
+      //"or r24,r25\n\t" // r24: bit6 ON
       
-    //  "cli\n\t"
+      "cli\n\t"
+
+      "sbrc r21,1\n\t" // out выполнится только если бит 1 в r21 установлен
+      "out 5,r19\n\t" // set pin 6 ON
       
-      "out 5,r24\n\t" // set pin 6 ON
       
-      "ldi r23,8\n\t"
+    //    "nop\n\t"      
+    "ldi r23,9\n\t"
       "1:\n\t"
       "dec r23\n\t" // 1 clk
       "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
-      "add r24,r25\n\t"      // выключаем 6 включаем 7
 
-      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
-      "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
+      "sbrc r21,1\n\t" // out выполнится только если бит 1 в r21 установлен
+      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
 
-      "ldi r23,8\n\t"
+      //   "nop\n\t"      
+   "ldi r23,9\n\t"
       "1:\n\t"
       "dec r23\n\t" // 1 clk
       "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
 
-      "out 5,r24\n\t" // set pin 6 OFF pin 7 OFF
-  //    "sei\n\t"
+      "out 5,r18\n\t" // set pin 6 OFF pin7 OFF - можно без sbrc здесь
+      "sei\n\t"
 //      );
 
 
@@ -2060,35 +2120,37 @@ byte nn;
       
   
 //      "lds r26,FlashIntensity\n\t"
-      "mov r25,r1\n\t" // clear r25
-      "cpi r26,2\n\t"
+//      "mov r25,r1\n\t" // clear r25
+  //    "cpi r26,2\n\t"
 //      "or r26,r26\n\t"
-      "brlo 2f\n\t"// Branch if r23 < 2 (unsigned)
+    //  "brlo 2f\n\t"// Branch if r23 < 2 (unsigned)
 //      "breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
-      "ldi r25,0b01000000\n\t" // r25: 01000000
-      "2:\n\t"
+//      "ldi r25,0b01000000\n\t" // r25: 01000000
+  //    "2:\n\t"
 
-      "in r24,3\n\t" // PINB (bits 6&7 are 0)
-      "or r24,r25\n\t" // r24: bit6 ON
-//  "cli\n\t"
-      "out 5,r24\n\t" // set pin 6 ON
+  //    "in r24,3\n\t" // PINB (bits 6&7 are 0)
+//      "or r24,r25\n\t" // r24: bit6 ON
+  "cli\n\t"
+      "sbrc r21,2\n\t" // out выполнится только если бит 2 в r21 установлен
+      "out 5,r19\n\t" // set pin 6 ON
       
-      "ldi r23,8\n\t"
+//       "nop\n\t"      
+     "ldi r23,9\n\t"
       "1:\n\t"
       "dec r23\n\t" // 1 clk
       "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
-      "add r24,r25\n\t"      // выключаем 6 включаем 7
 
-      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
-      "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
+      "sbrc r21,2\n\t" // out выполнится только если бит 2 в r21 установлен
+      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
 
-      "ldi r23,8\n\t"
+    //    "nop\n\t"      
+    "ldi r23,9\n\t"
       "1:\n\t"
       "dec r23\n\t" // 1 clk
       "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
 
-      "out 5,r24\n\t" // set pin 6 OFF pin 7 OFF
-//      "sei\n\t"
+      "out 5,r18\n\t" // set pin 6 OFF pin7 OFF - можно без sbrc здесь
+      "sei\n\t"
   //    );
 
 //  ra=0;if(FlashIntensity>=2){ra=1;}
@@ -2115,27 +2177,28 @@ byte nn;
       
   
 //      "lds r26,FlashIntensity\n\t"
-      "mov r25,r1\n\t" // clear r25
-      "cpi r26,4\n\t"
+//      "mov r25,r1\n\t" // clear r25
+  //    "cpi r26,4\n\t"
 //      "or r26,r26\n\t"
-      "brlo 2f\n\t"// Branch if r23 < 4 (unsigned)
+    //  "brlo 2f\n\t"// Branch if r23 < 4 (unsigned)
 //      "breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
-      "ldi r25,0b01000000\n\t" // r25: 01000000
-      "2:\n\t"
+      //"ldi r25,0b01000000\n\t" // r25: 01000000
+//      "2:\n\t"
 
-      "in r24,3\n\t" // PINB (bits 6&7 are 0)
-      "or r24,r25\n\t" // r24: bit6 ON
-//"cli\n\t"
-      "out 5,r24\n\t" // set pin 6 ON
+  //    "in r24,3\n\t" // PINB (bits 6&7 are 0)
+    //  "or r24,r25\n\t" // r24: bit6 ON
+"cli\n\t"
+      "sbrc r21,3\n\t" // out выполнится только если бит 3 в r21 установлен
+      "out 5,r19\n\t" // set pin 6 ON
       
-      "ldi r23,8\n\t"
+//        "nop\n\t"      
+    "ldi r23,9\n\t"
       "1:\n\t"
       "dec r23\n\t" // 1 clk
       "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
-      "add r24,r25\n\t"      // выключаем 6 включаем 7
 
-      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
-      "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
+      "sbrc r21,3\n\t" // out выполнится только если бит 3 в r21 установлен
+      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
 
     "lds r24,Flashes\n\t" // занесли под пыху
     "lds r25,Flashes+1\n\t"
@@ -2143,20 +2206,20 @@ byte nn;
     "sts Flashes+1,r25\n\t"
     "sts Flashes,r24\n\t" //Flashes++;
       "lds r22,timer0_overflow_count\n\t"
-      "lds r21,timer0_overflow_count+1\n\t"
-      "andi r21,1\n\t"
+      "lds r24,timer0_overflow_count+1\n\t"
+      "andi r24,1\n\t"
 
 
-      "ldi r23,4\n\t" // сокращение последней вспышки
+      "ldi r23,5\n\t" // сокращение последней вспышки
       "1:\n\t"
       "dec r23\n\t" // 1 clk
       "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
 
-      "out 5,r24\n\t" // set pin 6 OFF pin 7 OFF
+      "out 5,r18\n\t" // set pin 6 OFF pin7 OFF - можно без sbrc здесь
 
       "sei\n\t"
       
-      "or r22,r21\n\t"
+      "or r22,r24\n\t"
       "breq Check\n\t"
       "rjmp Next\n\t"
       
@@ -2249,7 +2312,7 @@ delay(2);
 //       LcdSetPos(37,0);tn(100000,timer0_overflow_count);
        LcdSetPos(36,0);tn(100000,Flashes);Flashes=0;
 
-        __asm__ __volatile__("rjmp Next\n\t");
+        __asm__ __volatile__("rjmp Start\n\t");
 
 //  TCNT1=tt;
 

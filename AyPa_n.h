@@ -642,18 +642,27 @@ void LcdInit(void)
   Pin2Output(DDRD,4);
 
 
-  LcdWriteCmd(0x21);
-  LcdWriteCmd(0xB8);
-  LcdWriteCmd(0x07);
-  LcdWriteCmd(0x14);//bias(best)
+  //LcdWriteCmd(0x21);
+//  LcdWriteCmd(0xB8);
+  //LcdWriteCmd(0x07);
+//  LcdWriteCmd(0x14);//bias(best)
   //LcdWriteCmd(0x20); // extended instruction set control (H=0)
   //LcdWriteCmd(0x09); // all display segments on
   //LcdWriteCmd(0x20); // extended instruction set control (H=0)
   //LcdWriteCmd(0x08); // all segments off - need to clear all ram on start
   //LcdWriteCmd(0x20);
   //LcdWriteCmd(0x0D); // invert
-  LcdWriteCmd(0x20); // extended instruction set control (H=0)
-  LcdWriteCmd(0x0c); // LCD in normal mode (0x0d = inverse mode)
+  
+  //LcdWriteCmd(0x20); // extended instruction set control (H=0)
+//  LcdWriteCmd(0x0c); // LCD in normal mode (0x0d = inverse mode)
+
+  LcdWriteCmd(0x21);//0x21, //switch to extended commands
+    LcdWriteCmd(0xB8);
+      LcdWriteCmd(0x04); //set temperature coefficient
+        LcdWriteCmd(0x14); //set bias mode to 1:48.
+          LcdWriteCmd(0x20); //switch back to regular commands
+            LcdWriteCmd(0x0C);//enable normal display (dark on light), horizontal addressing
+
 
 //cli();
 //TCNT1=0;
