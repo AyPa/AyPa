@@ -384,14 +384,14 @@ void RequestFrom(byte addr,byte reg)
 //#define FLASH_CYCLE 95 // microseconds (+~5)
 //#define FLASH_CYCLE 65 // microseconds (+~5)
 
-byte Intensity[24] = {0,0,0,0,0,0, 1,2,3,3,3,3, 3,3,3,3,3,3, 3,3,3,3,2,1}; // почасовая интенсивность 
-//byte DelayFla[24] = {0,0,0,0,0,0, 2,1,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,1,2}; // пауза между вспышками
+//byte Intensity[24] = {0,0,0,0,0,0, 1,2,3,3,3,3, 3,3,3,3,3,3, 3,3,3,3,2,1}; // почасовая интенсивность 
+byte Intensity[24] = {4,0,0,0,0,0, 1,2,3,4,4,4, 4,4,4,4,4,4, 4,4,4,3,2,1}; // почасовая интенсивность 
 byte FlashIntensity=0;
-//byte FlashDelay=0;
 
 byte volatile ticks=0; // 1/2с
-byte HR;
+byte HR=0;
 //byte MN;
+//byte SC;
 
 byte __attribute__ ((noinline)) unBCD(byte bcd){return (((bcd>>4)*10)+(bcd&0xF)); }
 
@@ -666,13 +666,33 @@ byte DHT_ReadData(void)
    return v;    
 } 
 
-#define TIMEOUT (F_CPU/1600);
+//#define TIMEOUT (F_CPU/1600);
+#define TIMEOUT (8000000L/400);
+//#define TIMEOUT (8000000L/1200);
 #define DHTLIB_OK				0
 #define DHTLIB_ERROR_CHECKSUM	-1
 #define DHTLIB_ERROR_TIMEOUT	-2
 #define DHTLIB_INVALID_VALUE	-999
 
-int dhtread(uint8_t pin)
+extern unsigned long timer0_millis;
+extern unsigned long timer0_overflow_count;
+
+unsigned long mmicros(void)
+{
+  unsigned long m;
+//  long m;
+  uint8_t t;
+  
+  m=timer0_overflow_count;
+  t=TCNT0;
+  
+  return ((m<<8)+t)*64/8; // 8 clocks per microsecond
+}
+
+// TCNT0 8bit 256values with 1/64 prescaler  1value is 8microseconds - 40us=5 TCNT0 steps
+
+
+int dhtread(void) //PB1 (9)
 {
     // INIT BUFFERVAR TO RECEIVE DATA
     uint8_t mask = 128;
@@ -682,36 +702,62 @@ int dhtread(uint8_t pin)
     for (uint8_t i=0; i< 5; i++) DHTdata[i] = 0;
 
     // REQUEST SAMPLE
-    pinMode(pin, OUTPUT);
-    digitalWrite(pin, LOW);
-    delay(20);
-    digitalWrite(pin, HIGH);
+Pin2Output(DDRB,1);//    pinMode(pin, OUTPUT);
+Pin2LOW(PORTB,1);//    digitalWrite(pin, LOW);
+    //delay(20);
+    delayMicroseconds(20000);
+
+//OCR2A = 250; // Set CTC compare value 
+    
+    
+Pin2HIGH(PORTB,1);//    digitalWrite(pin, HIGH);
     delayMicroseconds(40);
-    pinMode(pin, INPUT);
+Pin2Input(DDRB,1);//    pinMode(pin, INPUT);
+
+//TIMSK2 = 0;//(1 << OCIE2A); // Enable CTC interrupt 
+
+ // TCCR2B=0;//(0<<WGM22)|(0<<CS22)|(1<<CS21)|(0<<CS20); // 8
+ // TCCR2A=0;//(1<<WGM21);//ctc mode |(1<<CS22)|(0<<CS21)|(0<<CS20); // 256?
+ // TIMSK2 = 0; // Enable CTC interrupt 
+//  OCR2A = 8; // Set CTC compare value 
+
+cli();
+//TCNT2=0;
 
     // GET ACKNOWLEDGE or TIMEOUT
     unsigned int loopCnt = TIMEOUT;
-    while(digitalRead(pin) == LOW)
+//    while(digitalRead(pin) == LOW)
+    while((PINB&(1<<1)) == 0)
     if (--loopCnt == 0) return DHTLIB_ERROR_TIMEOUT;
 
     loopCnt = TIMEOUT;
-    while(digitalRead(pin) == HIGH)
+//    while(digitalRead(pin) == HIGH)
+    while((PINB&(1<<1)) > 0)
     if (--loopCnt == 0) return DHTLIB_ERROR_TIMEOUT;
+
 
     // READ THE OUTPUT - 40 BITS => 5 BYTES
     for (uint8_t i=0; i<40; i++)
     {
         loopCnt = TIMEOUT;
-        while(digitalRead(pin) == LOW)
+//        while(digitalRead(pin) == LOW)
+        while((PINB&(1<<1)) == 0)
         if (--loopCnt == 0) return DHTLIB_ERROR_TIMEOUT;
 
-        unsigned long t = micros();
+//        unsigned long t = micros(); // this is where interrupts are enabled
+     //   unsigned long t = mmicros();
+        uint8_t t=TCNT0;
 
         loopCnt = TIMEOUT;
-        while(digitalRead(pin) == HIGH)
+//        while(digitalRead(pin) == HIGH)
+        while((PINB&(1<<1)) > 0)
         if (--loopCnt == 0) return DHTLIB_ERROR_TIMEOUT;
 
-        if ((micros() - t) > 40) DHTdata[idx] |= mask;
+//        if ((micros() - t) > 40) DHTdata[idx] |= mask;
+       // if ((mmicros() - t) > 50) DHTdata[idx] |= mask;
+//        if ((TCNT0 - t) > 5) DHTdata[idx] |= mask;
+//        if ((TCNT0 - t) > 6) DHTdata[idx] |= mask;
+        if ((TCNT0 - t) > 7) DHTdata[idx] |= mask;
         mask >>= 1;
         if (mask == 0)   // next byte?
         {
@@ -727,7 +773,18 @@ int read22(void)
 {
     // READ VALUES
 //    int rv = dhtread(pin);
-    int rv = dhtread(9); // PB1
+    int rv = dhtread(); // PB1
+  
+   // TIMSK2 = (1 << OCIE2A); // Enable CTC interrupt 
+//   OCR2A = 12; // Set CTC compare value 
+//TCNT2=0;
+  //TCCR2B=(0<<WGM22)|(0<<CS22)|(1<<CS21)|(0<<CS20); // 8
+  //TCCR2A=(1<<WGM21);//ctc mode |(1<<CS22)|(0<<CS21)|(0<<CS20); // 256?
+  //TIMSK2 = (1 << OCIE2A); // Enable CTC interrupt 
+  //OCR2A = 8; // Set CTC compare value 
+ 
+    sei();
+    
     if (rv != DHTLIB_OK)
     {
 //        humidity    = DHTLIB_INVALID_VALUE;  // invalid value, or is NaN prefered?
@@ -904,6 +961,9 @@ word bts=0; // timestamp
 
 //byte setupdone=0;
 byte portbmask;
+byte ist=0;
+
+//long ca,cb,cc;
 
 void setup() {                
 //  byte pmask,idx;
@@ -935,7 +995,6 @@ void setup() {
   //}
 //  bts=uptime;// to prevent false trigger on startup
 //}
-
 
     PCMSK1 = 1<<PCINT11; // setup pin change interrupt on A3 pin 
     PCICR |= 1<<PCIE1; 
@@ -976,40 +1035,14 @@ void setup() {
 
 // setup timer2 
 
-TCNT2   = 0; 
-//TCCR2B |= (1 << WGM22); // Configure timer 2 for CTC mode 
-//TCCR2A |= (1 << WGM21); // Configure timer 2 for CTC mode 
-//TCCR2B |= (1 << CS22); // Start timer at Fcpu/64 
-//  TCCR2B=(1<<WGM22)|(1<<CS22)|(0<<CS21)|(1<<CS20); // 256
-//  TCCR2B=(1<<WGM22)|(1<<CS22)|(0<<CS21)|(1<<CS20); // /1024
-  TCCR2B=(1<<WGM21)|(1<<CS22)|(0<<CS21)|(0<<CS20); // 256?
-TIMSK2 |= (1 << OCIE2A); // Enable CTC interrupt 
-OCR2A   = 250; // Set CTC compare value 
-
-//TCNT2   = 0; 
-//TCCR2A = 0;//(1 << WGM21); // Configure timer 2 for CTC mode 
-//TCCR2A =  (1 << WGM22)|(1 << CS22) | (0 << CS21) | (1 << CS20);  //prescaller 1024 
-//TIMSK2 = (1 << OCIE2A); // Enable CTC interrupt 
-//OCR2A   = 25; // Set CTC compare value 
-
-
-//  TCCR2A = 0x00;   // clear timer registers 
-  //TCCR2B = 0x00; 
-//  TIMSK2 = 0x00;
-  
-//  TCCR2B=(1 << WGM12)|(0<<CS22)|(0<<CS21)|(1<<CS20); // /no prescaler;
-//  TCCR2B=(1<<WGM12)|(0<<CS22)|(1<<CS21)|(0<<CS20); // /8; 1us clock
-//  TCCR2B=(1<<WGM12)|(1<<CS22)|(0<<CS21)|(0<<CS20); // /8; 1us clock
-//  TCCR2A |=  (1 << COM2A0) | (1 << COM2B0);   // Normal mode & toogle on OC2A & OC2B 
-//  TCNT2=0x00;
-//  OCR2A=255;
-//  OCR2B=255;
-  //TIMSK2 |= (1 << OCIE2B);// no interrupts just counting 1 tick is 1 microsecond
-
-// every 1/2 second interrupt from RTC
-//Pin2Input(DDRC,0);Pin2HIGH(PORTC,0); // pull up on A0
-
-
+  TCNT2=0;
+  TIMSK2=0; 
+  TCCR2B=(0<<WGM22)|(0<<CS22)|(0<<CS21)|(1<<CS20); // 1 xxxxx000 32 microseconds
+//  TCCR2B=(0<<WGM22)|(0<<CS22)|(1<<CS21)|(0<<CS20); // 8
+  TCCR2A=(1<<WGM21);//ctc mode |(1<<CS22)|(0<<CS21)|(0<<CS20); // 256?
+  //TIMSK2 = (1 << OCIE2A); // Enable CTC interrupt 
+  OCR2A = 0xFF; // Set CTC compare value 
+  //18 min to humtmp work?
 
   sei();
 
@@ -1034,7 +1067,7 @@ setup_watchdog(T2S); // если в течении 2s не сбросить ст
 
 
 //DDRD|=(1<<5)|(1<<6)|(1<<7); // same same\
-Pin2Output(DDRD,5);Pin2Output(DDRD,6);Pin2Output(DDRD,7);
+//Pin2Output(DDRD,5);Pin2Output(DDRD,6);Pin2Output(DDRD,7);
 
     
       LcdBack();
@@ -1042,7 +1075,6 @@ Pin2Output(DDRD,5);Pin2Output(DDRD,6);Pin2Output(DDRD,7);
 
     Pin2Output(DDRB,6);
     Pin2Output(DDRB,7);
-    portbmask=PINB&(~((1<<6)|(1<<7))); 
 }
 
 byte FanTimeout=0; // время отдыха вентилятора после выключения
@@ -1068,10 +1100,16 @@ ISR(TIMER1_OVF_vect)
  }
  */
 byte volatile t2ovf=0;
- 
 boolean volatile UpdateS=true;
+
+ ISR (TIMER2_COMPA_vect)
+{
+   UpdateS=true;
+}
+
+
 //long wctr;
-ISR (TIMER2_COMPA_vect)
+/*ISR (TIMER2_COMPA_vect)
 {
 //    if (++t2ovf==249) // everry 2s   8sec slow on 38min
     if (++t2ovf==248) // everry 2s
@@ -1079,8 +1117,106 @@ ISR (TIMER2_COMPA_vect)
         t2ovf=0; uptime++; UpdateS=true;
 //        if(ADCfree){ADCfree=0;ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(1<<ADIE)|2;} // start vcc measurement (every 1/125s)
     }
-}
+}*/
+/*        "in r21,3\n\t" // PINB
+        "mov r20,r21\n\t"  // bits 6&7 cleared
+        "ori r21,0b01000000\n\t" // bit6set
+        "sts 0x0084,r1\n\t" // low(TCNT1)=0
+        "out 5,r21\n\t" // 6 ON
+        "mov r22,r20\n\t"
+        "ori r22,0b10000000\n\t" // bit7set
+*/
 
+//ISR(TIMER2_COMPA_vect,ISR_NAKED) { 
+//ISR(TIMER2_COMPA_vect) { 
+  //ca++;
+  // 0x21 0x22 0x28(EEPROML EEPROMH OCR0B)
+    //__asm__ __volatile__(
+    //"out 0x28,r1\n\t"
+    //"mov r1,r24\n\t"
+    //"in r1,0x28\n\t"
+    //"out 0x22,r1\n\t"
+    //"mov r1,r24\n\t"
+    //"in r1,0x22\n\t"
+  //    "in r21,3\n\t" // PINB // bits 6&7 cleared
+    //  "in r20,3\n\t" // PINB // bits 6&7 cleared
+    //);
+//  PORTB|=0x7E;  
+//OCR0A=45;
+/*  if(ist==0)
+  {
+      PORTB&=~(1<<7); 
+      PORTB|=(1<<6);
+      ist=1;
+  }
+  else
+  {
+      PORTB&=~(1<<6); 
+      PORTB|=(1<<7);
+      ist=0;    
+  }*/
+  
+//  if(ist==0)
+//  if(TCNT0&1)
+  //{
+//      PORTB|=(1<<6);
+    //  NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP;  NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP;   NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; // NOP; NOP;
+  //    PORTB&=~(1<<6); 
+//      PORTB|=(1<<7);
+  //    NOP; NOP; NOP; NOP; NOP; NOP;      //NOP; //NOP; NOP; //NOP; NOP; NOP;
+    //  PORTB&=~(1<<7); 
+  //    ist=1;
+//  }
+ //  else if(TCNT0&3==2)
+  //{
+    //  PORTB|=(1<<7);
+      //NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP;  NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP;  // NOP; NOP; NOP; NOP; //NOP; NOP; NOP; NOP;  
+      //PORTB&=~(1<<7); 
+//      PORTB|=(1<<7);
+  //    NOP; NOP; NOP; NOP; NOP; NOP;      //NOP; //NOP; NOP; //NOP; NOP; NOP;
+    //  PORTB&=~(1<<7); 
+  //    ist=1;
+  //}
+//  else
+  //{
+  
+    //  ist=0;    
+//  }
+  
+  
+/*
+  PORTB|=(1<<6);  //__asm__ __volatile__("sbi 5,6\n\t");
+//  __asm__ __volatile__("push r1\n\t");//2
+  //__asm__ __volatile__("in r1,0x3F\n\t");//1
+                         //    NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; 
+                             NOP; NOP; NOP; NOP; //NOP; NOP; NOP; NOP; 
+                           //  NOP; NOP; NOP; NOP; NOP; NOP; NOP; //NOP; 
+                            // NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; 
+
+  PORTB&=~(1<<6); 
+  PORTB|=(1<<7);
+                       //      NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; 
+                             NOP; NOP; NOP; NOP; //NOP; NOP; NOP; NOP;  
+                             //NOP; NOP; NOP; NOP; NOP; NOP; NOP; //NOP; 
+                          //   NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; 
+//  __asm__ __volatile__("out 0x3F,r1\n\t");//1
+  //__asm__ __volatile__("pop r1\n\t");//2
+
+                             PORTB&=~(1<<7); 
+*/
+//__asm__ __volatile__("reti\n\t");
+  //PORTD ^= (1 << PORTD6);    // toggle PD6 
+//} 
+
+//ISR(TIMER2_COMPB_vect) { 
+  //cb++;
+  //RTB ^= (1 << PORTB0);    // toggle PB0 
+//} 
+
+//ISR(TIMER2_OVF_vect) { 
+  //cc++;
+  //RTD ^= (1 << PORTD7);    // toggle PD7 
+//} 
 //word LastVcc=0;
 //ISR(ADC_vect){ ADCresult=ADCW; if(LastVcc<ADCresult) { if(ADCresult>260){SaveUptime();reboot();} } LastVcc=ADCresult; ADCfree=1;} // 1.25s delay after SaveUptime
 
@@ -1725,6 +1861,7 @@ void LcdBack(void)
     LcdInit();
     LcdClear();
 
+    LcdSetPos(7,0);ta(":");    LcdSetPos(18,0);ta(":");
     LcdSetPos(12*5,0);ta("АуРа");
     LcdSetPos(0,1);ta("Ч"); LcdSetPos(14,1);ta("Инт"); LcdSetPos(41,1);ta("t"); LcdSetPos(60,1);ta("Вл");
     LcdSetPos(0,2);ta("U");   
@@ -1742,20 +1879,23 @@ void LcdBack(void)
 void FanON(byte d){Pin2Output(DDRB,0);Pin2HIGH(PORTB,0);RunningFan=d;}
 void FanOFF(byte t){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);FanTimeout=t;}
 
-void Delay1(void)
+
+
+void Flash(void)
 {
-  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;
-      __asm__ __volatile__("Jump0:   rjmp   Delay1\n\t");
+    cli();
+    PORTB|=(1<<6);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;   PORTB&=~(1<<6); 
+    PORTB|=(1<<7);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;   PORTB&=~(1<<7);   
+    sei();
 }
-
-
-
 
 //void*() df=Delay1;
 //void eeprom_update_byte(byte*addr,byte v){ if(eeprom_read_byte((byte*)addr)!=v){eeprom_write_byte((byte*)addr,v);}}
 
 // the loop routine runs over and over again forever:
 void loop() {
+  byte ra;
+byte nn;
 //  long now;
 //  long oldnow=millis();
   //word t,t1,n;
@@ -1768,25 +1908,50 @@ while(1){
     //  if (ADCresult>260){SaveUptime(); delay(3000);}// wait till power off (after 2s watchdog will inforce reboot)
       //ADCready=0;
 //  }
-  
+      //  __asm__ __volatile__("wdr\n\t");//  wdt_reset();
+  //      LcdSetPos(0,3);tn(100000,ca);   //tn(100000,cb);//   tn(10000,cc);
+    //  ca=0;//cb=0;cc=0;  
+//       delay(1000); 
+     //  cb=ca;
+// __asm__ __volatile__("wdr\n\t");//  wdt_reset();
 
-  if (UpdateS) // every 2s
+// Flash here
+
+//NOP;
+//  if ((timer0_overflow_count&0x1FF)==0){ uptime++;UpdateS=true; } 
+
+//check with interrupts disabled
+  if ((timer0_overflow_count&0x1FF)==0) // do something 2ms
+//  if (UpdateS) // every 1/2s
   {
-    //    TCNT1=0;
-      UpdateS=false;
+        TCNT1=0;
+  //    UpdateS=false;
       __asm__ __volatile__("wdr\n\t");//  wdt_reset();
 
 //      if ((uptime>=43200)||((PINC&(1<<3))==0)){eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0);reboot();} // reboot every 24h or when reset button (A3) is pressed
 //      if (uptime>=43200){uptime=0;SaveUptime();reboot();} // reboot every 24h
-      if (uptime>=43200){reboot();} // reboot every 24h
-
+//      if (uptime>=43200){reboot();} // reboot every 24h
+long hh=timer0_overflow_count>>9;
 //     if((uptime&7)==0){
-       LcdSetPos(0,0);tn(10000,uptime);
+//       LcdSetPos(0,0);tn(10000,uptime);
 
-HR=uptime/(60*60/2);      FlashIntensity=Intensity[HR];
-byte mn=(uptime-HR*60*60/2)/30;
-byte sc=(uptime-HR*60*60/2-mn*30)*2;
-       LcdSetPos(6,1);tn(10,HR);tn(10,mn);tn(10,sc);
+//       LcdSetPos(0,0);tn(1000000,timer0_overflow_count);
+      HR=hh/3600; sei(); if (HR==24){reboot();} // reboot every 24h
+//      HR=timer0_overflow_count/(60*512); sei(); if (HR==24){reboot();} // reboot every 24h
+
+//long ll=(timer0_overflow_count-HR*7200000);
+  //    MN=ll/120000;
+    //  SC=
+//      MN=(timer0_overflow_count%7200000)/120000;
+//      SC=timer0_overflow_count-HR*7200000-MN*60
+      
+      FlashIntensity=Intensity[HR];
+//HR=uptime/(60*60/2);      FlashIntensity=Intensity[HR];
+//byte mn=(uptime-HR*60*60/2)/30;
+//byte sc=(uptime-HR*60*60/2-mn*30)*2;
+       LcdSetPos(0,0);tn(10,HR); tn(10,FlashIntensity);     // LcdSetPos(11,0);tn(10,MN);LcdSetPos(22,0);tn(10,SC);
+       
+       tn(10,nn);
 
   //long mm=millis(); wctr=1000000L;while(--wctr>0);  long ww=millis();tn(10000,ww-mm);
   
@@ -1799,9 +1964,9 @@ byte sc=(uptime-HR*60*60/2-mn*30)*2;
  // LcdSetPos(18,2);ta("N");tn(100,co1);co1=0;
       
   //    LcdSetPos(6,1);tn(10,HR);
-      LcdSetPos(32,1);tn(10,FlashIntensity);
+    //  LcdSetPos(32,1);tn(10,FlashIntensity);
       LcdSetPos(47,1);tn(100,MCUtemp);
-      LcdSetPos(6,2);tn(100,ADCresult);
+     // LcdSetPos(6,2);tn(100,ADCresult);
 
 
     
@@ -1816,7 +1981,7 @@ byte sc=(uptime-HR*60*60/2-mn*30)*2;
       DHTtmp=(DHTtmp+5)/10;
       tn(10,DHTtmp);
       // иногда нужен ветерок CО2 свежего подкачать (c 6 утра)
-      if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=29)||(uptime-LastTimeFan)>1800){if(DHTtmp>=31){delay(60000);}else if(HR>=6){FanON(32);}}}
+      if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=28)||(uptime-LastTimeFan)>1800){if(DHTtmp>=31){delay(60000);}else if(HR>=6){FanON(32);}}}
    }
      if (uptime>=NextSoilMoistureCheck){ NextSoilMoistureCheck=uptime+1000; SoilMoisture(); LcdSetPos(72,1); tn(100,moisture); }// hide this here
   }// next humtmp check
@@ -1824,26 +1989,247 @@ byte sc=(uptime-HR*60*60/2-mn*30)*2;
 
 //if(uptime&1){
   //Flashes/=2;
-  LcdSetPos(60,3);tn(10000,Flashes);
+ // LcdSetPos(60,3);tn(10000,Flashes);
  
    //word ll=1000000L/Flashes;
 //  LcdSetPos(5*6,3);tn(10000,ll);   
 //}
-Flashes=0;
+//Flashes=0;
 
 
       
       if(FanTimeout){FanTimeout--;}else if(RunningFan){if((--RunningFan)==0){FanOFF(32);LastTimeFan=uptime;}}
 
+delay(2);
+       //tn(10000,TCNT1);
+
+//       LcdSetPos(37,0);tn(100000,timer0_overflow_count);
+       LcdSetPos(36,0);tn(100000,Flashes);Flashes=0;
+
       
   }// UpdateS
   
+//  if ((timer0_overflow_count&0xFF)==0){ uptime++;UpdateS=true; }
 
 
+//FlashIntensity=4;//debug
+
+// 0,1,2,3,4
+//4 8us windows
+
+//4: x x x x
+//3: x x x o
+//2: x o x o
+//1: x o o o
+//0: o o o o
+//NOP;NOP;
+//word tt=TCNT1;
+
+//NOP;
+//cli();
+//  ra=0;
+  //uptime=TCNT2;
+//nn=0;do{nn++;}
+//  ra=TCNT0;  while(TCNT0==ra);  // catch initial sync
+//cli();
+//  if(FlashIntensity){
+//NOP;
+
+      __asm__ __volatile__(
+      "in r20,0x26\n\t" //TCNT0
+      "3:\n\t"
+      "in r21,0x26\n\t" //TCNT0
+      "cp r21,r20\n\t"
+      "breq 3b\n\t"
+      
+      "lds r26,FlashIntensity\n\t"
+      "mov r25,r1\n\t" // clear r25
+      "or r26,r26\n\t"
+      "breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
+      "ldi r25,0b01000000\n\t" // r25: 01000000
+      "2:\n\t"
+
+      "in r24,3\n\t" // PINB (bits 6&7 are 0)
+      "or r24,r25\n\t" // r24: bit6 ON
+      
+      "cli\n\t"
+      
+      "out 5,r24\n\t" // set pin 6 ON
+      
+      "ldi r23,6\n\t"
+      "1:\n\t"
+      "dec r23\n\t" // 1 clk
+      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
+      "add r24,r25\n\t"      // выключаем 6 включаем 7
+
+      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
+      "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
+
+      "ldi r23,6\n\t"
+      "1:\n\t"
+      "dec r23\n\t" // 1 clk
+      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
+
+      "out 5,r24\n\t" // set pin 6 OFF pin 7 OFF
+      "sei\n\t"    
+      );
+//  nn=PINB;
 
 
+//  PORTB|=(1<<6);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<6); 
+//  PORTB|=(1<<7);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<7);   
+//  }
+  //ra=0;
+  // just use nops!
+
+//  ra=TCNT0;  while(TCNT0==ra);  // catch sync
+/*  if(FlashIntensity>=3){
+ // while(TCNT2&0b00011111);  // catch sync
+//    Flash();
+  PORTB|=(1<<6);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<6); 
+  PORTB|=(1<<7);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<7);   
+  }
+*/
+      __asm__ __volatile__(
+          "3:\n\t"
+      "in r20,0x26\n\t" //TCNT0
+      "cp r21,r20\n\t"
+      "breq 3b\n\t"
+      
+  
+//      "lds r26,FlashIntensity\n\t"
+      "mov r25,r1\n\t" // clear r25
+      "cpi r26,3\n\t"
+//      "or r26,r26\n\t"
+      "brlo 2f\n\t"// Branch if r23 < 3 (unsigned)
+//      "breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
+      "ldi r25,0b01000000\n\t" // r25: 01000000
+      "2:\n\t"
+
+      "in r24,3\n\t" // PINB (bits 6&7 are 0)
+      "or r24,r25\n\t" // r24: bit6 ON
+      
+      "cli\n\t"
+      
+      "out 5,r24\n\t" // set pin 6 ON
+      
+      "ldi r23,6\n\t"
+      "1:\n\t"
+      "dec r23\n\t" // 1 clk
+      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
+      "add r24,r25\n\t"      // выключаем 6 включаем 7
+
+      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
+      "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
+
+      "ldi r23,6\n\t"
+      "1:\n\t"
+      "dec r23\n\t" // 1 clk
+      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
+
+      "out 5,r24\n\t" // set pin 6 OFF pin 7 OFF
+      "sei\n\t"
+      );
 
 
+      __asm__ __volatile__(
+          "3:\n\t"
+      "in r21,0x26\n\t" //TCNT0
+      "cp r21,r20\n\t"
+      "breq 3b\n\t"
+      
+  
+//      "lds r26,FlashIntensity\n\t"
+      "mov r25,r1\n\t" // clear r25
+      "cpi r26,2\n\t"
+//      "or r26,r26\n\t"
+      "brlo 2f\n\t"// Branch if r23 < 2 (unsigned)
+//      "breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
+      "ldi r25,0b01000000\n\t" // r25: 01000000
+      "2:\n\t"
+
+      "in r24,3\n\t" // PINB (bits 6&7 are 0)
+      "or r24,r25\n\t" // r24: bit6 ON
+  "cli\n\t"
+      "out 5,r24\n\t" // set pin 6 ON
+      
+      "ldi r23,6\n\t"
+      "1:\n\t"
+      "dec r23\n\t" // 1 clk
+      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
+      "add r24,r25\n\t"      // выключаем 6 включаем 7
+
+      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
+      "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
+
+      "ldi r23,6\n\t"
+      "1:\n\t"
+      "dec r23\n\t" // 1 clk
+      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
+
+      "out 5,r24\n\t" // set pin 6 OFF pin 7 OFF
+      "sei\n\t"
+      );
+
+//  ra=0;if(FlashIntensity>=2){ra=1;}
+//  ra=TCNT0;  while(TCNT0==ra);  // catch sync
+ // while(TCNT2&0b00011111);  // catch sync
+// if(FlashIntensity>=2){
+//    Flash();
+  //PORTB|=(1<<6);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<6); 
+//  PORTB|=(1<<7);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<7);   
+// }
+//  ra=0;if(FlashIntensity>=4){ra=1;}
+//  ra=TCNT0;  while(TCNT0==ra);  // catch sync
+//  if(FlashIntensity>=4){
+ // while(TCNT2&0b00011111);  // catch sync
+//    Flash();
+//  PORTB|=(1<<6);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<6); 
+  //PORTB|=(1<<7);  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;  NOP;NOP;NOP;NOP; PORTB&=~(1<<7);   
+//  }
+      __asm__ __volatile__(
+          "3:\n\t"
+      "in r20,0x26\n\t" //TCNT0
+      "cp r21,r20\n\t"
+      "breq 3b\n\t"
+      
+  
+//      "lds r26,FlashIntensity\n\t"
+      "mov r25,r1\n\t" // clear r25
+      "cpi r26,4\n\t"
+//      "or r26,r26\n\t"
+      "brlo 2f\n\t"// Branch if r23 < 4 (unsigned)
+//      "breq 2f\n\t" // если FlashIntensity==0 то r25=0 иначе 01000000
+      "ldi r25,0b01000000\n\t" // r25: 01000000
+      "2:\n\t"
+
+      "in r24,3\n\t" // PINB (bits 6&7 are 0)
+      "or r24,r25\n\t" // r24: bit6 ON
+"cli\n\t"
+      "out 5,r24\n\t" // set pin 6 ON
+      
+      "ldi r23,2\n\t"
+      "1:\n\t"
+      "dec r23\n\t" // 1 clk
+      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
+      "add r24,r25\n\t"      // выключаем 6 включаем 7
+
+      "out 5,r24\n\t" // set pin 6 OFF pin7 ON
+      "cbr r24, 0b11000000\n\t" // bits 6&7 are OFF
+
+      "ldi r23,2\n\t" // сокращение последней вспышки
+      "1:\n\t"
+      "dec r23\n\t" // 1 clk
+      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
+
+      "out 5,r24\n\t" // set pin 6 OFF pin 7 OFF
+      "sei\n\t"
+      );
+
+//  TCNT1=tt;
+
+Flashes++;
+//sei();
 //if(FlashIntensity)
 //{
   
@@ -1856,63 +2242,163 @@ Flashes=0;
 
 //  PORTD&=~(1<<5);   PORTD&=~(1<<6);  PORTD&=~(1<<7); 
 
-   if(FlashIntensity==3)// 8x3 24us of light 52us 45%
-   {
+//        cli();
+//        TCNT1=0; PORTB|=(1<<6);  while(TCNT1<3); PORTB&=~(1<<6); 
+  //      TCNT1=0; PORTB|=(1<<7);  while(TCNT1<3); PORTB&=~(1<<7); 
+    //    sei();
+
+
+//   if(FlashIntensity==3)// 8x3 24us of light 53us 45%
+  // {
       //for(byte i=0;i<100;i++)
   //    {
-//        TCNT1=0; PORTB|=(1<<6);  while(TCNT1<FlashIntensity); PORTB&=~(1<<6); 
-  //      TCNT1=0; PORTB|=(1<<7);  while(TCNT1<FlashIntensity); PORTB&=~(1<<7); 
-  cli();
-        TCNT1=0; PORTB=portbmask|(1<<6);  while(TCNT1<3); PORTB=portbmask|(1<<7); while(TCNT1<6); PORTB=portbmask; 
-        PORTB=portbmask|(1<<6);  while(TCNT1<9); PORTB=portbmask|(1<<7); while(TCNT1<12); PORTB=portbmask; 
-        PORTB=portbmask|(1<<6);  while(TCNT1<15); PORTB=portbmask|(1<<7); while(TCNT1<18); PORTB=portbmask; 
-        PORTB=portbmask|(1<<6);  while(TCNT1<21); PORTB=portbmask|(1<<7); while(TCNT1<24); PORTB=portbmask; 
         
-        PORTB=portbmask|(1<<6);  while(TCNT1<27); PORTB=portbmask|(1<<7); while(TCNT1<30); PORTB=portbmask; 
-        PORTB=portbmask|(1<<6);  while(TCNT1<33); PORTB=portbmask|(1<<7); while(TCNT1<36); PORTB=portbmask; 
-        PORTB=portbmask|(1<<6);  while(TCNT1<39); PORTB=portbmask|(1<<7); while(TCNT1<42); PORTB=portbmask; 
-        PORTB=portbmask|(1<<6);  while(TCNT1<45); PORTB=portbmask|(1<<7); while(TCNT1<48); PORTB=portbmask; 
-  sei();
-    //  }
-   }
-   else if(FlashIntensity==2)
-   {
-//3-0 2-3 1-6  
-//    byte till=(6-FlashIntensity*2); 
-  //  for(byte i=0;i<100;i++)
-    //{
-        //Pin2Output(DDRB,6);
-      //  TCNT1=0; PORTB|=(1<<6);  while(TCNT1<FlashIntensity); PORTB&=~(1<<6); //Pin2Input(DDRB,6); 
-        //Pin2Output(DDRB,7);
-        //TCNT1=0; PORTB|=(1<<7);  while(TCNT1<FlashIntensity); PORTB&=~(1<<7); //Pin2Input(DDRB,7); 
-        cli();
-        TCNT1=0; PORTB=portbmask|(1<<6);  while(TCNT1<3); PORTB=portbmask|(1<<7); while(TCNT1<6); PORTB=portbmask; 
-        sei();
-        TCNT1=0;while(TCNT1<3); // delay 3us (3+3+3)
-        
-//        if((i&3)==3){TCNT1=0;while(TCNT1<19);} // после каждой 4й перерыв (9-9-9-30) ?50
-//    }
-   }
-   else if(FlashIntensity==1)
-   {
-//3-0 2-3 1-6  
-//    byte till=(6-FlashIntensity*2); 
-  //  for(byte i=0;i<100;i++)
-    //{
-        //Pin2Output(DDRB,6);
-      //  TCNT1=0; PORTB|=(1<<6);  while(TCNT1<FlashIntensity); PORTB&=~(1<<6); //Pin2Input(DDRB,6); 
-        //Pin2Output(DDRB,7);
-        //TCNT1=0; PORTB|=(1<<7);  while(TCNT1<FlashIntensity); PORTB&=~(1<<7); //Pin2Input(DDRB,7); 
-        cli();
-        TCNT1=0; PORTB=portbmask|(1<<6);  while(TCNT1<3); PORTB=portbmask|(1<<7); while(TCNT1<6); PORTB=portbmask; 
-        sei();
-        TCNT1=0;while(TCNT1<6); // delay 6us (6+3+3)
-        
-//        if((i&3)==3){TCNT1=0;while(TCNT1<19);} // после каждой 4й перерыв (9-9-9-30) ?50
-//    }
-   }
 
-    Flashes++;  
+    
+    //        TCNT1=0; PORTB|=(1<<6);  while(TCNT1<FlashIntensity); PORTB&=~(1<<6); 
+  //      TCNT1=0; PORTB|=(1<<7);  while(TCNT1<FlashIntensity); PORTB&=~(1<<7); 
+//  NOP;
+//  portbmask=PINB&(~((1<<6)|(1<<7))); 
+/*
+        __asm__ __volatile__(        
+        "in r21,3\n\t" // PINB
+        "mov r20,r21\n\t"  // bits 6&7 cleared
+        "ori r21,0b01000000\n\t" // bit6set
+        "sts 0x0084,r1\n\t" // low(TCNT1)=0
+        "out 5,r21\n\t" // 6 ON
+        "mov r22,r20\n\t"
+        "ori r22,0b10000000\n\t" // bit7set
+
+        "1:\n\t""lds r24,0x0084\n\t""subi r24,3\n\t""brcs 1b\n\t"
+        "out 5,r22\n\t" // 7 ON
+        "1:\n\t""lds r24,0x0084\n\t""subi r24,6\n\t""brcs 1b\n\t"
+        "out 5,r21\n\t" // 6 ON
+        "1:\n\t""lds r24,0x0084\n\t""subi r24,9\n\t""brcs 1b\n\t"
+        "out 5,r22\n\t" // 7 ON
+        "1:\n\t""lds r24,0x0084\n\t""subi r24,12\n\t""brcs 1b\n\t"
+        "out 5,r21\n\t" // 6 ON
+        "1:\n\t""lds r24,0x0084\n\t""subi r24,15\n\t""brcs 1b\n\t"
+        "out 5,r22\n\t" // 7 ON
+        "1:\n\t""lds r24,0x0084\n\t""subi r24,18\n\t""brcs 1b\n\t"
+        "out 5,r21\n\t" // 6 ON
+        "1:\n\t""lds r24,0x0084\n\t""subi r24,21\n\t""brcs 1b\n\t"
+        "out 5,r22\n\t" // 7 ON
+        "1:\n\t""lds r24,0x0084\n\t""subi r24,24\n\t""brcs 1b\n\t"
+
+        "out 5,r21\n\t" // 6 ON
+        "1:\n\t""lds r24,0x0084\n\t""subi r24,27\n\t""brcs 1b\n\t"
+        "out 5,r22\n\t" // 7 ON
+        "1:\n\t""lds r24,0x0084\n\t""subi r24,30\n\t""brcs 1b\n\t"
+        "out 5,r21\n\t" // 6 ON
+        "1:\n\t""lds r24,0x0084\n\t""subi r24,33\n\t""brcs 1b\n\t"
+        "out 5,r22\n\t" // 7 ON
+        "1:\n\t""lds r24,0x0084\n\t""subi r24,36\n\t""brcs 1b\n\t"
+        "out 5,r21\n\t" // 6 ON
+        "1:\n\t""lds r24,0x0084\n\t""subi r24,39\n\t""brcs 1b\n\t"
+        "out 5,r22\n\t" // 7 ON
+        "1:\n\t""lds r24,0x0084\n\t""subi r24,42\n\t""brcs 1b\n\t"
+        "out 5,r21\n\t" // 6 ON
+        "1:\n\t""lds r24,0x0084\n\t""subi r24,45\n\t""brcs 1b\n\t"
+        "out 5,r22\n\t" // 7 ON
+        "1:\n\t""lds r24,0x0084\n\t""subi r24,48\n\t""brcs 1b\n\t"
+        */
+  //      "out 5,r20\n\t" // 6&7 OFF        
+    //    ); //PINB
+        
+        
+  /*      
+        TCNT1=0; 
+        __asm__ __volatile__(        
+        "in r20,3\n\t" // PINB
+        "mov r21,r20\n\t"  // bits 6&7 cleared
+        "mov r22,r20\n\t"
+        "ori r21,0b01000000\n\t" // bit6set
+        "ori r22,0b10000000\n\t" // bit7set
+        );
+
+
+        __asm__ __volatile__("out 5,r21\n\t");  __asm__ __volatile__("1:\n\t""lds r24,0x0084\n\t""subi r24,3\n\t""brcs 1b\n\t"); __asm__ __volatile__("out 5,r22\n\t"); __asm__ __volatile__("1:\n\t""lds r24,0x0084\n\t""subi r24,6\n\t""brcs 1b\n\t"); //PORTB=portbmask; 
+        __asm__ __volatile__("out 5,r21\n\t");  __asm__ __volatile__("1:\n\t""lds r24,0x0084\n\t""subi r24,9\n\t""brcs 1b\n\t"); __asm__ __volatile__("out 5,r22\n\t"); __asm__ __volatile__("1:\n\t""lds r24,0x0084\n\t""subi r24,12\n\t""brcs 1b\n\t");//PORTB=portbmask; 
+        __asm__ __volatile__("out 5,r21\n\t");  __asm__ __volatile__("1:\n\t""lds r24,0x0084\n\t""subi r24,15\n\t""brcs 1b\n\t"); __asm__ __volatile__("out 5,r22\n\t"); __asm__ __volatile__("1:\n\t""lds r24,0x0084\n\t""subi r24,18\n\t""brcs 1b\n\t");//PORTB=portbmask; 
+        __asm__ __volatile__("out 5,r21\n\t");  __asm__ __volatile__("1:\n\t""lds r24,0x0084\n\t""subi r24,21\n\t""brcs 1b\n\t"); __asm__ __volatile__("out 5,r22\n\t"); __asm__ __volatile__("1:\n\t""lds r24,0x0084\n\t""subi r24,24\n\t""brcs 1b\n\t");//PORTB=portbmask; 
+        
+        __asm__ __volatile__("out 5,r21\n\t");  __asm__ __volatile__("1:\n\t""lds r24,0x0084\n\t""subi r24,27\n\t""brcs 1b\n\t"); __asm__ __volatile__("out 5,r22\n\t"); __asm__ __volatile__("1:\n\t""lds r24,0x0084\n\t""subi r24,30\n\t""brcs 1b\n\t");//PORTB=portbmask; 
+        __asm__ __volatile__("out 5,r21\n\t");  __asm__ __volatile__("1:\n\t""lds r24,0x0084\n\t""subi r24,33\n\t""brcs 1b\n\t"); __asm__ __volatile__("out 5,r22\n\t"); __asm__ __volatile__("1:\n\t""lds r24,0x0084\n\t""subi r24,36\n\t""brcs 1b\n\t"); //PORTB=portbmask; 
+        __asm__ __volatile__("out 5,r21\n\t");  __asm__ __volatile__("1:\n\t""lds r24,0x0084\n\t""subi r24,39\n\t""brcs 1b\n\t"); __asm__ __volatile__("out 5,r22\n\t"); __asm__ __volatile__("1:\n\t""lds r24,0x0084\n\t""subi r24,42\n\t""brcs 1b\n\t"); //PORTB=portbmask; 
+        __asm__ __volatile__("out 5,r21\n\t");  __asm__ __volatile__("1:\n\t""lds r24,0x0084\n\t""subi r24,45\n\t""brcs 1b\n\t"); __asm__ __volatile__("out 5,r22\n\t"); __asm__ __volatile__("1:\n\t""lds r24,0x0084\n\t""subi r24,48\n\t""brcs 1b\n\t"); __asm__ __volatile__("out 5,r20\n\t");  
+*/
+/*
+        TCNT1=0; PORTB=portbmask|(1<<6);  while(TCNT1<3); PORTB=portbmask|(1<<7); while(TCNT1<6); //PORTB=portbmask; 
+        PORTB=portbmask|(1<<6);  while(TCNT1<9); PORTB=portbmask|(1<<7); while(TCNT1<12); //PORTB=portbmask; 
+        PORTB=portbmask|(1<<6);  while(TCNT1<15); PORTB=portbmask|(1<<7); while(TCNT1<18); //PORTB=portbmask; 
+        PORTB=portbmask|(1<<6);  while(TCNT1<21); PORTB=portbmask|(1<<7); while(TCNT1<24); //PORTB=portbmask; 
+        
+        PORTB=portbmask|(1<<6);  while(TCNT1<27); PORTB=portbmask|(1<<7); while(TCNT1<30); //PORTB=portbmask; 
+        PORTB=portbmask|(1<<6);  while(TCNT1<33); PORTB=portbmask|(1<<7); while(TCNT1<36); //PORTB=portbmask; 
+        PORTB=portbmask|(1<<6);  while(TCNT1<39); PORTB=portbmask|(1<<7); while(TCNT1<42); //PORTB=portbmask; 
+        PORTB=portbmask|(1<<6);  while(TCNT1<45); PORTB=portbmask|(1<<7); while(TCNT1<48); PORTB=portbmask; 
+         cli();
+        TCNT1=0; PORTB|=(1<<6);  while(TCNT1<3); PORTB&=~(1<<6); 
+        TCNT1=0; PORTB|=(1<<7);  while(TCNT1<3); PORTB&=~(1<<7); 
+        sei();
+          TCNT1=0;while(TCNT1<6);
+        cli();
+        TCNT1=0; PORTB|=(1<<6);  while(TCNT1<3); PORTB&=~(1<<6); 
+        TCNT1=0; PORTB|=(1<<7);  while(TCNT1<3); PORTB&=~(1<<7); 
+        sei();
+          TCNT1=0;while(TCNT1<6);
+        cli();
+        TCNT1=0; PORTB|=(1<<6);  while(TCNT1<3); PORTB&=~(1<<6); 
+        TCNT1=0; PORTB|=(1<<7);  while(TCNT1<3); PORTB&=~(1<<7); 
+        sei();
+
+          TCNT1=0;while(TCNT1<3);
+*/          
+//          TCNT1=0;while(TCNT1<20); // 50us total
+    //  }
+  // }
+//   else if(FlashIntensity==2)
+  // {
+//3-0 2-3 1-6  
+//    byte till=(6-FlashIntensity*2); 
+  //  for(byte i=0;i<100;i++)
+    //{
+//        portbmask=PINB&(~((1<<6)|(1<<7))); 
+        //Pin2Output(DDRB,6);
+      //  TCNT1=0; PORTB|=(1<<6);  while(TCNT1<FlashIntensity); PORTB&=~(1<<6); //Pin2Input(DDRB,6); 
+        //Pin2Output(DDRB,7);
+        //TCNT1=0; PORTB|=(1<<7);  while(TCNT1<FlashIntensity); PORTB&=~(1<<7); //Pin2Input(DDRB,7); 
+  //      cli();
+    //    TCNT1=0; PORTB=portbmask|(1<<6);  while(TCNT1<3); PORTB=portbmask|(1<<7); while(TCNT1<6); PORTB=portbmask; 
+    /*    cli();
+        TCNT1=0; PORTB|=(1<<6);  while(TCNT1<3); PORTB&=~(1<<6); 
+        TCNT1=0; PORTB|=(1<<7);  while(TCNT1<3); PORTB&=~(1<<7); 
+        sei();
+          TCNT1=0;while(TCNT1<10);
+        cli();
+        TCNT1=0; PORTB|=(1<<6);  while(TCNT1<3); PORTB&=~(1<<6); 
+        TCNT1=0; PORTB|=(1<<7);  while(TCNT1<3); PORTB&=~(1<<7); 
+        sei();
+        */
+//        if((i&3)==3){TCNT1=0;while(TCNT1<19);} // после каждой 4й перерыв (9-9-9-30) ?50
+//    }
+//   }
+  // else if(FlashIntensity==1)
+   //{
+//3-0 2-3 1-6  
+//    byte till=(6-FlashIntensity*2); 
+  //  for(byte i=0;i<100;i++)
+    //{
+//        cli();
+  //      TCNT1=0; PORTB|=(1<<6);  while(TCNT1<3); PORTB&=~(1<<6); 
+    //    TCNT1=0; PORTB|=(1<<7);  while(TCNT1<3); PORTB&=~(1<<7); 
+      //  sei();
+        //  TCNT1=0;while(TCNT1<20);
+//        if((i&3)==3){TCNT1=0;while(TCNT1<19);} // после каждой 4й перерыв (9-9-9-30) ?50
+//    }
+//   }
+
+//    Flashes++;  
 
 //} // пыхнем
 
