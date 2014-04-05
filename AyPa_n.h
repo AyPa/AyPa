@@ -1,4 +1,4 @@
-//nokia 5110 display
+//nokia 3110/5110 display
 
 // pins layout 
 
