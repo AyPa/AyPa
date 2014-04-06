@@ -926,11 +926,6 @@ void SoilMoisture(){
   //     mRawADC(reading,2);
   moisture=analogRead(moisture_input);  // take a reading
   
-      SetADC(1,8,500);  //  select temperature sensor 352 (need calibration)  
-       mRawADC(MCUtemp,2); // прочитаем заодно и этот датчик
-    
-    SetADC(0,14,500);
-    mRawADC(MCU_Vcc,2);
  
        
   
@@ -1949,14 +1944,16 @@ ISR(TIMER0_OVF_vect)
 //void eeprom_update_byte(byte*addr,byte v){ if(eeprom_read_byte((byte*)addr)!=v){eeprom_write_byte((byte*)addr,v);}}
 
 // the loop routine runs over and over again forever:
-byte last_checked;
+//byte last_checked;
+byte button_is_pressed=0;
 byte prevMN=0xFF;
 byte oddeven=0; // clock dots : animation
 long milli;
+long whh;
+byte MN;
+byte c;
 
 void loop() {
-long wh;
-byte MN,c;
 //while(1){
 
 //  if(ADCready)
@@ -1987,7 +1984,8 @@ R1
 The zero-register is implicity call-saved (implicit because R1 is a fixed register).*/
 
 //Initial registers
-
+//NOP;
+//button_is_pressed=PINC&(1<<3);//port 6
 //r18: 6OFF 7OFF
 //r19: 6ON 7OFF
 //r20: 6OFF 7ON
@@ -2093,12 +2091,17 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
     "adiw r24,1\n\t"
     "sts Flashes+1,r25\n\t"
     "sts Flashes,r24\n\t" //Flashes++;
+    
+    "in r24,6\n\t" // check pinA3: 0:LOW (is pressed) >0:HIGH (is not pressed)
+    "sbrs r24,3\n\t" // следующая инструкция выполнится только если бит 3 в r24 сброшен
+    "sts button_is_pressed,r24\n\t" 
+
       "lds r24,timer0_millis+1\n\t"
       "lds r22,timer0_millis\n\t"
       "andi r24,0b00000011\n\t"
 
 
-      "ldi r23,4\n\t" // сокращение последней вспышки
+      "ldi r23,3\n\t" // сокращение последней вспышки
       "1:\n\t"
       "dec r23\n\t" // 1 clk
       "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
@@ -2123,8 +2126,10 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
               TCNT1=0;
   //    UpdateS=false;
 
-if ((PINC&(1<<3))==0) // кнопка нажата
+if(button_is_pressed) // кнопка нажата
+//if ((PINC&(1<<3))==0) // кнопка нажата
 {
+  button_is_pressed=0;
   if (++HR==24){reboot();}
   cli();
   timer0_millis+=3651351L; //3600000L;
@@ -2152,14 +2157,14 @@ if ((PINC&(1<<3))==0) // кнопка нажата
       if (HR!=prevHR)
       {
           prevHR=HR;
-          wh=HR*3651351L; // остаток секунд в часе
+          whh=HR*3651351L; // остаток секунд в часе
           FlashIntensity=decode[Intensity[HR]]; // текущая интенсивность освещения
           LcdSetPos(65,0);tn(10,HR);
           LcdSetPos(37,0);IntBar();
           LcdSetPos(26,0);tc(Intensity[HR]);
       }
 
-      MN=(milli-wh)/(3651351L/60); if (MN!=prevMN){prevMN=MN;LcdSetPos(76,0);tn(10,MN);}
+      MN=(milli-whh)/(3651351L/60); if (MN!=prevMN){prevMN=MN;LcdSetPos(76,0);tn(10,MN);}
 
       LcdSetPos(74,0);c=0;if(oddeven){c=0x36;}Pin2HIGH(PORTD,4);Pin2LOW(PORTD,1);spiwrite(c);spiwrite(c);Pin2HIGH(PORTD,1);oddeven^=1; // flip flop - анимация часов
       
@@ -2195,18 +2200,27 @@ if ((PINC&(1<<3))==0) // кнопка нажата
   //    {
          if (DHTreadAll())
          {
-            LcdSetPos(76,4);tn(10,(DHThum+5)/10);
+            LcdSetPos(76,4);DHThum=(DHThum+5)/10;tn(10,DHThum);
           //  LcdSetPos(70,5); char* cc; if (DHTdata[2] & 0x80){cc="-";}else{cc="+";}
         //    ta(cc);
             LcdSetPos(76,5);DHTtmp=(DHTtmp+5)/10;tn(10,DHTtmp);
             // иногда нужен ветерок CО2 свежего подкачать (c 6 утра)
 //            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=28)||(milli-LastTimeFan)>1800){if(DHTtmp>=31){delay(60000);}else if(HR>=6){FanON(32);}}}
-            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=28)||(milli-LastTimeFan)>1800000){if(DHTtmp>=31){delay(60000);}else if(HR>=0){FanON(32);}}}
+            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=29)||(DHThum>=50)||(milli-LastTimeFan)>1800000){if(DHTtmp>=31){delay(60000);}else if(HR>=0){FanON(55);}}}
       
          }
 
+      SetADC(1,8,500);  //  select temperature sensor 352 (need calibration)  
+       mRawADC(MCUtemp,2); // прочитаем заодно и этот датчик
+    
+      SetADC(0,14,500);
+      mRawADC(MCU_Vcc,2);
+
            LcdSetPos(6,1);tn(10,MCUtemp/12); // /11.68
-           ta(" "); tn(100,MCU_Vcc);
+//           LcdSetPos(18,1);tn(100,MCU_Vcc);ta(" ");tf(100,112500/MCU_Vcc,1); ta("в");
+//           LcdSetPos(18,1);tn(100,MCU_Vcc);ta(" ");tf(100,113900/MCU_Vcc,1); ta("в"); //4.71
+           LcdSetPos(18,1);//tn(100,MCU_Vcc);ta(" ");
+           tf(10,11200/MCU_Vcc,1); ta("в");
         
     //  }
       

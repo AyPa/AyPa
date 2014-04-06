@@ -141,6 +141,21 @@ void tn(long s, long v)
   Pin2HIGH(PORTD,1);//    digitalWrite(ce,HIGH);
 }
 
+void tf(long s, long v,byte d)
+{
+  byte c,ch;
+  byte p=0;
+  long vv=v;  
+  
+  Pin2HIGH(PORTD,4); 
+  Pin2LOW(PORTD,1); 
+  
+//  for(long n=s;n>0;n/=10){ch=vv/n;vv-=ch*n;dd(ch+ch+ch);if(p){p=0;spiwrite(0x00);spiwrite(0x60);spiwrite(0x60);}}
+  for(long n=s;n>0;n/=10){ch=vv/n;vv-=ch*n;dd(ch+ch+ch);if(++p==d){spiwrite(0x00);spiwrite(0x40);}}
+    
+  Pin2HIGH(PORTD,1);
+}
+
 void ta(char *st)
 {
   byte l=0,c;
