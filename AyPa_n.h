@@ -8,6 +8,7 @@
 #define DIN 11
 #define CLK 13
 
+/*
 void LcdWriteCmd1(byte cmd)
 {
 
@@ -27,20 +28,21 @@ void LcdWriteCmd1(byte cmd)
   
 
   digitalWrite(CE,HIGH);  
-}
+}*/
 
 void LcdWriteCmd(byte cmd)
 {
 
-  digitalWrite(DC,LOW);
-  digitalWrite(CE,LOW);
+    
+  Pin2LOW(PORTD,DC);//digitalWrite(DC,LOW);
+  Pin2LOW(PORTD,CE);//  digitalWrite(CE,LOW);
 
   SPDR = cmd;// start transfer
   while(!(SPSR&(1<<SPIF)));// interrupt also can!
 
-  digitalWrite(CE,HIGH);  
+  Pin2HIGH(PORTD,CE);//  digitalWrite(CE,HIGH);  
 }
-
+/*
 void LcdWriteData1(byte cmd)
 {
 
@@ -60,7 +62,7 @@ void LcdWriteData1(byte cmd)
   
 
   digitalWrite(CE,HIGH);  
-}
+}*/
 
 void LcdWriteData(byte cmd)
 {
@@ -72,13 +74,13 @@ void LcdWriteData(byte cmd)
   //SPCR = (1 << MSTR) | (1 << SPE) |(1<<SPR0);      // enable, master, msb first
   SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
 
-  digitalWrite(DC,HIGH);
-  digitalWrite(CE,LOW);
+  Pin2HIGH(PORTD,DC);//  digitalWrite(DC,HIGH);
+  Pin2LOW(PORTD,CE);///  digitalWrite(CE,LOW);
 
   SPDR = cmd;// start transfer
   while(!(SPSR&(1<<SPIF)));// interrupt also can!
 
-  digitalWrite(CE,HIGH);  
+  Pin2HIGH(PORTD,CE);///  digitalWrite(CE,HIGH);  
 }
 
 #define spiwrite(c){  SPDR = c;  while(!(SPSR&(1<<SPIF)));}

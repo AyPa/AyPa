@@ -8,9 +8,7 @@
 #include <avr/eeprom.h>
 #include <Arduino.h>
 
-
-
-#include <SPI.h>
+//#include <SPI.h>
 
 
 //#include <SoftI2CMaster.h>
@@ -101,7 +99,7 @@ void write8 (uint8_t reg, uint8_t value,byte addr)
 //const int chipSelect = 4;    
 
 
-int freeRam(void)
+word freeRam(void)
 {
   extern unsigned int __heap_start;
   extern void *__brkval;
@@ -128,7 +126,7 @@ int freeRam(void)
  while(!(SPSR&(1<<SPIF)));// interrupt also can!
  */
 
-
+/*
 void InitSPI(void)
 {
   //SPI.setDataMode(SPI_MODE0);//default
@@ -139,14 +137,14 @@ void InitSPI(void)
   //SPCR = (1 << MSTR) | (1 << SPE) |(1<<SPR0);      // enable, master, msb first
   SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
 }
+*/
 
-
-unsigned long resetTime = 0;
-#define TIMEOUTPERIOD 100             // You can make this time as long as you want,
+//unsigned long resetTime = 0;
+//#define TIMEOUTPERIOD 100             // You can make this time as long as you want,
 // it's not limited to 8 seconds like the normal
 // watchdog
 //#define doggieTickle() resetTime = millis();  // This macro will reset the timer
-void(* resetFunc) (void) = 0; //declare reset function @ address 0
+//void(* resetFunc) (void) = 0; //declare reset function @ address 0
 
 //#define SetupWD(timeout){cli();wdt_reset();MCUSR&=~(1<<WDRF);WDTCSR=(1<<WDCE)|(1<<WDE);WDTCSR=(1<<WDIE)|timeout;WDhappen;sei();}
 
@@ -157,9 +155,9 @@ void(* resetFunc) (void) = 0; //declare reset function @ address 0
 
 
 
-volatile byte WDhappen;
-volatile word  t1111; // vars updated in ISR should be declared as volatile and accessed with cli()/sei() ie atomic
-volatile boolean WDsleep=false;
+//volatile byte WDhappen;
+//volatile word  t1111; // vars updated in ISR should be declared as volatile and accessed with cli()/sei() ie atomic
+//volatile boolean WDsleep=false;
 
 
 //uint32_t ticks=0;
@@ -189,7 +187,7 @@ ISR (TIMER1_COMPA_vect){
  }
  }*/
 
-byte T1happen=0;
+//byte T1happen=0;
 
 /*
 ISR (TIMER1_COMPA_vect){
@@ -222,9 +220,9 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 //#define LATCHPIN 6
 
 //
-//    Pin2Output(DDRD,1);Pin2LOW(PORTD,1); \ 
-//    Pin2LOW(PORTD,1); Pin2Input(DDRD,1); \
-
+//    Pin2Output(DDRD,1);Pin2LOW(PORTD,1); 
+//    Pin2LOW(PORTD,1); Pin2Input(DDRD,1); 
+/*
 #define ERR_WHERE_IS_THE_CLOCK    0x20;
 #define ERR_STRANGE_CLOCK_DATA   0x28;
 #define ERR_STOPPED_CLOCK            0b00000100;
@@ -234,6 +232,7 @@ void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
 #define ERR_SET_CLOCK                    0x2F;
 #define ERR_I2C                                0x30;
 byte ERR=0; // ошибки (255)
+*/
 /*
 word TFT_IS_ON=0;
 
@@ -334,7 +333,7 @@ byte CH; // текущий час (0..23)
 byte grr,grr2;
 
 
-
+/*
 void __attribute__ ((noinline)) wait4int(void)
 {
     byte n=0;
@@ -380,17 +379,14 @@ void RequestFrom(byte addr,byte reg)
     wait4int();  //  if (TWSR!=0x40){return false;} // got ack
 
 }
-
+*/
 //#define FLASH_CYCLE 95 // microseconds (+~5)
 //#define FLASH_CYCLE 65 // microseconds (+~5)
 
 //byte Intensity[24] = {0,0,0,0,0,0, 1,2,3,3,3,3, 3,3,3,3,3,3, 3,3,3,3,2,1}; // почасовая интенсивность 
 //byte Intensity[24] = {3,0,0,0,0,0, 1,2,3,4,4,4, 4,4,4,4,4,4, 4,4,4,3,2,1}; // почасовая интенсивность 
 //byte Intensity[24] = {0xE,0,0,0,0,0, 0x8,0xA,0xB,0xF,0xF,0xF, 0xF,0xF,0xF,0xF,0xF,0xF, 0xF,0xF,0xF,0xE,0xA,0x8}; // почасовая интенсивность 
-long i1=40000011;
-long i2=22333444;
-long i3=43332211;
-byte Intensity[24] = {4,0,0,0,0,0,1,1, 2,2,3,3,3,4,4,4, 4,3,3,3,2,2,1,1}; // почасовая интенсивность 
+byte Intensity[24] = {4,0,0,0,0,0, 1,1,2,2,3,3, 4,4,4,3,3,3, 2,2,2,1,1,1}; // почасовая интенсивность 
 byte decode[5]={0,0x8,0xA,0xE,0xF};
 // 0xF 1111 (4)
 // 0xE 1110 (3)
@@ -403,6 +399,7 @@ byte volatile ticks=0; // 1/2с
 byte HR=0;
 byte prevHR=0xFF;
 
+/*
 byte __attribute__ ((noinline)) unBCD(byte bcd){return (((bcd>>4)*10)+(bcd&0xF)); }
 
 void RTC(void)
@@ -516,9 +513,9 @@ void TSLstart(byte IntGain)
 //  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  IntGain ,0x29);    //  // Set default integration time and gain
 
 }
-
-void TSLstop(void)
-{
+*/
+//void TSLstop(void)
+//{
 /*
   grr=read8(TSL2561_REGISTER_ID,0x29);
        Light.W[1]= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW,0x29);
@@ -527,11 +524,11 @@ void TSLstop(void)
 */
       
 
-    RequestFrom((0x29<<1),(TSL2561_REGISTER_ID));
+//    RequestFrom((0x29<<1),(TSL2561_REGISTER_ID));
     
-    TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + ack
-    wait4int();//    if (TWSR!=0x50){return false;} // ack sent
-    if ((TWDR&0xF)!=0xA){ ERR=ERR_WHERE_IS_THE_TSL2561; } 
+  //  TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + ack
+//    wait4int();//    if (TWSR!=0x50){return false;} // ack sent
+  //  if ((TWDR&0xF)!=0xA){ ERR=ERR_WHERE_IS_THE_TSL2561; } 
 
 /*
    RequestFrom((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN1_LOW));
@@ -563,7 +560,7 @@ void TSLstop(void)
    Light.W[0]|=(TWDR<<8);
    */
 
-    RequestFrom((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW));
+/*    RequestFrom((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW));
 
     TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + ack
     wait4int();//    if (TWSR!=0x50){return false;} // ack sent
@@ -591,7 +588,8 @@ grr2=TWSR;
     Pin2LOW(PORTC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,4);Pin2Input(DDRC,5); // если STOP не успевает - поставь задержку
 
 }
-
+*/
+/*
 word TouchSensor(void) // 
 {
       word cycles=30000;
@@ -606,7 +604,7 @@ word TouchSensor(void) //
 }
 
 byte sleeps=0;
-
+*/
 #ifndef cbi
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
 #endif
@@ -852,6 +850,7 @@ Pin2HIGH(PORTB,1);
   return res;
 }
 
+/*
 word TouchD[4];
 //byte TouchPos=0;
 word Etouch;
@@ -864,7 +863,7 @@ word TouchT(void)
   res=res+(res>>4); // среднее+ 1/16
 //  return res;
   return (res>>2);
-}
+}*/
 
 //#define DS1307_I2C_ADDRESS 0x68 // read and write address is different for DS1307 
 
@@ -892,9 +891,10 @@ word ADCresult;
 //byte volatile ADCready=0;
 byte volatile ADCfree=1;
 
-#define moisture_input A0
-#define divider_top A2
-#define divider_bottom A1
+// port C
+#define moisture_input 0
+#define divider_top 2
+#define divider_bottom 1
 //int moisture; // analogical value obtained from the experiment
 long NextSoilMoistureCheck=0;
 long NextTmpHumCheck=0;
@@ -907,24 +907,25 @@ word moisture;
 void SoilMoisture(){
 //  int reading;
   // set driver pins to outputs
-  pinMode(divider_top,OUTPUT);
-  pinMode(divider_bottom,OUTPUT);
+  Pin2Output(DDRC,divider_top);//pinMode(divider_top,OUTPUT);
+  Pin2Output(DDRC,divider_bottom);//  pinMode(divider_bottom,OUTPUT);
 
   // drive a current through the divider in one direction
-  digitalWrite(divider_top,LOW);
-  digitalWrite(divider_bottom,HIGH);
+  Pin2LOW(PORTC,divider_top);//digitalWrite(divider_top,LOW);
+  Pin2HIGH(PORTC,divider_bottom);//digitalWrite(divider_bottom,HIGH);
 
   // wait a moment for capacitance effects to settle
-  delay(300);
+    SetADC(0,moisture_input,2); // A0
+  delay(250);
 
 //  while(!ADCfree);
 //  ADCfree=0;// to avoid collision with Vcc  
 //  while(!ADCready);// у нас примерно 125 раз в секунду измеряется напряжение питание. здесь мы пожертвуем одним измерением ради датчика влажности почвы
 //  cli();
 //TCNT1=0;
-//    SetADC(1,0,500); // A0
+         mRawADC(moisture,2);
   //     mRawADC(reading,2);
-  moisture=analogRead(moisture_input);  // take a reading
+//  moisture=analogRead(moisture_input);  // take a reading
   
  
        
@@ -938,21 +939,21 @@ void SoilMoisture(){
   //sei();
 
   // reverse the current
-  digitalWrite(divider_top,HIGH);
-  digitalWrite(divider_bottom,LOW);
+  Pin2HIGH(PORTC,divider_top);//digitalWrite(divider_top,HIGH);
+  Pin2LOW(PORTC,divider_bottom);//digitalWrite(divider_bottom,LOW);
 
   // give as much time in 'reverse' as in 'forward'
-  delay(300);
+  delay(250);
 
   // stop the current
-  digitalWrite(divider_bottom,LOW);
+  Pin2LOW(PORTC,divider_bottom);//digitalWrite(divider_bottom,LOW);
 
 
 // back to high imp state
-  pinMode(divider_top,INPUT);
-  pinMode(divider_bottom,INPUT);
-  digitalWrite(divider_top,LOW);
-  digitalWrite(divider_bottom,LOW);
+  Pin2Input(DDRC,divider_top);//pinMode(divider_top,INPUT);
+  Pin2Input(DDRC,divider_bottom);//pinMode(divider_bottom,INPUT);
+//  digitalWrite(divider_top,LOW);
+//  digitalWrite(divider_bottom,LOW);
 
 //  return reading;
 }
@@ -1947,7 +1948,6 @@ ISR(TIMER0_OVF_vect)
 //byte last_checked;
 byte button_is_pressed=0;
 byte prevMN=0xFF;
-byte oddeven=0; // clock dots : animation
 long milli;
 long whh;
 byte MN;
@@ -2094,11 +2094,11 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
     
     "in r24,6\n\t" // check pinA3: 0:LOW (is pressed) >0:HIGH (is not pressed)
     "sbrs r24,3\n\t" // следующая инструкция выполнится только если бит 3 в r24 сброшен
-    "sts button_is_pressed,r24\n\t" 
+    "sts button_is_pressed,r20\n\t"  // надо сохранить >0!!!!!!!!!!!! r20 точно > 0
 
-      "lds r24,timer0_millis+1\n\t"
-      "lds r22,timer0_millis\n\t"
-      "andi r24,0b00000011\n\t"
+      "lds r24,timer0_overflow_count+1\n\t"
+      "lds r22,timer0_overflow_count\n\t"
+      "andi r24,0b00000001\n\t"
 
 
       "ldi r23,3\n\t" // сокращение последней вспышки
@@ -2109,7 +2109,7 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
       "sei\n\t"    //The instruction following SEI will be executed before any pending interrupts.
       "out 5,r18\n\t" // set pin 6 OFF pin7 OFF - можно без sbrc здесь
     
-      "or r24,r22\n\t" //  if ((timer0_millis&0x3FF)==0)  каждые 1024ms
+      "or r24,r22\n\t" //  if ((timer0_oveflow_count&0x1FF)==0)  каждые 1024ms
       "breq Check\n\t"
 //      "5:\n\t"
       "rjmp Next\n\t"
@@ -2166,7 +2166,7 @@ if(button_is_pressed) // кнопка нажата
 
       MN=(milli-whh)/(3651351L/60); if (MN!=prevMN){prevMN=MN;LcdSetPos(76,0);tn(10,MN);}
 
-      LcdSetPos(74,0);c=0;if(oddeven){c=0x36;}Pin2HIGH(PORTD,4);Pin2LOW(PORTD,1);spiwrite(c);spiwrite(c);Pin2HIGH(PORTD,1);oddeven^=1; // flip flop - анимация часов
+      LcdSetPos(74,0);c=0;if(milli&1024){c=0x36;}Pin2HIGH(PORTD,4);Pin2LOW(PORTD,1);spiwrite(c);spiwrite(c);Pin2HIGH(PORTD,1); // flip flop - анимация часов
       
 //      HR=timer0_overflow_count/(60*512); sei(); if (HR==24){reboot();} // reboot every 24h
 
@@ -2193,7 +2193,7 @@ if(button_is_pressed) // кнопка нажата
 
   if(milli>=NextTmpHumCheck)
   {
-        NextTmpHumCheck=milli+30000L; // +60s
+        NextTmpHumCheck=milli+20000L; // +20s
  // LcdSetPos(18,2);ta("N");tn(100,co1);co1=0;
 
 //      if((milli&0xF0)==0) // раз в xxxs можно замерить температуру и относительную влажность воздуха
@@ -2216,11 +2216,12 @@ if(button_is_pressed) // кнопка нажата
       SetADC(0,14,500);
       mRawADC(MCU_Vcc,2);
 
-           LcdSetPos(6,1);tn(10,MCUtemp/12); // /11.68
+           LcdSetPos(6,1);tn(10,MCUtemp/12); ts(0x00);ts(0x06);ts(0x09);ts(0x09);ts(0x06); // /11.68
 //           LcdSetPos(18,1);tn(100,MCU_Vcc);ta(" ");tf(100,112500/MCU_Vcc,1); ta("в");
 //           LcdSetPos(18,1);tn(100,MCU_Vcc);ta(" ");tf(100,113900/MCU_Vcc,1); ta("в"); //4.71
-           LcdSetPos(18,1);//tn(100,MCU_Vcc);ta(" ");
+           LcdSetPos(20,1);//tn(100,MCU_Vcc);ta(" ");
            tf(10,11200/MCU_Vcc,1); ta("в");
+          LcdSetPos(35,1);tn(1000,freeRam()); 
         
     //  }
       
@@ -2229,7 +2230,8 @@ if(button_is_pressed) // кнопка нажата
      // LcdSetPos(6,2);tn(100,ADCresult);
 
 
-    
+       LcdSetPos(0,2);tn(10000,Flashes);
+       LcdSetPos(32,2);tn(100000000,timer0_millis);    
 
 //          LcdBack();
   }// next humtmp check
@@ -2252,24 +2254,23 @@ if(button_is_pressed) // кнопка нажата
 //delay(2);
 
 //       LcdSetPos(37,0);tn(100000,timer0_overflow_count);
-  //     LcdSetPos(26,0);//tn(100000,Flashes);Flashes=0;
+  Flashes=0;
 //tn(100000,NextTmpHumCheck);
 //byte ee=milli;byte rr=timer0_millis;
 //tn(100,ee);tn(100,(timer0_millis&0xff));
 
 //  delayMicroseconds(900);
-
+//LcdSetPos(32,2);tn(100000000,timer0_millis);    
 
   // milli всегда 0 здесь
 
-  __asm__ __volatile__("1:\n\t""lds r25,timer0_millis\n\t""or r25,r25\n\t""breq 1b\n\t"); // milli must change (from 0) - только они чегото раз в 2 мс меняются.....
+  //__asm__ __volatile__("1:\n\t""lds r25,timer0_millis\n\t""or r25,r25\n\t""breq 1b\n\t"); // milli must change (from 0) - только они чегото раз в 2 мс меняются.....
+
 
 word t1=TCNT1;
-
-
-       LcdSetPos(8,2);tn(10000,t1);
+//       LcdSetPos(8,2);tn(10000,t1);
        
-       LcdSetPos(32,2);tn(100000000,timer0_millis);ta("-");th((timer0_millis&0xff));
+//       LcdSetPos(32,2);tn(100000000,timer0_millis);//ta("-");th((timer0_millis&0xff));
 
         __asm__ __volatile__("rjmp Start\n\t");
 
