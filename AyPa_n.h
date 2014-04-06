@@ -103,6 +103,17 @@ void dd(byte ch)
   }
 }
 
+void tc(byte ch)
+{
+  Pin2HIGH(PORTD,4); 
+  Pin2LOW(PORTD,1); ///digitalWrite(ce LOW);//3
+
+  spiwrite(0x00);// 1st space
+  dd(ch+ch+ch);
+  
+  Pin2HIGH(PORTD,1);//    digitalWrite(ce,HIGH);
+}
+
 void tn(long s, long v)
 {
   byte c,ch;

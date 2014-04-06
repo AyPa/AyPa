@@ -387,7 +387,11 @@ void RequestFrom(byte addr,byte reg)
 //byte Intensity[24] = {0,0,0,0,0,0, 1,2,3,3,3,3, 3,3,3,3,3,3, 3,3,3,3,2,1}; // почасовая интенсивность 
 //byte Intensity[24] = {3,0,0,0,0,0, 1,2,3,4,4,4, 4,4,4,4,4,4, 4,4,4,3,2,1}; // почасовая интенсивность 
 //byte Intensity[24] = {0xE,0,0,0,0,0, 0x8,0xA,0xB,0xF,0xF,0xF, 0xF,0xF,0xF,0xF,0xF,0xF, 0xF,0xF,0xF,0xE,0xA,0x8}; // почасовая интенсивность 
-byte Intensity[24] = {0xF,0,0,0,0,0, 0x8,0xA,0xB,0xF,0xF,0xF, 0xF,0xF,0xF,0xF,0xF,0xF, 0xF,0xF,0xF,0xE,0xA,0x8}; // почасовая интенсивность 
+long i1=40000011;
+long i2=22333444;
+long i3=43332211;
+byte Intensity[24] = {4,0,0,0,0,0,1,1, 2,2,3,3,3,4,4,4, 4,3,3,3,2,2,1,1}; // почасовая интенсивность 
+byte decode[5]={0,0x8,0xA,0xE,0xF};
 // 0xF 1111 (4)
 // 0xE 1110 (3)
 // 0xA 1010 (2)
@@ -397,8 +401,7 @@ byte FlashIntensity=0;
 
 byte volatile ticks=0; // 1/2с
 byte HR=0;
-//byte MN;
-//byte SC;
+byte prevHR=0xFF;
 
 byte __attribute__ ((noinline)) unBCD(byte bcd){return (((bcd>>4)*10)+(bcd&0xF)); }
 
@@ -894,10 +897,9 @@ byte volatile ADCfree=1;
 #define divider_top A2
 #define divider_bottom A1
 //int moisture; // analogical value obtained from the experiment
-
-word NextSoilMoistureCheck=0;
-word NextTmpHumCheck=0;
-word volatile uptime=0; // uptime в секундах
+long NextSoilMoistureCheck=0;
+long NextTmpHumCheck=0;
+//word volatile uptime=0; // uptime в секундах
 
 word MCUtemp;
 
@@ -1078,7 +1080,7 @@ setup_watchdog(T2S); // если в течении 2s не сбросить ст
 
     
       LcdBack();
- NextSoilMoistureCheck=NextTmpHumCheck=uptime;
+// NextSoilMoistureCheck=NextTmpHumCheck=uptime;
 
     Pin2Output(DDRB,6);
     Pin2Output(DDRB,7);
@@ -1844,6 +1846,7 @@ while(pos<(42*24*3+0x36));
 
 word DHThum,DHTtmp;
 
+
 boolean DHTreadAll(void) {
 boolean  res=false;
   //if (DHTread()) {
@@ -1861,18 +1864,60 @@ if(read22()==DHTLIB_OK)
 }
 
 
+void IntBar(void)
+{
+    byte i,c;//,b=moisture/23;  // 0..39 0..920 1 pixel=920/40=23
+
+    Pin2HIGH(PORTD,4); 
+    Pin2LOW(PORTD,1); 
+
+//    spiwrite(0x7C);
+    for (i=0;i<23;i++){
+      c=0;
+//if(Intensity[i]==0){spiwrite(0);}
+if(Intensity[i]==1){c=0x10;}
+else if(Intensity[i]==2){c=0x18;}
+else if(Intensity[i]==3){c=0x1C;}
+else if(Intensity[i]==4){c=0x1E;}
+if (i==HR){c|=0x40;}
+  spiwrite(c);  spiwrite(c);
+}
+
+    Pin2HIGH(PORTD,1);
+}
+
+
+void SoilBar(void)
+{
+    byte i,b=moisture/23;  // 0..39 0..920 1 pixel=920/40=23
+
+    Pin2HIGH(PORTD,4); 
+    Pin2LOW(PORTD,1); 
+
+    spiwrite(0x7C);
+    for (i=0;i<b;i++){spiwrite(0x44);}
+    for (i=b;i<41;i++){spiwrite(0x7C);}
+//    spiwrite(0x7C);
+
+    Pin2HIGH(PORTD,1);
+}
+
 //void GetVcc(void){ VccN=Vcc(); if (VccN<VccH){VccH=VccN;} if (VccN>VccL){VccL=VccN;} } //280us
 
 void LcdBack(void)
 {
+    byte i;
+
     LcdInit();
     LcdClear();
 
-    LcdSetPos(7,0);ta(":");    LcdSetPos(18,0);ta(":");
+    LcdSetPos(7,0);ta(":");    //LcdSetPos(18,0);ta(":");
     LcdSetPos(12*5,0);ta("АуРа");
-    LcdSetPos(0,1);ta("Ч"); LcdSetPos(14,1);ta("Инт"); LcdSetPos(41,1);ta("t"); LcdSetPos(60,1);ta("Вл");
+    LcdSetPos(0,1);ta("Ярко");
+    LcdSetPos(31,1);ta("|");
+    LcdSetPos(80,1);ta("|");
     LcdSetPos(0,2);ta("U");   
-    LcdSetPos(0,3);ta("Пыхи ");     
+    LcdSetPos(0,3);ta("Полив ");     
     LcdSetPos(0,4);ta("Влажность");
     LcdSetPos(70,4);ta("%");
     LcdSetPos(0,5);ta("Температура");
@@ -1902,7 +1947,7 @@ ISR(TIMER0_OVF_vect)
 byte last_checked;
 
 void loop() {
-
+long milli;
 //while(1){
 
 //  if(ADCready)
@@ -2071,12 +2116,9 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
 
 if ((PINC&(1<<3))==0) // кнопка нажата
 {
-
   if (++HR==24){reboot();}
-  
-
   cli();
-  timer0_millis+=3600000L;
+  timer0_millis+=3651351L; //3600000L;
   sei();
 
 
@@ -2088,9 +2130,7 @@ if ((PINC&(1<<3))==0) // кнопка нажата
 //      if ((uptime>=43200)||((PINC&(1<<3))==0)){eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0);reboot();} // reboot every 24h or when reset button (A3) is pressed
 //      if (uptime>=43200){uptime=0;SaveUptime();reboot();} // reboot every 24h
 //      if (uptime>=43200){reboot();} // reboot every 24h
-cli();
-long hh=timer0_millis;
-sei();
+cli();milli=timer0_millis;sei(); // запрещаем прерывания чтобы получить целостное число
 
 //     if((uptime&7)==0){
 //       LcdSetPos(0,0);tn(10000,uptime);
@@ -2098,7 +2138,23 @@ sei();
 //       LcdSetPos(0,0);tn(1000000,timer0_overflow_count);
 //      if (hh>xxxxxx){reboot();} // reboot every 24h
       // нужен более тонкий подход. померить тики в сутках например
-      HR=hh/3600000L;
+//      HR=milli3600000L; // идеально
+      HR=milli/3651351L; // первое приближение
+      
+      if (HR!=prevHR)
+      {
+          prevHR=HR;
+          long q=HR*3651351L;
+          long MN=(milli-q)/(3651351L/60);
+          FlashIntensity=decode[Intensity[HR]]; // текущая интенсивность освещения
+          LcdSetPos(0,0);tn(10,HR);LcdSetPos(11,0);tn(10,MN); 
+          LcdSetPos(36,1);IntBar();
+       
+      //    LcdSetPos(31,0);tn(10,Intensity[HR]);     // LcdSetPos(11,0);tn(10,MN);LcdSetPos(22,0);tn(10,SC);
+
+      LcdSetPos(28,1);tc(Intensity[HR]);
+
+      }
       
 //      HR=timer0_overflow_count/(60*512); sei(); if (HR==24){reboot();} // reboot every 24h
 
@@ -2108,30 +2164,13 @@ sei();
 //      MN=(timer0_overflow_count%7200000)/120000;
 //      SC=timer0_overflow_count-HR*7200000-MN*60
       
-      FlashIntensity=Intensity[HR];
       
 //      if((timer0_overflow_count&0x7FF)==0) // раз в 125s можно замерить температуру и относительную влажность воздуха
-      if((hh&0xF0)==0) // раз в xxxs можно замерить температуру и относительную влажность воздуха
-      {
-         if (DHTreadAll()) // если значения не изменились то можно не рисовать их
-         {
-            LcdSetPos(76,4);tn(10,(DHThum+5)/10);
-          //  LcdSetPos(70,5); char* cc; if (DHTdata[2] & 0x80){cc="-";}else{cc="+";}
-        //    ta(cc);
-            LcdSetPos(76,5);
-            DHTtmp=(DHTtmp+5)/10;
-            tn(10,DHTtmp);
-            // иногда нужен ветерок CО2 свежего подкачать (c 6 утра)
-      //      if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=28)||(uptime-LastTimeFan)>1800){if(DHTtmp>=31){delay(60000);}else if(HR>=6){FanON(32);}}}
-         }
-        
-      }
       
       
 //HR=uptime/(60*60/2);      FlashIntensity=Intensity[HR];
 //byte mn=(uptime-HR*60*60/2)/30;
 //byte sc=(uptime-HR*60*60/2-mn*30)*2;
-       LcdSetPos(0,0);tn(10,HR); tn(10,FlashIntensity);     // LcdSetPos(11,0);tn(10,MN);LcdSetPos(22,0);tn(10,SC);
        
      //  tn(10,nn);
 
@@ -2140,23 +2179,37 @@ sei();
  //}// every 16s
 //  LcdSetPos(0,0);tn(10000,uptime);// 963us
 
-  if(uptime>=NextTmpHumCheck)
+  if(milli>=NextTmpHumCheck)
   {
-        NextTmpHumCheck=uptime+16; // +32s
+        NextTmpHumCheck=milli+120000L; // +120s
  // LcdSetPos(18,2);ta("N");tn(100,co1);co1=0;
+
+//      if((milli&0xF0)==0) // раз в xxxs можно замерить температуру и относительную влажность воздуха
+  //    {
+         if (DHTreadAll()) // если значения не изменились то можно не рисовать их  (толку никакого)
+         {
+            LcdSetPos(76,4);tn(10,(DHThum+5)/10);
+          //  LcdSetPos(70,5); char* cc; if (DHTdata[2] & 0x80){cc="-";}else{cc="+";}
+        //    ta(cc);
+            LcdSetPos(76,5);DHTtmp=(DHTtmp+5)/10;tn(10,DHTtmp);
+            // иногда нужен ветерок CО2 свежего подкачать (c 6 утра)
+      //      if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=28)||(uptime-LastTimeFan)>1800){if(DHTtmp>=31){delay(60000);}else if(HR>=6){FanON(32);}}}
+           
+         }
+        
+    //  }
       
   //    LcdSetPos(6,1);tn(10,HR);
-    //  LcdSetPos(32,1);tn(10,FlashIntensity);
-      LcdSetPos(47,1);tn(100,MCUtemp);
+      LcdSetPos(27,0);tn(100,MCUtemp);
      // LcdSetPos(6,2);tn(100,ADCresult);
 
 
     
 
 //          LcdBack();
-     if (uptime>=NextSoilMoistureCheck){ NextSoilMoistureCheck=uptime+1000; SoilMoisture(); LcdSetPos(72,1); tn(100,moisture); }// hide this here
   }// next humtmp check
 
+  if (milli>=NextSoilMoistureCheck){ NextSoilMoistureCheck=milli+900000; SoilMoisture();  LcdSetPos(30,3); SoilBar(); LcdSetPos(72,3); tn(100,moisture); }
 
 //if(uptime&1){
   //Flashes/=2;
@@ -2169,15 +2222,18 @@ sei();
 
 
       
-      if(FanTimeout){FanTimeout--;}else if(RunningFan){if((--RunningFan)==0){FanOFF(32);LastTimeFan=uptime;}}
+//      if(FanTimeout){FanTimeout--;}else if(RunningFan){if((--RunningFan)==0){FanOFF(32);LastTimeFan=uptime;}}
 
 //delay(2);
 
 //       LcdSetPos(37,0);tn(100000,timer0_overflow_count);
-       LcdSetPos(36,0);tn(100000,Flashes);Flashes=0;
-       LcdSetPos(36,2);tn(1000000000,timer0_millis);
+       LcdSetPos(36,0);//tn(100000,Flashes);Flashes=0;
+tn(10000000,NextTmpHumCheck);
 
-       LcdSetPos(36,3);tn(10000,TCNT1);
+       LcdSetPos(36,2);tn(1000000000,milli);
+
+
+       LcdSetPos(8,2);tn(10000,TCNT1);
 
         __asm__ __volatile__("rjmp Start\n\t");
 
