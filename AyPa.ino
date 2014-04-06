@@ -896,8 +896,8 @@ byte volatile ADCfree=1;
 #define divider_top 2
 #define divider_bottom 1
 //int moisture; // analogical value obtained from the experiment
-long NextSoilMoistureCheck=0;
-long NextTmpHumCheck=0;
+//long NextSoilMoistureCheck=0;
+//long NextTmpHumCheck=0;
 //word volatile uptime=0; // uptime в секундах
 
 word MCUtemp;
@@ -1033,18 +1033,28 @@ void setup() {
 
   //setup timer1
   cli();
-  TCCR1A=0x00;
+//  TCCR1A=0x00;
+  TCCR1A=(0<<WGM11)|(0<<WGM10);
   //  TCCR1B=(1 << WGM12)|(0<<CS22)|(0<<CS21)|(1<<CS20); // /no prescaler;
-  TCCR1B=(1<<WGM12)|(0<<CS22)|(1<<CS21)|(0<<CS20); // /8; 1us clock
-  TCNT1H=0x00; TCNT1L=0x00;
-  ICR1H=0x00; ICR1L=0x00;
-  OCR1AH=0xFF; OCR1AL=0xFF;  //OCR1AH=0x9C;  //OCR1AL=0x40; // 40000//  OCR1AH=0x4E;//  OCR1AL=0x20; // 20000//  OCR1AH=0x03;//  OCR1AL=0xE8; // 1000
-
+  TCCR1B=(0<<WGM13)|(1<<WGM12)|(0<<CS12)|(1<<CS11)|(0<<CS10); // /8; 1us clock //ctc mode
+//  TCCR1B=(0<<WGM13)|(1<<WGM12)|(0<<CS12)|(1<<CS11)|(1<<CS10); // /64; 8us clock //ctc mode
+//  TCCR1B=0b00001010;
+//  TCCR1B=(1<<WGM12)|(0<<CS22)|(1<<CS21)|(0<<CS20); // /8; 1us clock
+  //TCNT1H=0x00; TCNT1L=0x00;
+  TCNT1=0;
+//  ICR1H=0x00; ICR1L=0x00;
+//  OCR1AH=0xFF; OCR1AL=0xFF;  //OCR1AH=0x9C;  //OCR1AL=0x40; // 40000//  OCR1AH=0x4E;//  OCR1AL=0x20; // 20000//  OCR1AH=0x03;//  OCR1AL=0xE8; // 1000
+//  OCR1A=0xFFFF;
+  OCR1A=62496;//2Hz at *MHz /64
+// OCR1AH=0x9C;  OCR1AL=0x40; // 40000
   //  TCCR1B |= (1 << WGM12);  //  TCCR1B |= (1 << CS10);
-  // TIMSK1 |= (1 << OCIE1A);// no interrupts just counting 1 tick is 1 microsecond
+  // no interrupts just counting 1 tick is 1 microsecond
+
+//   TIMSK1 = (1 << OCIE1A);
+//   TIMSK1 |= (1 << TOIE1);
 
 // setup timer2 
-
+/*
   TCNT2=0;
   TIMSK2=0; 
   TCCR2B=(0<<WGM22)|(0<<CS22)|(0<<CS21)|(1<<CS20); // 1 xxxxx000 32 microseconds
@@ -1053,7 +1063,7 @@ void setup() {
   //TIMSK2 = (1 << OCIE2A); // Enable CTC interrupt 
   OCR2A = 0xFF; // Set CTC compare value 
   //18 min to humtmp work?
-
+*/
   sei();
 
 
@@ -1109,6 +1119,25 @@ ISR(TIMER1_OVF_vect)
  t1ovf++;
  }
  */
+ 
+ word volatile ctr;
+byte volatile checktime=0;
+
+/*
+ ISR (TIMER1_COMPA_vect)
+{
+  checktime=1;ctr++;
+}
+
+ISR(TIMER1_OVF_vect)
+ {
+  checktime=1;ctr++;
+
+   //Toggle pin PD0 every second
+ //    PIND=(1<<PD0);
+ }
+*/
+
 byte volatile t2ovf=0;
 boolean volatile UpdateS=true;
 
@@ -1953,6 +1982,8 @@ long whh;
 byte MN;
 byte c;
 
+long mi;
+
 void loop() {
 //while(1){
 
@@ -1982,6 +2013,8 @@ R2–R17, R28, R29
 The remaining GPRs are call-saved, i.e. a function that uses such a registers must restore its original content. This applies even if the register is used to pass a function argument.
 R1
 The zero-register is implicity call-saved (implicit because R1 is a fixed register).*/
+//button_is_pressed=TCNT0;
+
 
 //Initial registers
 //NOP;
@@ -2001,7 +2034,7 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
  //     "ldi r21,0b00001111\n\t" // all 4 slots are ON
       
 "Next:\n\t"    
-//33044 без синхры  9-9 c прерываниями
+//33382 без синхры  9-9 c прерываниями
 //32375 с синхрой 7-7 первая
 
 /*      "in r20,0x26\n\t" //TCNT0 sync
@@ -2091,14 +2124,18 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
     "adiw r24,1\n\t"
     "sts Flashes+1,r25\n\t"
     "sts Flashes,r24\n\t" //Flashes++;
+    // 8000 bit 7 in r25
     
-    "in r24,6\n\t" // check pinA3: 0:LOW (is pressed) >0:HIGH (is not pressed)
-    "sbrs r24,3\n\t" // следующая инструкция выполнится только если бит 3 в r24 сброшен
+    "in r22,6\n\t" // check pinA3: 0:LOW (is pressed) >0:HIGH (is not pressed)
+    "sbrs r22,3\n\t" // следующая инструкция выполнится только если бит 3 в r22 сброшен
     "sts button_is_pressed,r20\n\t"  // надо сохранить >0!!!!!!!!!!!! r20 точно > 0
 
-      "lds r24,timer0_overflow_count+1\n\t"
-      "lds r22,timer0_overflow_count\n\t"
-      "andi r24,0b00000001\n\t"
+//      "lds r24,checktime\n\t"
+//      "lds r24,timer0_overflow_count+1\n\t"
+  //    "andi r24,0b00000001\n\t"
+ //     "in r22,0x26\n\t" // TCNT0
+  //    "add r24,r22\n\t"
+    //  "lds r22,timer0_overflow_count\n\t"
 
 
       "ldi r23,3\n\t" // сокращение последней вспышки
@@ -2109,9 +2146,14 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
       "sei\n\t"    //The instruction following SEI will be executed before any pending interrupts.
       "out 5,r18\n\t" // set pin 6 OFF pin7 OFF - можно без sbrc здесь
     
-      "or r24,r22\n\t" //  if ((timer0_oveflow_count&0x1FF)==0)  каждые 1024ms
-      "breq Check\n\t"
-//      "5:\n\t"
+ //     "or r24,r22\n\t" //  if ((timer0_oveflow_count&0x1FF)==0) && TCNT0==0 каждые 1024ms
+   //   "breq Check\n\t"
+
+      //"or r24,r24\n\t" //  if ((timer0_oveflow_count&0x1FF)==0) && TCNT0==0 каждые 1024ms
+      //"brne Check\n\t"
+
+     "sbrs r25,7\n\t" // следующая инструкция выполнится только если бит 7 в r25 сброшен (Flashes<32768)// 1004ms - то что нужно
+//     "sbrs r25,6\n\t" // следующая инструкция выполнится только если бит 6 в r25 сброшен (Flashes<16384)// 502 ms
       "rjmp Next\n\t"
       
 "Check:\n\t"
@@ -2126,19 +2168,17 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
               TCNT1=0;
   //    UpdateS=false;
 
-if(button_is_pressed) // кнопка нажата
-//if ((PINC&(1<<3))==0) // кнопка нажата
+//checktime=0;
+//ctr++;
+
+if(button_is_pressed) // кнопка A3 нажата
 {
   button_is_pressed=0;
   if (++HR==24){reboot();}
   cli();
   timer0_millis+=3651351L; //3600000L;
-  sei();
-
-
-//uptime+=(60*60/2); if(HR==24){HR=0;uptime=0;};  FlashIntensity=Intensity[HR]; 
-//LastTimeFan=uptime;
-  
+  LastTimeFan=timer0_millis; // чтобы не жужжал когда ставим время
+  sei();  
 }
 
 //      if ((uptime>=43200)||((PINC&(1<<3))==0)){eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0);reboot();} // reboot every 24h or when reset button (A3) is pressed
@@ -2162,38 +2202,20 @@ if(button_is_pressed) // кнопка нажата
           LcdSetPos(65,0);tn(10,HR);
           LcdSetPos(37,0);IntBar();
           LcdSetPos(26,0);tc(Intensity[HR]);
+
+
+// next hour?
+//  if (milli>=NextSoilMoistureCheck){ NextSoilMoistureCheck=milli+900000; 
+SoilMoisture();  LcdSetPos(30,3); SoilBar(); LcdSetPos(72,3); tn(100,moisture);// }
+
+
       }
 
-      MN=(milli-whh)/(3651351L/60); if (MN!=prevMN){prevMN=MN;LcdSetPos(76,0);tn(10,MN);}
+      MN=(milli-whh)/(3651351L/60); if (MN!=prevMN){prevMN=MN;LcdSetPos(76,0);tn(10,MN);
 
-      LcdSetPos(74,0);c=0;if(milli&1024){c=0x36;}Pin2HIGH(PORTD,4);Pin2LOW(PORTD,1);spiwrite(c);spiwrite(c);Pin2HIGH(PORTD,1); // flip flop - анимация часов
-      
-//      HR=timer0_overflow_count/(60*512); sei(); if (HR==24){reboot();} // reboot every 24h
-
-//long ll=(timer0_overflow_count-HR*7200000);
-  //    MN=ll/120000;
-    //  SC=
-//      MN=(timer0_overflow_count%7200000)/120000;
-//      SC=timer0_overflow_count-HR*7200000-MN*60
-      
-      
-//      if((timer0_overflow_count&0x7FF)==0) // раз в 125s можно замерить температуру и относительную влажность воздуха
-      
-      
-//HR=uptime/(60*60/2);      FlashIntensity=Intensity[HR];
-//byte mn=(uptime-HR*60*60/2)/30;
-//byte sc=(uptime-HR*60*60/2-mn*30)*2;
-       
-     //  tn(10,nn);
-
-  //long mm=millis(); wctr=1000000L;while(--wctr>0);  long ww=millis();tn(10000,ww-mm);
-  
- //}// every 16s
-//  LcdSetPos(0,0);tn(10000,uptime);// 963us
-
-  if(milli>=NextTmpHumCheck)
-  {
-        NextTmpHumCheck=milli+20000L; // +20s
+//  if(milli>=NextTmpHumCheck)
+  //{
+    //    NextTmpHumCheck=milli+20000L; // +20s
  // LcdSetPos(18,2);ta("N");tn(100,co1);co1=0;
 
 //      if((milli&0xF0)==0) // раз в xxxs можно замерить температуру и относительную влажность воздуха
@@ -2222,7 +2244,9 @@ if(button_is_pressed) // кнопка нажата
            LcdSetPos(20,1);//tn(100,MCU_Vcc);ta(" ");
            tf(10,11200/MCU_Vcc,1); ta("в");
           LcdSetPos(35,1);tn(1000,freeRam()); 
-        
+
+//LcdSetPos(72,2);tn(100,ctr);ctr=0;        
+//LcdSetPos(52,1);tn(10000000,milli-mi);
     //  }
       
   //    LcdSetPos(6,1);tn(10,HR);
@@ -2231,12 +2255,41 @@ if(button_is_pressed) // кнопка нажата
 
 
        LcdSetPos(0,2);tn(10000,Flashes);
-       LcdSetPos(32,2);tn(100000000,timer0_millis);    
+       LcdSetPos(48,2);tn(100000000,timer0_millis);    
 
 //          LcdBack();
-  }// next humtmp check
+//  }// next humtmp check
 
-  if (milli>=NextSoilMoistureCheck){ NextSoilMoistureCheck=milli+900000; SoilMoisture();  LcdSetPos(30,3); SoilBar(); LcdSetPos(72,3); tn(100,moisture); }
+
+    
+      }// next minute
+
+      LcdSetPos(74,0);c=0;if(milli&1024){c=0x36;}Pin2HIGH(PORTD,4);Pin2LOW(PORTD,1);spiwrite(c);spiwrite(c);Pin2HIGH(PORTD,1); // flip flop - анимация часов
+      
+//      HR=timer0_overflow_count/(60*512); sei(); if (HR==24){reboot();} // reboot every 24h
+
+//long ll=(timer0_overflow_count-HR*7200000);
+  //    MN=ll/120000;
+    //  SC=
+//      MN=(timer0_overflow_count%7200000)/120000;
+//      SC=timer0_overflow_count-HR*7200000-MN*60
+      
+      
+//      if((timer0_overflow_count&0x7FF)==0) // раз в 125s можно замерить температуру и относительную влажность воздуха
+      
+      
+//HR=uptime/(60*60/2);      FlashIntensity=Intensity[HR];
+//byte mn=(uptime-HR*60*60/2)/30;
+//byte sc=(uptime-HR*60*60/2-mn*30)*2;
+       
+     //  tn(10,nn);
+
+  //long mm=millis(); wctr=1000000L;while(--wctr>0);  long ww=millis();tn(10000,ww-mm);
+  
+ //}// every 16s
+//  LcdSetPos(0,0);tn(10000,uptime);// 963us
+
+
 
 //if(uptime&1){
   //Flashes/=2;
@@ -2251,10 +2304,10 @@ if(button_is_pressed) // кнопка нажата
       
       if(FanTimeout){FanTimeout--;} else if(RunningFan){if((--RunningFan)==0){FanOFF(32);LastTimeFan=milli;}}
 
-//delay(2);
 
 //       LcdSetPos(37,0);tn(100000,timer0_overflow_count);
   Flashes=0;
+//  mi=milli;
 //tn(100000,NextTmpHumCheck);
 //byte ee=milli;byte rr=timer0_millis;
 //tn(100,ee);tn(100,(timer0_millis&0xff));
@@ -2267,8 +2320,7 @@ if(button_is_pressed) // кнопка нажата
   //__asm__ __volatile__("1:\n\t""lds r25,timer0_millis\n\t""or r25,r25\n\t""breq 1b\n\t"); // milli must change (from 0) - только они чегото раз в 2 мс меняются.....
 
 
-word t1=TCNT1;
-//       LcdSetPos(8,2);tn(10000,t1);
+word t1=TCNT1;   LcdSetPos(23,2);tn(10000,t1);
        
 //       LcdSetPos(32,2);tn(100000000,timer0_millis);//ta("-");th((timer0_millis&0xff));
 
