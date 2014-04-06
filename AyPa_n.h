@@ -94,24 +94,38 @@ void dd(byte ch)
   {
     c=pgm_read_byte(&(Dig[ch++]));
     spiwrite(c);
-//    for(byte i=0;i<8;i++)
-  //  {
-    //  if(c&0x01){      spiwrite(0xFC);spiwrite(0xFC);spiwrite(0xFC);}
-      //else{      spiwrite(0x00);spiwrite(0x00);spiwrite(0x00);}
-//      c=c>>1;
-  //  }
   }
+}
+
+/*
+void dcn(byte ch)
+{
+  byte c;
+  
+  //for(byte j=0;j<24;j++)
+//  spiwrite(0x00);// 1st space
+
+  for(byte j=0;j<3;j++)  // display char
+  {
+    c=pgm_read_byte(&(Dig[ch++]));
+    spiwrite(c);
+  }
+}*/
+
+void ts(byte ch)
+{
+  Pin2HIGH(PORTD,4); 
+  Pin2LOW(PORTD,1);
+  spiwrite(ch);
+  Pin2HIGH(PORTD,1);
 }
 
 void tc(byte ch)
 {
   Pin2HIGH(PORTD,4); 
-  Pin2LOW(PORTD,1); ///digitalWrite(ce LOW);//3
-
-  spiwrite(0x00);// 1st space
+  Pin2LOW(PORTD,1);
   dd(ch+ch+ch);
-  
-  Pin2HIGH(PORTD,1);//    digitalWrite(ce,HIGH);
+  Pin2HIGH(PORTD,1);
 }
 
 void tn(long s, long v)

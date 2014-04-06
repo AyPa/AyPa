@@ -685,8 +685,7 @@ byte DHT_ReadData(void)
 #define DHTLIB_INVALID_VALUE	-999
 
 extern unsigned long timer0_millis;
-extern unsigned long timer0_overflow_count;
-
+/*extern unsigned long timer0_overflow_count;
 unsigned long mmicros(void)
 {
   unsigned long m;
@@ -697,7 +696,7 @@ unsigned long mmicros(void)
   t=TCNT0;
   
   return ((m<<8)+t)*64/8; // 8 clocks per microsecond
-}
+}*/
 
 // TCNT0 8bit 256values with 1/64 prescaler  1value is 8microseconds - 40us=5 TCNT0 steps
 
@@ -902,6 +901,7 @@ long NextTmpHumCheck=0;
 //word volatile uptime=0; // uptime в секундах
 
 word MCUtemp;
+word MCU_Vcc;
 
 word moisture;
 void SoilMoisture(){
@@ -917,8 +917,8 @@ void SoilMoisture(){
   // wait a moment for capacitance effects to settle
   delay(300);
 
-  while(!ADCfree);
-  ADCfree=0;// to avoid collision with Vcc  
+//  while(!ADCfree);
+//  ADCfree=0;// to avoid collision with Vcc  
 //  while(!ADCready);// у нас примерно 125 раз в секунду измеряется напряжение питание. здесь мы пожертвуем одним измерением ради датчика влажности почвы
 //  cli();
 //TCNT1=0;
@@ -928,9 +928,14 @@ void SoilMoisture(){
   
       SetADC(1,8,500);  //  select temperature sensor 352 (need calibration)  
        mRawADC(MCUtemp,2); // прочитаем заодно и этот датчик
+    
+    SetADC(0,14,500);
+    mRawADC(MCU_Vcc,2);
+ 
+       
   
-      SetADC(0,14,1); // restore vcc adc channel
-   ADCfree=1;
+//      SetADC(0,14,1); // restore vcc adc channel
+  // ADCfree=1;
 
 
 //  reading=TCNT1;
@@ -1088,7 +1093,7 @@ setup_watchdog(T2S); // если в течении 2s не сбросить ст
 
 byte FanTimeout=0; // время отдыха вентилятора после выключения
 byte RunningFan=0; // время действующего вентилятора
-word LastTimeFan=0; //  время последнего включения вентилятора
+long LastTimeFan=0; //  время последнего включения вентилятора
 
 //ISR (PCINT1_vect){ if (PINC&(1<<3)==0){ HR++; HR&=0xF; FlashIntensity=Intensity[HR]; }}  // A3 user button handler
 
@@ -1880,7 +1885,7 @@ else if(Intensity[i]==2){c=0x18;}
 else if(Intensity[i]==3){c=0x1C;}
 else if(Intensity[i]==4){c=0x1E;}
 if (i==HR){c|=0x40;}
-  spiwrite(c);  spiwrite(c);
+  spiwrite(c); // spiwrite(c);
 }
 
     Pin2HIGH(PORTD,1);
@@ -1906,17 +1911,17 @@ void SoilBar(void)
 
 void LcdBack(void)
 {
-    byte i;
+//    byte i;
 
     LcdInit();
     LcdClear();
 
-    LcdSetPos(7,0);ta(":");    //LcdSetPos(18,0);ta(":");
-    LcdSetPos(12*5,0);ta("АуРа");
-    LcdSetPos(0,1);ta("Ярко");
-    LcdSetPos(31,1);ta("|");
-    LcdSetPos(80,1);ta("|");
-    LcdSetPos(0,2);ta("U");   
+//    LcdSetPos(7,0);tc(":");    //LcdSetPos(18,0);ta(":");
+//    LcdSetPos(12*5,0);ta("АуРа");
+    LcdSetPos(0,0);ta("АуРа");//ta("СВЕТ");
+    LcdSetPos(30,0);ta("[");
+    LcdSetPos(60,0);ta("]");
+    LcdSetPos(0,1);ts(0x00);ts(0x55);ts(0x7F);ts(0x7F);ts(0x7F);ts(0x55);
     LcdSetPos(0,3);ta("Полив ");     
     LcdSetPos(0,4);ta("Влажность");
     LcdSetPos(70,4);ta("%");
@@ -1945,9 +1950,13 @@ ISR(TIMER0_OVF_vect)
 
 // the loop routine runs over and over again forever:
 byte last_checked;
+byte prevMN=0xFF;
+byte oddeven=0; // clock dots : animation
+long milli;
 
 void loop() {
-long milli;
+long wh;
+byte MN,c;
 //while(1){
 
 //  if(ADCready)
@@ -2084,12 +2093,12 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
     "adiw r24,1\n\t"
     "sts Flashes+1,r25\n\t"
     "sts Flashes,r24\n\t" //Flashes++;
-      "lds r24,timer0_overflow_count+1\n\t"
-      "lds r22,timer0_overflow_count\n\t"
-      "andi r24,1\n\t"
+      "lds r24,timer0_millis+1\n\t"
+      "lds r22,timer0_millis\n\t"
+      "andi r24,0b00000011\n\t"
 
 
-      "ldi r23,5\n\t" // сокращение последней вспышки
+      "ldi r23,4\n\t" // сокращение последней вспышки
       "1:\n\t"
       "dec r23\n\t" // 1 clk
       "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
@@ -2097,9 +2106,9 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
       "sei\n\t"    //The instruction following SEI will be executed before any pending interrupts.
       "out 5,r18\n\t" // set pin 6 OFF pin7 OFF - можно без sbrc здесь
     
-      "or r24,r22\n\t" //  if ((timer0_overflow_count&0x1FF)==0) 
+      "or r24,r22\n\t" //  if ((timer0_millis&0x3FF)==0)  каждые 1024ms
       "breq Check\n\t"
-      "5:\n\t"
+//      "5:\n\t"
       "rjmp Next\n\t"
       
 "Check:\n\t"
@@ -2130,7 +2139,7 @@ if ((PINC&(1<<3))==0) // кнопка нажата
 //      if ((uptime>=43200)||((PINC&(1<<3))==0)){eeprom_update_byte((byte*)1,0);eeprom_update_byte((byte*)2,0);reboot();} // reboot every 24h or when reset button (A3) is pressed
 //      if (uptime>=43200){uptime=0;SaveUptime();reboot();} // reboot every 24h
 //      if (uptime>=43200){reboot();} // reboot every 24h
-cli();milli=timer0_millis;sei(); // запрещаем прерывания чтобы получить целостное число
+      cli();milli=timer0_millis;sei(); // запрещаем прерывания чтобы получить целостное число
 
 //     if((uptime&7)==0){
 //       LcdSetPos(0,0);tn(10000,uptime);
@@ -2140,21 +2149,19 @@ cli();milli=timer0_millis;sei(); // запрещаем прерывания чт
       // нужен более тонкий подход. померить тики в сутках например
 //      HR=milli3600000L; // идеально
       HR=milli/3651351L; // первое приближение
-      
       if (HR!=prevHR)
       {
           prevHR=HR;
-          long q=HR*3651351L;
-          long MN=(milli-q)/(3651351L/60);
+          wh=HR*3651351L; // остаток секунд в часе
           FlashIntensity=decode[Intensity[HR]]; // текущая интенсивность освещения
-          LcdSetPos(0,0);tn(10,HR);LcdSetPos(11,0);tn(10,MN); 
-          LcdSetPos(36,1);IntBar();
-       
-      //    LcdSetPos(31,0);tn(10,Intensity[HR]);     // LcdSetPos(11,0);tn(10,MN);LcdSetPos(22,0);tn(10,SC);
-
-      LcdSetPos(28,1);tc(Intensity[HR]);
-
+          LcdSetPos(65,0);tn(10,HR);
+          LcdSetPos(37,0);IntBar();
+          LcdSetPos(26,0);tc(Intensity[HR]);
       }
+
+      MN=(milli-wh)/(3651351L/60); if (MN!=prevMN){prevMN=MN;LcdSetPos(76,0);tn(10,MN);}
+
+      LcdSetPos(74,0);c=0;if(oddeven){c=0x36;}Pin2HIGH(PORTD,4);Pin2LOW(PORTD,1);spiwrite(c);spiwrite(c);Pin2HIGH(PORTD,1);oddeven^=1; // flip flop - анимация часов
       
 //      HR=timer0_overflow_count/(60*512); sei(); if (HR==24){reboot();} // reboot every 24h
 
@@ -2181,26 +2188,30 @@ cli();milli=timer0_millis;sei(); // запрещаем прерывания чт
 
   if(milli>=NextTmpHumCheck)
   {
-        NextTmpHumCheck=milli+120000L; // +120s
+        NextTmpHumCheck=milli+30000L; // +60s
  // LcdSetPos(18,2);ta("N");tn(100,co1);co1=0;
 
 //      if((milli&0xF0)==0) // раз в xxxs можно замерить температуру и относительную влажность воздуха
   //    {
-         if (DHTreadAll()) // если значения не изменились то можно не рисовать их  (толку никакого)
+         if (DHTreadAll())
          {
             LcdSetPos(76,4);tn(10,(DHThum+5)/10);
           //  LcdSetPos(70,5); char* cc; if (DHTdata[2] & 0x80){cc="-";}else{cc="+";}
         //    ta(cc);
             LcdSetPos(76,5);DHTtmp=(DHTtmp+5)/10;tn(10,DHTtmp);
             // иногда нужен ветерок CО2 свежего подкачать (c 6 утра)
-      //      if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=28)||(uptime-LastTimeFan)>1800){if(DHTtmp>=31){delay(60000);}else if(HR>=6){FanON(32);}}}
-           
+//            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=28)||(milli-LastTimeFan)>1800){if(DHTtmp>=31){delay(60000);}else if(HR>=6){FanON(32);}}}
+            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=28)||(milli-LastTimeFan)>1800000){if(DHTtmp>=31){delay(60000);}else if(HR>=0){FanON(32);}}}
+      
          }
+
+           LcdSetPos(6,1);tn(10,MCUtemp/12); // /11.68
+           ta(" "); tn(100,MCU_Vcc);
         
     //  }
       
   //    LcdSetPos(6,1);tn(10,HR);
-      LcdSetPos(27,0);tn(100,MCUtemp);
+      
      // LcdSetPos(6,2);tn(100,ADCresult);
 
 
@@ -2222,18 +2233,29 @@ cli();milli=timer0_millis;sei(); // запрещаем прерывания чт
 
 
       
-//      if(FanTimeout){FanTimeout--;}else if(RunningFan){if((--RunningFan)==0){FanOFF(32);LastTimeFan=uptime;}}
+      if(FanTimeout){FanTimeout--;} else if(RunningFan){if((--RunningFan)==0){FanOFF(32);LastTimeFan=milli;}}
 
 //delay(2);
 
 //       LcdSetPos(37,0);tn(100000,timer0_overflow_count);
-       LcdSetPos(36,0);//tn(100000,Flashes);Flashes=0;
-tn(10000000,NextTmpHumCheck);
+  //     LcdSetPos(26,0);//tn(100000,Flashes);Flashes=0;
+//tn(100000,NextTmpHumCheck);
+//byte ee=milli;byte rr=timer0_millis;
+//tn(100,ee);tn(100,(timer0_millis&0xff));
 
-       LcdSetPos(36,2);tn(1000000000,milli);
+//  delayMicroseconds(900);
 
 
-       LcdSetPos(8,2);tn(10000,TCNT1);
+  // milli всегда 0 здесь
+
+  __asm__ __volatile__("1:\n\t""lds r25,timer0_millis\n\t""or r25,r25\n\t""breq 1b\n\t"); // milli must change (from 0) - только они чегото раз в 2 мс меняются.....
+
+word t1=TCNT1;
+
+
+       LcdSetPos(8,2);tn(10000,t1);
+       
+       LcdSetPos(32,2);tn(100000000,timer0_millis);ta("-");th((timer0_millis&0xff));
 
         __asm__ __volatile__("rjmp Start\n\t");
 
