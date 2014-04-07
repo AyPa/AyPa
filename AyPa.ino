@@ -387,9 +387,9 @@ void RequestFrom(byte addr,byte reg)
 //byte Intensity[24] = {3,0,0,0,0,0, 1,2,3,4,4,4, 4,4,4,4,4,4, 4,4,4,3,2,1}; // почасовая интенсивность 
 //byte Intensity[24] = {0xE,0,0,0,0,0, 0x8,0xA,0xB,0xF,0xF,0xF, 0xF,0xF,0xF,0xF,0xF,0xF, 0xF,0xF,0xF,0xE,0xA,0x8}; // почасовая интенсивность 
 
-uint8_t TempH[84]; // архив температур
+uint8_t TempH[76]; // архив температур
 
-uint8_t Intensity[24] = {4,0,0,0,0,0, 1,1,2,2,3,3, 4,4,4,3,3,3, 2,2,2,1,1,1}; // почасовая интенсивность 
+uint8_t Intensity[24] = {4,3,0,0,0,0, 1,1,2,2,3,3, 4,4,4,3,3,3, 2,2,2,1,1,1}; // почасовая интенсивность 
 uint8_t decode[5]={0,0x8,0xA,0xE,0xF};
 // 0xF 1111 (4)
 // 0xE 1110 (3)
@@ -1904,32 +1904,21 @@ if(read22()==DHTLIB_OK)
 }
 
 //uint8_t masks[8]={0,0x40,0x60,0x70,0x78,0x7C,0x7E,0x7F};  // filled
-uint8_t masks[9]={0,0x40,0x20,0x10,0x08,0x04,0x02,0x01,0x7F}; // outline with t >28 is heavy selected
+uint8_t masks[10]={0,0x80,0x40,0x20,0x10,0x08,0x04,0x02,0x01,0xFF}; // outline with t >29 is heavy selected
 
-void TempBar(void)
+void TempBar(uint8_t v)
 {
   uint8_t i,d,c;
+
+    LcdSetPos(0,5);
 
     Pin2HIGH(PORTD,4); 
     Pin2LOW(PORTD,1); 
 
-  for(i=0;i<84;i++)
-  {  
-      d=0; if(TempH[i]>28){d=8;}else{d=TempH[i]-21;}
-//      if(TempH[i]>21){d=TempH[i]-21;}
-  //    if(d>7){d=7;}
+    for(i=75;i>0;i--){TempH[i]=TempH[i-1];}// shift right
+    TempH[0]=v; // put new value
 
-/*      if(TempH[i]<22){c=0;}
-      if(TempH[i]==22){c=0x40;}
-      if(TempH[i]==23){c=0x60;}
-      if(TempH[i]==24){c=0x70;}
-      if(TempH[i]==25){c=0x78;}
-      if(TempH[i]==26){c=0x7C;}
-      if(TempH[i]==27){c=0x7E;}
-      if(TempH[i]>=28){c=0x7F;}*/
-
-      spiwrite(masks[d]);
-  }
+    for(i=0;i<76;i++){ d=0; if(TempH[i]>29){d=9;}else{d=TempH[i]-21;} spiwrite(masks[d]);}// display graph
     Pin2HIGH(PORTD,1);
 }
 
@@ -1985,21 +1974,39 @@ void LcdBack(void)
     LcdSetPos(30,0);ta("[");
     LcdSetPos(60,0);ta("]");
     LcdSetPos(0,1);ts(0x00);ts(0x55);ts(0x7F);ts(0x7F);ts(0x7F);ts(0x55);
-    LcdSetPos(0,3);ta("Полив ");     
-    LcdSetPos(0,4);ta("О.Влажность");
-    LcdSetPos(70,4);ta("%");
-    LcdSetPos(0,5);ta("Температура");
-    LcdSetPos(70,5); ta("+"); // будем оптимистами
+    LcdSetPos(0,2);ta("Полив ");     
+    LcdSetPos(0,3);ta("Влажность"); LcdSetPos(70,3);ta("%");
+    LcdSetPos(0,4);ta("Температура"); LcdSetPos(70,4); ta("+"); // будем оптимистами
+    FanIcon(0);
 }
 
 //void SaveUptime(void){eeprom_update_byte((byte*)1,(uptime>>8));eeprom_update_byte((byte*)2,(uptime&0xFF));}
 
+uint8_t Fan0[7]={0x0E,0x6A,0x5C,0x77,0x1D,0x2B,0x38};
+uint8_t Fan1[7]={0x0E,0x6E,0x7C,0x7F,0x1F,0x3B,0x38};
+
+
+void FanIcon(uint8_t t)
+{
+    uint8_t *icon=&Fan0[0];
+    if (t){icon=&Fan1[0];}
+  
+    LcdSetPos(77,5);
+    Pin2HIGH(PORTD,4); 
+    Pin2LOW(PORTD,1); 
+    for (uint8_t i=0;i<7;i++){spiwrite(icon[i]);}
+    Pin2HIGH(PORTD,1);
+}
 
 
 //word co1=0;
 
-void FanON(uint8_t d){Pin2Output(DDRB,0);Pin2HIGH(PORTB,0);RunningFan=d;}
-void FanOFF(uint8_t t){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);FanTimeout=t;}
+void FanON(uint8_t d){Pin2Output(DDRB,0);Pin2HIGH(PORTB,0);RunningFan=d;
+FanIcon(1);
+}
+void FanOFF(uint8_t t){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);FanTimeout=t;
+FanIcon(0);
+}
 
 /*
 ISR(TIMER0_OVF_vect)
@@ -2209,18 +2216,23 @@ if(button_is_pressed) // кнопка A3 нажата
 //  timer0_millis+=3651351L; //3600000L;
 //  timer0_millis+=3554700L; //3600000L;
 //  timer0_millis+=3620000L; //3600000L; // чуток бегут
-  timer0_millis+=3625000L; //3600000L;
+//  timer0_millis+=3625000L; //3600000L;//чуток бегут
+//  timer0_millis+=3630000L; //+19с за 1ч40
+
+//  timer0_millis+=3637000L; //3600000L; //1s 40min
+//  timer0_millis+=3637500L; //3600000L; 7s 1:39 ahead
+  timer0_millis+=3638500L; //3600000L; 7s 1:39
   LastTimeFan=timer0_millis; // чтобы не жужжал когда ставим время
  // sei();  // useless
 }
    cli();milli=timer0_millis;sei(); // запрещаем прерывания чтобы получить целостное число
 
-      HR=milli/3625000L;
+      HR=milli/3638500L;
       if (HR!=prevHR)
       {
           prevHR=HR;
 //          whh=HR*3651351L; // остаток секунд в часе
-          whh=HR*3625000L; // остаток секунд в часе
+          whh=HR*3638500L; // остаток секунд в часе
           FlashIntensity=decode[Intensity[HR]]; // текущая интенсивность освещения
           LcdSetPos(65,0);tn(10,HR);
           LcdSetPos(37,0);IntBar();
@@ -2229,15 +2241,14 @@ if(button_is_pressed) // кнопка A3 нажата
 
 // next hour?
 //  if (milli>=NextSoilMoistureCheck){ NextSoilMoistureCheck=milli+900000; 
-SoilMoisture();  LcdSetPos(30,3); SoilBar(); LcdSetPos(72,3); tn(100,moisture);// }
+SoilMoisture();  LcdSetPos(30,2); SoilBar(); LcdSetPos(72,2); tn(100,moisture);// }
 
 
       }
 
 //      MN=(milli-whh)/(3651351L/60); if (MN!=prevMN){prevMN=MN;LcdSetPos(76,0);tn(10,MN);
-      MN=(milli-whh)/(3625000L/60); if (MN!=prevMN){prevMN=MN;LcdSetPos(76,0);tn(10,MN);
+      MN=(milli-whh)/(3638500L/60); if (MN!=prevMN){prevMN=MN;LcdSetPos(76,0);tn(10,MN);
 
-          for(uint8_t d=0;d<83;d++){TempH[d]=TempH[d+1];}// shift left
 //  if(milli>=NextTmpHumCheck)
   //{
     //    NextTmpHumCheck=milli+20000L; // +20s
@@ -2247,17 +2258,18 @@ SoilMoisture();  LcdSetPos(30,3); SoilBar(); LcdSetPos(72,3); tn(100,moisture);/
   //    {
          if (DHTreadAll())
          {
-            LcdSetPos(76,4);DHThum=(DHThum+5)/10;tn(10,DHThum);
+            LcdSetPos(76,3);DHThum=(DHThum+5)/10;tn(10,DHThum);
           //  LcdSetPos(70,5); char* cc; if (DHTdata[2] & 0x80){cc="-";}else{cc="+";}
         //    ta(cc);
-            LcdSetPos(76,5);DHTtmp=(DHTtmp+5)/10;tn(10,DHTtmp);
+            LcdSetPos(76,4);DHTtmp=(DHTtmp+5)/10;tn(10,DHTtmp);
             // иногда нужен ветерок CО2 свежего подкачать (c 6 утра)
 //            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=28)||(milli-LastTimeFan)>1800){if(DHTtmp>=31){delay(60000);}else if(HR>=6){FanON(32);}}}
 
-            TempH[83]=DHTtmp;LcdSetPos(0,2);TempBar();
+            
+            TempBar(DHTtmp);
 
 //            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=29)||(DHThum>=50)||(milli-LastTimeFan)>1800000){if(DHTtmp>=31){delay(60000);}else if(HR>=0){FanON(55);}}}
-            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=29)||(DHThum>=50)||(milli-LastTimeFan)>1800000){if(DHTtmp>=31){for(uint8_t d=0;d<255;d++){delayMicroseconds(65000); } }else if(HR>=0){FanON(55);}}}
+            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=29)||(DHThum>=50)||(milli-LastTimeFan)>1800000){if(DHTtmp>=31){for(uint8_t d=0;d<255;d++){delayMicroseconds(65000); } }else if(HR>=0){FanON(61);}}}
       //16s
       //for(i=0;i<4;i++){  delayMicroseconds(65000); } //260ms
 
