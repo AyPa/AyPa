@@ -1903,7 +1903,8 @@ if(read22()==DHTLIB_OK)
   return res;
 }
 
-uint8_t masks[8]={0,0x40,0x60,0x70,0x78,0x7C,0x7E,0x7F};
+//uint8_t masks[8]={0,0x40,0x60,0x70,0x78,0x7C,0x7E,0x7F};  // filled
+uint8_t masks[9]={0,0x40,0x20,0x10,0x08,0x04,0x02,0x01,0x7F}; // outline with t >28 is heavy selected
 
 void TempBar(void)
 {
@@ -1914,7 +1915,7 @@ void TempBar(void)
 
   for(i=0;i<84;i++)
   {  
-      d=0; if(TempH[i]>28){d=7;}else{d=TempH[i]-21;}
+      d=0; if(TempH[i]>28){d=8;}else{d=TempH[i]-21;}
 //      if(TempH[i]>21){d=TempH[i]-21;}
   //    if(d>7){d=7;}
 
@@ -2206,20 +2207,20 @@ if(button_is_pressed) // кнопка A3 нажата
   if (++HR==24){reboot();}// reboot every 24h
   cli();
 //  timer0_millis+=3651351L; //3600000L;
-  timer0_millis+=3554700L; //3600000L;
+//  timer0_millis+=3554700L; //3600000L;
+//  timer0_millis+=3620000L; //3600000L; // чуток бегут
+  timer0_millis+=3625000L; //3600000L;
   LastTimeFan=timer0_millis; // чтобы не жужжал когда ставим время
  // sei();  // useless
 }
    cli();milli=timer0_millis;sei(); // запрещаем прерывания чтобы получить целостное число
 
-//      HR=milli3600000L; // идеально
-//      HR=milli/3651351L; // первое приближение (опоздали на 87с за 9 часов)
-      HR=milli/3554700L; // второе приближение
+      HR=milli/3625000L;
       if (HR!=prevHR)
       {
           prevHR=HR;
 //          whh=HR*3651351L; // остаток секунд в часе
-          whh=HR*3554700L; // остаток секунд в часе
+          whh=HR*3625000L; // остаток секунд в часе
           FlashIntensity=decode[Intensity[HR]]; // текущая интенсивность освещения
           LcdSetPos(65,0);tn(10,HR);
           LcdSetPos(37,0);IntBar();
@@ -2234,7 +2235,7 @@ SoilMoisture();  LcdSetPos(30,3); SoilBar(); LcdSetPos(72,3); tn(100,moisture);/
       }
 
 //      MN=(milli-whh)/(3651351L/60); if (MN!=prevMN){prevMN=MN;LcdSetPos(76,0);tn(10,MN);
-      MN=(milli-whh)/(3554700L/60); if (MN!=prevMN){prevMN=MN;LcdSetPos(76,0);tn(10,MN);
+      MN=(milli-whh)/(3625000L/60); if (MN!=prevMN){prevMN=MN;LcdSetPos(76,0);tn(10,MN);
 
           for(uint8_t d=0;d<83;d++){TempH[d]=TempH[d+1];}// shift left
 //  if(milli>=NextTmpHumCheck)
