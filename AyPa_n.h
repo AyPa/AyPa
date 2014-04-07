@@ -30,15 +30,18 @@ void LcdWriteCmd1(byte cmd)
   digitalWrite(CE,HIGH);  
 }*/
 
-void LcdWriteCmd(byte cmd)
+#define spiwrite(c){  SPDR = c;  while(!(SPSR&(1<<SPIF)));}
+
+void LcdWriteCmd(uint8_t cmd)
 {
 
     
   Pin2LOW(PORTD,DC);//digitalWrite(DC,LOW);
   Pin2LOW(PORTD,CE);//  digitalWrite(CE,LOW);
 
-  SPDR = cmd;// start transfer
-  while(!(SPSR&(1<<SPIF)));// interrupt also can!
+  spiwrite(cmd);
+//  SPDR = cmd;// start transfer
+  //while(!(SPSR&(1<<SPIF)));// interrupt also can!
 
   Pin2HIGH(PORTD,CE);//  digitalWrite(CE,HIGH);  
 }
@@ -64,35 +67,35 @@ void LcdWriteData1(byte cmd)
   digitalWrite(CE,HIGH);  
 }*/
 
-void LcdWriteData(byte cmd)
+void LcdWriteData(uint8_t cmd)
 {
   //SPI.setDataMode(SPI_MODE0);//default
   //SPI.setBitOrder(MSBFIRST);// maybe
   //SPI.setClockDivider(SPI_CLOCK_DIV2);//max
-  SPSR = (1 << SPI2X);//2
+//  SPSR = (1 << SPI2X);//2
   //SPSR = (0 << SPI2X); //4
   //SPCR = (1 << MSTR) | (1 << SPE) |(1<<SPR0);      // enable, master, msb first
-  SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
+//  SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
 
   Pin2HIGH(PORTD,DC);//  digitalWrite(DC,HIGH);
   Pin2LOW(PORTD,CE);///  digitalWrite(CE,LOW);
 
-  SPDR = cmd;// start transfer
-  while(!(SPSR&(1<<SPIF)));// interrupt also can!
+  spiwrite(cmd);
+//  SPDR = cmd;// start transfer
+//  while(!(SPSR&(1<<SPIF)));// interrupt also can!
 
   Pin2HIGH(PORTD,CE);///  digitalWrite(CE,HIGH);  
 }
 
-#define spiwrite(c){  SPDR = c;  while(!(SPSR&(1<<SPIF)));}
 
-void dd(byte ch)
+void dd(uint8_t ch)
 {
-  byte c;
+  uint8_t c;
   
   //for(byte j=0;j<24;j++)
   spiwrite(0x00);// 1st space
 
-  for(byte j=0;j<3;j++)  // display digit
+  for(uint8_t j=0;j<3;j++)  // display digit
   {
     c=pgm_read_byte(&(Dig[ch++]));
     spiwrite(c);
@@ -114,7 +117,7 @@ void dcn(byte ch)
   }
 }*/
 
-void ts(byte ch)
+void ts(uint8_t ch)
 {
   Pin2HIGH(PORTD,4); 
   Pin2LOW(PORTD,1);
@@ -122,7 +125,7 @@ void ts(byte ch)
   Pin2HIGH(PORTD,1);
 }
 
-void tc(byte ch)
+void tc(uint8_t ch)
 {
   Pin2HIGH(PORTD,4); 
   Pin2LOW(PORTD,1);
@@ -132,7 +135,7 @@ void tc(byte ch)
 
 void tn(long s, long v)
 {
-  byte c,ch;
+  uint8_t c,ch;
   long vv=v;  
   
   Pin2HIGH(PORTD,4); 
@@ -143,10 +146,10 @@ void tn(long s, long v)
   Pin2HIGH(PORTD,1);//    digitalWrite(ce,HIGH);
 }
 
-void tf(long s, long v,byte d)
+void tf(long s, long v,uint8_t d)
 {
-  byte c,ch;
-  byte p=0;
+  uint8_t c,ch;
+  uint8_t p=0;
   long vv=v;  
   
   Pin2HIGH(PORTD,4); 
@@ -160,8 +163,8 @@ void tf(long s, long v,byte d)
 
 void ta(char *st)
 {
-  byte l=0,c;
-  word ch;
+  uint8_t l=0,c;
+  uint16_t ch;
   
   Pin2HIGH(PORTD,4); 
   Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
@@ -177,7 +180,7 @@ void ta(char *st)
     ch=(c-32)*5;
     //    c=Rus[ch++];//preload next char
 
-for(byte j=0;j<5;j++)  // display char
+for(uint8_t j=0;j<5;j++)  // display char
 {
     c=pgm_read_byte(&(Rus[ch++]));
     spiwrite(c);
@@ -221,7 +224,7 @@ void LcdWriteDataold(byte cmd)
   //LcdWriteCmd(0b10000000|x*5);//set X (0..83)
 //  LcdWriteCmd(0b01000000|y);//set Y (0..5)
 //}
-void LcdSetPos(byte x,byte y)
+void LcdSetPos(uint8_t x,uint8_t y)
 {
   LcdWriteCmd(0b10000000|x);//set X (0..83)
   LcdWriteCmd(0b01000000|y);//set Y (0..5)
@@ -229,9 +232,9 @@ void LcdSetPos(byte x,byte y)
 
 // 89 clocks
 // integer 3 digits representation 
-void s3(word v)
+void s3(uint16_t v)
 {
-  byte c,ch;
+  uint8_t c,ch;
 
   PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
   PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
@@ -285,9 +288,9 @@ void s3(word v)
 
 //51 us
 // integer 2 digits representation 
-void s2(word v)
+void s2(uint16_t v)
 {
-  byte c,ch;
+  uint8_t c,ch;
 
   PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
   PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
@@ -325,9 +328,9 @@ void s2(word v)
 }
 
 
-void th(byte v)
+void th(uint8_t v)
 {
-  byte c,ch;
+  uint8_t c,ch;
 
   Pin2HIGH(PORTD,4); 
   Pin2LOW(PORTD,1); ///digitalWrite(cs, LOW);//3
@@ -337,7 +340,7 @@ void th(byte v)
 //  for(byte j=0;j<24;j++)
 spiwrite(0x00);// 1st space
 
-for(byte j=0;j<3;j++)  // display digit
+for(uint8_t j=0;j<3;j++)  // display digit
 {
   c=pgm_read_byte(&(Dig[ch++]));
 spiwrite(c);
@@ -354,7 +357,7 @@ spiwrite(0x00);// 1st space
 
   ch=(v&0xF)*3;
 
-for(byte j=0;j<3;j++)  // display digit
+for(uint8_t j=0;j<3;j++)  // display digit
 {
   c=pgm_read_byte(&(Dig[ch++]));
 spiwrite(c);
@@ -375,7 +378,7 @@ void lh(long v)
   th((v>>8)&0xFF);
   th(v&0xFF);
 }
-void wh(word v)
+void wh(uint16_t v)
 {
   th((v>>8)&0xFF);
   th(v&0xFF);
@@ -383,9 +386,9 @@ void wh(word v)
 
 // 164 clocks
 // integer word representation 
-void sw(word v)
+void sw(uint16_t v)
 {
-  byte c,ch;
+  uint8_t c,ch;
 
   PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
   PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
@@ -469,9 +472,9 @@ void sw(word v)
 
 // 27 clocks
 //hex byte representation
-void sh(byte v)
+void sh(uint8_t v)
 {
-  byte c,ch;
+  uint8_t c,ch;
 
   PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
   PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
@@ -511,9 +514,9 @@ void sh(byte v)
 
 //114-115 clocks
 //binary byte representation
-void sb(byte v)
+void sb(uint8_t v)
 {
-  byte c,ch,i=7;
+  uint8_t c,ch,i=7;
 
   PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
   PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
@@ -551,8 +554,8 @@ void sb(byte v)
 // 784..811 all ascii / all 16bit unicode  STRANGE... this must be ofsetted by SPI transfer. maybe volatile asm provide this better
 void sa(char *st) // send ASCII string to display at current position
 {
-  byte i=0,c;
-  word ch;
+  uint8_t i=0,c;
+  uint16_t ch;
 
   PORTD|=(1<<DC);//  digitalWrite(DC,HIGH); //port commands!!! DC-D5 CE-D7
   PORTD&=~(1<<CE);  //  digitalWrite(CE,LOW);
@@ -665,7 +668,7 @@ void LcdClear(void)
 
 
 //for(byte i=0;i<(84);i++){SPDR = 0;while(!(SPSR&(1<<SPIF)));}// 361us - not working..
-  for(byte i=0;i<6;i++){ta("              ");} // (1614us)
+  for(uint8_t i=0;i<6;i++){ta("              ");} // (1614us)
 }
 
 void LcdInit(void)
@@ -716,9 +719,10 @@ void LcdInit(void)
 
 }
 
+/*
 void LcdInitN(void)
 {
-  byte i;
+  uint8_t i;
     Pin2Output(DDRB,2); //SS pin  (SPI depends on this pin)
   Pin2HIGH(PORTB,2); //set SS (10) high (also CE 4051)
 
@@ -881,4 +885,4 @@ for(i=0;i<120;i++)
 
 delay(1000);
 
-}
+}*/
