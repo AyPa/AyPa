@@ -16,7 +16,8 @@
 //  timer0_millis+=3647000L;  +2s 1:48
 //  timer0_millis+=3648500L; //   -44s 10:09
 //  timer0_millis+=3647800L; // -5s 3:36
-#define MILS 3647500
+//#define MILS 3647500 // -10s 3:56
+#define MILS 3648200
 // примерное число миллисекунд в часе
 
 //#include <SoftI2CMaster.h>
@@ -1006,9 +1007,7 @@ void setup() {
     Pin2Input(DDRC,3);Pin2HIGH(PORTC,3); // pull up on A3 (user button)
   //delay(100);// pull up settle time
 
-  cli();
-  timer0_millis=MILS*12; // set time to noon
-sei();  
+  AddMillis(12*MILS);// set time to noon
 //  uptime=0;
 //  if(eeprom_read_byte((byte*)0)!=0xAA){eeprom_write_byte((byte*)0,0xAA);} // our signature
 //  else{
@@ -2041,7 +2040,13 @@ ISR(TIMER0_OVF_vect)
 
 //void*() df=Delay1;
 //void eeprom_update_byte(byte*addr,byte v){ if(eeprom_read_byte((byte*)addr)!=v){eeprom_write_byte((byte*)addr,v);}}
-
+void AddMillis(long a)
+{
+    cli();
+    timer0_millis+=a; //
+    LastTimeFan=timer0_millis; // чтобы не жужжал когда часы переводим
+    sei();
+}
 // the loop routine runs over and over again forever:
 //byte last_checked;
 uint8_t button_is_pressed=0;
@@ -2236,7 +2241,8 @@ if(button_is_pressed) // кнопка A3 нажата
 {
   button_is_pressed=0;
   if (++HR==24){reboot();}// reboot every 24h
-  cli();
+  AddMillis(MILS); // плюс час
+//  cli();
 //  timer0_millis+=3651351L; //3600000L;
 //  timer0_millis+=3554700L; //3600000L;
 //  timer0_millis+=3620000L; //3600000L; // чуток бегут
@@ -2251,8 +2257,8 @@ if(button_is_pressed) // кнопка A3 нажата
 //  timer0_millis+=3647000L;  +2s 1:48
 //  timer0_millis+=3648500L; //   -44s 10:09
 //  timer0_millis+=3647800L; // -5s 3:36
-  timer0_millis+=MILS; //
-  LastTimeFan=timer0_millis; // чтобы не жужжал когда часы переводим
+//  timer0_millis+=MILS; //
+  //LastTimeFan=timer0_millis; // чтобы не жужжал когда часы переводим
  // sei();  // useless
 }
    cli();milli=timer0_millis;sei(); // запрещаем прерывания чтобы получить целостное число
