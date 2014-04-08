@@ -10,6 +10,14 @@
 
 //#include <SPI.h>
 
+  //timer0_millis+=3638500L; //3600000L; +25s 2:38
+//  timer0_millis+=3636000L;  //  +10s 01:03
+//  timer0_millis+=3646000L; //  +3s 1:43
+//  timer0_millis+=3647000L;  +2s 1:48
+//  timer0_millis+=3648500L; //   -44s 10:09
+//  timer0_millis+=3647800L; // -5s 3:36
+#define MILS 3647500
+// примерное число миллисекунд в часе
 
 //#include <SoftI2CMaster.h>
 
@@ -389,7 +397,7 @@ void RequestFrom(byte addr,byte reg)
 
 uint8_t TempH[76]={0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0}; // архив температур
 
-uint8_t Intensity[24] = {4,3,0,0,0,0, 1,1,2,2,3,3, 4,4,4,3,3,3, 2,2,2,1,1,1}; // почасовая интенсивность 
+uint8_t Intensity[24] = {0,0,0,0,0,0, 1,1,2,2,3,3, 4,4,4,3,3,3, 2,2,2,1,1,1}; // почасовая интенсивность 
 uint8_t decode[5]={0,0x8,0xA,0xE,0xF};
 // 0xF 1111 (4)
 // 0xE 1110 (3)
@@ -997,7 +1005,10 @@ void setup() {
   
     Pin2Input(DDRC,3);Pin2HIGH(PORTC,3); // pull up on A3 (user button)
   //delay(100);// pull up settle time
-  
+
+  cli();
+  timer0_millis=MILS*12; // set time to noon
+sei();  
 //  uptime=0;
 //  if(eeprom_read_byte((byte*)0)!=0xAA){eeprom_write_byte((byte*)0,0xAA);} // our signature
 //  else{
@@ -2006,6 +2017,21 @@ void FanIcon(uint8_t t)
 void FanON(uint8_t d){Pin2Output(DDRB,0);Pin2HIGH(PORTB,0);RunningFan=d;FanIcon(1);}
 void FanOFF(uint8_t t){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);FanTimeout=t;FanIcon(0);}
 
+//  timer0_millis+=3651351L; //3600000L;
+//  timer0_millis+=3554700L; //3600000L;
+//  timer0_millis+=3620000L; //3600000L; // чуток бегут
+//  timer0_millis+=3625000L; //3600000L;//чуток бегут
+//  timer0_millis+=3630000L; //+19с за 1ч40
+
+//  timer0_millis+=3637000L; //3600000L; //1s 40min
+//  timer0_millis+=3637500L; //3600000L; 7s 1:39 ahead
+  //timer0_millis+=3638500L; //3600000L; +25s 2:38
+//  timer0_millis+=3636000L;  //  +10s 01:03
+//  timer0_millis+=3646000L; //  +3s 1:43
+//  timer0_millis+=3647000L;  +2s 1:48
+//  timer0_millis+=3648500L; //   -44s 10:09
+//  timer0_millis+=3647800L; // -5s 3:36
+
 /*
 ISR(TIMER0_OVF_vect)
 {
@@ -2220,18 +2246,23 @@ if(button_is_pressed) // кнопка A3 нажата
 //  timer0_millis+=3637000L; //3600000L; //1s 40min
 //  timer0_millis+=3637500L; //3600000L; 7s 1:39 ahead
   //timer0_millis+=3638500L; //3600000L; +25s 2:38
-  timer0_millis+=3636000L; 
-  LastTimeFan=timer0_millis; // чтобы не жужжал когда ставим время
+//  timer0_millis+=3636000L;  //  +10s 01:03
+//  timer0_millis+=3646000L; //  +3s 1:43
+//  timer0_millis+=3647000L;  +2s 1:48
+//  timer0_millis+=3648500L; //   -44s 10:09
+//  timer0_millis+=3647800L; // -5s 3:36
+  timer0_millis+=MILS; //
+  LastTimeFan=timer0_millis; // чтобы не жужжал когда часы переводим
  // sei();  // useless
 }
    cli();milli=timer0_millis;sei(); // запрещаем прерывания чтобы получить целостное число
 
-      HR=milli/3636000L;
+      HR=milli/MILS;
       if (HR!=prevHR)
       {
           prevHR=HR;
 //          whh=HR*3651351L; // остаток секунд в часе
-          whh=HR*3636000L; // остаток секунд в часе
+          whh=HR*MILS; // остаток секунд в часе
           FlashIntensity=decode[Intensity[HR]]; // текущая интенсивность освещения
           LcdSetPos(65,0);tn(10,HR);
           LcdSetPos(37,0);IntBar();
@@ -2245,8 +2276,7 @@ SoilMoisture();  LcdSetPos(30,2); SoilBar(); LcdSetPos(72,2); tn(100,moisture);/
 
       }
 
-//      MN=(milli-whh)/(3651351L/60); if (MN!=prevMN){prevMN=MN;LcdSetPos(76,0);tn(10,MN);
-      MN=(milli-whh)/(3636000L/60); if (MN!=prevMN){prevMN=MN;LcdSetPos(76,0);tn(10,MN);
+      MN=(milli-whh)/(MILS/60); if (MN!=prevMN){prevMN=MN;LcdSetPos(76,0);tn(10,MN);
 
 //  if(milli>=NextTmpHumCheck)
   //{
