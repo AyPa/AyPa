@@ -1963,7 +1963,6 @@ void SoilBar(void)
     spiwrite(0x7C);
     for (i=0;i<b;i++){spiwrite(0x44);}
     for (i=b;i<41;i++){spiwrite(0x7C);}
-//    spiwrite(0x7C);
 
     Pin2HIGH(PORTD,1);
 }
@@ -1971,7 +1970,7 @@ void SoilBar(void)
 //void GetVcc(void){ VccN=Vcc(); if (VccN<VccH){VccH=VccN;} if (VccN>VccL){VccL=VccN;} } //280us
 uint8_t chip[6]={0x00,0x55,0x7F,0x7F,0x7F,0x55};
 uint8_t degree[5]={0x00,0x06,0x09,0x09,0x06};
-uint8_t del[2]={0x00,0xFF};
+uint8_t del[2]={0x00,0x7F};
 
 void LcdBack(void)
 {
@@ -2044,8 +2043,8 @@ void AddMillis(long a)
 {
     cli();
     timer0_millis+=a; //
-    if(timer0_millis>=24*MILS){timer0_millis-=(24*MILS);} // overlap 24h
-    LastTimeFan=timer0_millis; // чтобы не жужжал когда часы переводим
+//    if(timer0_millis>=24*MILS){timer0_millis-=(24*MILS);} // overlap 24h    // later
+//    LastTimeFan=timer0_millis; // чтобы не жужжал когда часы переводим
     sei();
 }
 // the loop routine runs over and over again forever:
