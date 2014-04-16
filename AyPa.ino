@@ -1,14 +1,4 @@
-//#define __AVR_ATmega328P__ 
-//#include <avr/io.h>
-//#include <avr/wdt.h>
-//#include <avr/interrupt.h>
-//#include <avr/power.h>
-//#include <avr/sleep.h>
 #include <avr/pgmspace.h>
-//#include <avr/eeprom.h>
-//#include <Arduino.h>
-
-//#include <SPI.h>
 
 
   //timer0_millis+=3638500L; //3600000L; +25s 2:38
@@ -26,7 +16,7 @@
 #define MILS 3647235
 // примерное число миллисекунд в часе
 
-//#include <SoftI2CMaster.h>
+
 
 #include "AyPa_m.h"
 #include "AyPa_fonts.h"
