@@ -21,7 +21,8 @@
 //#define MILS 3648000 // отставание на 10с за 3:25
 //#define MILS 3647300 // опережение на 16с за 11:55
 //#define MILS 3647400 //отстали на 19с за 19:38
-#define MILS 3647250
+//#define MILS 3647250 // убежал на 5с за 22:30
+#define MILS 3647235
 // примерное число миллисекунд в часе
 
 //#include <SoftI2CMaster.h>
@@ -402,6 +403,12 @@ void RequestFrom(byte addr,byte reg)
 
 uint8_t TempH[76]={0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0}; // архив температур
 
+// 3x4 3.2 out of 32us x4  40%  12.5% of day
+// 5x3                           x3 30%  20.8% of day
+// 5x2                           x2 20%  20.8% of day
+// 5x1                           x1 10%  20.8% od day
+// 6x0                                 ---    25% of day          
+// 24/42=0.57
 uint8_t Intensity[24] = {0,0,0,0,0,0, 1,1,2,2,3,3, 4,4,4,3,3,3, 2,2,2,1,1,1}; // почасовая интенсивность 
 uint8_t decode[5]={0,0x8,0xA,0xE,0xF};
 // 0xF 1111 (4)
@@ -1013,7 +1020,8 @@ void setup() {
   //delay(100);// pull up settle time
 
 //  AddMillis(12*MILS);// set time to noon
-  AddMillis(6*MILS);// set time to 6:00
+//  AddMillis(6*MILS);// set time to 6:00
+// startup at midnight
 //  uptime=0;
 //  if(eeprom_read_byte((byte*)0)!=0xAA){eeprom_write_byte((byte*)0,0xAA);} // our signature
 //  else{
@@ -1125,7 +1133,7 @@ setup_watchdog(T2S); // если в течении 2s не сбросить ст
 
 uint8_t FanTimeout=0; // время отдыха вентилятора после выключения
 uint8_t RunningFan=0; // время действующего вентилятора
-long LastTimeFan=0; //  время последнего включения вентилятора
+//long LastTimeFan=0; //  время последнего включения вентилятора
 
 //ISR (PCINT1_vect){ if (PINC&(1<<3)==0){ HR++; HR&=0xF; FlashIntensity=Intensity[HR]; }}  // A3 user button handler
 
@@ -1938,7 +1946,7 @@ void TempBar(uint8_t v)
     for(i=75;i>0;i--){TempH[i]=TempH[i-1];}// shift right
     TempH[0]=v; // put new value
 
-    for(i=0;i<76;i++){ d=0; if (TempH[i]>=22){d=TempH[i]-22;} if(d>9){d=9;} spiwrite(masks[d]);}// display graph
+    for(i=0;i<76;i++){ d=0; if (TempH[i]>=21){d=TempH[i]-21;} if(d>9){d=9;} spiwrite(masks[d]);}// display graph [22..29]
     Pin2HIGH(PORTD,1);
 }
 
@@ -2235,7 +2243,8 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
       HR=milli/MILS; 
       if (HR!=prevHR)
       {
-          if (HR==24){HR=0;cli();timer0_millis=0;milli=0;sei();}// fix timer0_millis
+     //     if (HR==24){HR=0;cli();timer0_millis=0;milli=0;sei();}// fix timer0_millis
+          if (HR==24){reboot();}// перезагрузка в полночь
 
           prevHR=HR;
           whh=HR*MILS; // остаток секунд в часе
@@ -2244,7 +2253,9 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
           LcdSetPos(60,1);IntBar();
           LcdSetPos(55,1);tc(Intensity[HR]);
 
-          SoilMoisture();  LcdSetPos(30,2); SoilBar(); LcdSetPos(72,2); tn(100,moisture);// }
+          SoilMoisture();  LcdSetPos(30,2); SoilBar(); LcdSetPos(72,2); tn(100,moisture);
+          
+          FanON(20); // каждый час чуток проветрим
       }
 
       MN=(milli-whh)/(MILS/60); 
@@ -2252,13 +2263,6 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
       {
           prevMN=MN;LcdSetPos(76,0);tn(10,MN);
 
-//  if(milli>=NextTmpHumCheck)
-  //{
-    //    NextTmpHumCheck=milli+20000L; // +20s
- // LcdSetPos(18,2);ta("N");tn(100,co1);co1=0;
-
-//      if((milli&0xF0)==0) // раз в xxxs можно замерить температуру и относительную влажность воздуха
-  //    {
          if (DHTreadAll())
          {
            DHThum=(DHThum+5)/10; if(DHThum>vmax){vmax=DHThum;} if(DHThum<vmin){vmin=DHThum;}
@@ -2275,7 +2279,8 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
             TempBar(DHTtmp);
 
 //            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=29)||(DHThum>=50)||(milli-LastTimeFan)>1800000){if(DHTtmp>=31){delay(60000);}else if(HR>=0){FanON(55);}}}
-            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=29)||(DHThum>=50)||(milli-LastTimeFan)>1800000){if(DHTtmp>=32){for(uint8_t d=0;d<255;d++){delayMicroseconds(65000); } }else if(HR>=6){FanON(61);}}}
+  //          if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=29)||(DHThum>=50)||(milli-LastTimeFan)>3600000){if(DHTtmp>=32){for(uint8_t d=0;d<255;d++){delayMicroseconds(65000); } }else if(HR>=6){FanON(61);}}}
+            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=29)||(DHThum>=51)){if(DHTtmp>=32){for(uint8_t d=0;d<255;d++){delayMicroseconds(65000); } }else if(HR>=6){FanON(61);}}}
       //16s
       //for(i=0;i<4;i++){  delayMicroseconds(65000); } //260ms
 
@@ -2295,7 +2300,8 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
       }// next minute
 
       LcdSetPos(74,0);c=0;if(milli&1024){c=0x36;}Pin2HIGH(PORTD,4);Pin2LOW(PORTD,1);spiwrite(c);spiwrite(c);Pin2HIGH(PORTD,1); // flip flop - анимация часов
-      if(FanTimeout){FanTimeout--;} else if(RunningFan){if((--RunningFan)==0){FanOFF(32);LastTimeFan=milli;}}
+//      if(FanTimeout){FanTimeout--;} else if(RunningFan){if((--RunningFan)==0){FanOFF(32);LastTimeFan=milli;}}
+      if(FanTimeout){FanTimeout--;} else if(RunningFan){if((--RunningFan)==0){FanOFF(32);}}
 
       Flashes=0;
 
