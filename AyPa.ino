@@ -10,6 +10,7 @@
 
 //#include <SPI.h>
 
+
   //timer0_millis+=3638500L; //3600000L; +25s 2:38
 //  timer0_millis+=3636000L;  //  +10s 01:03
 //  timer0_millis+=3646000L; //  +3s 1:43
@@ -30,9 +31,6 @@
 #include "AyPa_m.h"
 #include "AyPa_fonts.h"
 #include "AyPa_n.h"
-//#include "AyPa_TFT.h"
-//#include "AyPa_i2c.h"
-//#include "AyPa_rtc.h"
 
 //#include "DHT.h"
 //#define DHTPIN A0     // what pin we're connected to
