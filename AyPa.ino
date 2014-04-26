@@ -20,7 +20,11 @@
 //#define MILS 3647393 //  отставание 33с за 22 часа 
 //#define MILS 3647410 //  отставание 48c за 16ч
 //#define MILS 3647370 //  отставание 35c за 22.5ч
-#define MILS 3647350 //  о
+//#define MILS 3647350 //  отставание 32c за 23ч
+//#define MILS 3647330 //  отставание 59c за 25ч
+//#define MILS 3647300 //  отставание 2.27c за 23ч
+//#define MILS 3647420 //  отставание 2.55c за 21ч
+#define MILS 3647150 //  отставание 2.55c за 21ч
 
 
 // примерное число миллисекунд в часе
@@ -407,7 +411,8 @@ uint8_t TempH[76]={0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0
 // 6x0                                 ---    25% of day          
 // 24/42=0.57
 //uint8_t Intensity[24] = {0,0,0,0,0,0, 1,1,2,2,3,3, 4,4,4,3,3,3, 2,2,2,1,1,1}; // почасовая интенсивность  1-8
-uint8_t Intensity[24] = {0,0,0,0,0,0, 1,2,3,4,4,4, 4,4,4,4,4,4, 4,4,4,4,2,1}; // почасовая интенсивность  9 up
+//uint8_t Intensity[24] = {0,0,0,0,0,0, 1,2,3,4,4,4, 4,4,4,4,4,4, 4,4,4,4,2,1}; // почасовая интенсивность  9 up
+uint8_t Intensity[24] = {0,0,0,0,0,0, 1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,0}; // почасовая интенсивность  15 up
 uint8_t decode[5]={0,0x8,0xA,0xE,0xF};
 // 0xF 1111 (4)
 // 0xE 1110 (3)
@@ -2278,7 +2283,7 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
 
 //            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=29)||(DHThum>=50)||(milli-LastTimeFan)>1800000){if(DHTtmp>=31){delay(60000);}else if(HR>=0){FanON(55);}}}
   //          if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=29)||(DHThum>=50)||(milli-LastTimeFan)>3600000){if(DHTtmp>=32){for(uint8_t d=0;d<255;d++){delayMicroseconds(65000); } }else if(HR>=6){FanON(61);}}}
-            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=29)||(DHThum>=51)){if(DHTtmp>=32){for(uint8_t d=0;d<255;d++){delayMicroseconds(65000); } }else if(HR>=6){FanON(61);}}}
+            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=28)||(DHThum>60)){if(DHTtmp>=32){for(uint8_t d=0;d<255;d++){delayMicroseconds(65000); } }else if(HR>=6){FanON(61);}}}
       //16s
       //for(i=0;i<4;i++){  delayMicroseconds(65000); } //260ms
 
