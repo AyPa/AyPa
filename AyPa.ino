@@ -1,5 +1,6 @@
 #include <avr/pgmspace.h>
-
+//#include <avr/sleep.h>
+//#include <avr/wdt.h>
 
   //timer0_millis+=3638500L; //3600000L; +25s 2:38
 //  timer0_millis+=3636000L;  //  +10s 01:03
@@ -31,7 +32,11 @@
 //#define MILS 3640000 //  убег 7c за 07:44ч
 //#define MILS 3641000 //  отставание 26c за 12:39ч
 //#define MILS 3640300 //  убег 10c за 30ч
-#define MILS 3640330 // 
+//#define MILS 3640330 // убег 17c за 25ч
+//#define MILS 3640250 //  отстали на 25с за 15ч
+//#define MILS 3640292 //  отстал 8c 30ч
+#define MILS 3640282 //  отстал 8c 30ч
+
 
 
 // примерное число миллисекунд в часе
@@ -419,8 +424,10 @@ uint8_t TempH[76]={0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0
 // 24/42=0.57
 //uint8_t Intensity[24] = {0,0,0,0,0,0, 1,1,2,2,3,3, 4,4,4,3,3,3, 2,2,2,1,1,1}; // почасовая интенсивность  1-8
 //uint8_t Intensity[24] = {0,0,0,0,0,0, 1,2,3,4,4,4, 4,4,4,4,4,4, 4,4,4,4,2,1}; // почасовая интенсивность  9 up
-uint8_t Intensity[24] = {0,0,0,0,0,0, 1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,0}; // почасовая интенсивность  15 up
-uint8_t decode[5]={0,0x8,0xA,0xE,0xF};
+//uint8_t Intensity[24] = {0,0,0,0,0,0, 1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,0}; // почасовая интенсивность  15 up
+//uint8_t Intensity[24] = {0,0,0,0,0,0, 1,2,2,2,2,2, 2,2,2,2,2,2, 2,2,2,2,1,0}; // почасовая интенсивность  01/05 (20) up
+uint8_t Intensity[24] = {0,1,1,1,2,2, 2,3,3,3,4,4, 4,4,4,4,4,4, 4,4,3,2,1,0}; // почасовая интенсивность  01/05 (20) up
+//uint8_t decode[5]={0,0x8,0xA,0xE,0xF};
 // 0xF 1111 (4)
 // 0xE 1110 (3)
 // 0xA 1010 (2)
@@ -631,12 +638,12 @@ word TouchSensor(void) //
       delayMicroseconds(100);
       Pin2Input(DDRC,0);
       for(int i=0;i<cycles;i++){if (PINC&0b00000001){cycles=i;break;}}
-      Pin2Output(DDRC,0);Pin2LOW(PORTC,0); // discharge sensor  pin
+      Pin2Output(DDRC,0);Pin2LOW(PORTC,0); // discharge sensor  pintem_
       Pin2Input(DDRC,0);Pin2LOW(PORTC,0); // sensor pin
       return cycles;
 }
 
-byte sleeps=0;
+
 */
 //#ifndef cbi
 //#define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
@@ -644,6 +651,10 @@ byte sleeps=0;
 //#ifndef sbi
 //#define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
 //#endif
+
+byte volatile WDsleep;
+byte volatile WDhappen;
+byte sleeps=0;
 
 #define T16MS 0
 #define T32MS 1
@@ -664,7 +675,7 @@ byte sleeps=0;
  
 // Turn off the Watchdog
 // Watchdog sleep function - combines all the above functions into one
-//#define watchdogSleep(mode,timeout){setup_watchdog(timeout);system_sleep(mode,WDhappen);wdt_disable();}
+//#define watchdogSleep(mode,timeout){setup_watchdog(timeout);system_sleep(mode,WDhappen);}
  
  //volatile word  cnt1; // vars updated in ISR should be declared as volatile and accessed with cli()/sei() ie atomic
 
@@ -672,15 +683,15 @@ ISR(WDT_vect) // Watchdog timer interrupt.
 { 
   //reboot();  //reboot
   //  r2=TCNT1;
- // if(WDsleep)
-  //{
+  if(WDsleep)
+{
 //  cnt1=TCNT1;
- // WDhappen=1;
-  //WDsleep=0;
-  //}
-  //else{
+  WDhappen=1;
+  WDsleep=0;
+  }
+  else{
 //  SaveUptime(); 
-  reboot(); //}// This will call location zero and cause a reboot.
+  reboot(); }// This will call location zero and cause a reboot.
 }
 
 uint8_t DHTdata[5];
@@ -2076,6 +2087,264 @@ uint8_t c;
 
 long mi;
 
+void x0(void)
+{
+    __asm__ __volatile__(
+//"Start1:\n\t"
+      "in r18,3\n\t" // r18=PINB (6OFF 7OFF)
+      "mov r19,r18\n\t"
+      "mov r20,r18\n\t"
+      "ori r19, 0b01000000\n\t" // bit 6 is ON
+      "ori r20, 0b10000000\n\t" // bit 7 is ON
+"000:\n\t"    
+// 1st===============      
+      "cli\n\t"
+          "out 5,r18\n\t" // set pin 6 OFF pin7 OFF
+//      "out 5,r19\n\t" // set pin 6 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+"nop\n\t"//      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+// 2nd===============
+          "out 5,r18\n\t" // set pin 6 OFF pin7 OFF
+//      "out 5,r19\n\t" // set pin 6 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+"nop\n\t"//      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "lds r24,Flashes\n\t" "lds r25,Flashes+1\n\t""nop\n\t"//      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+// 3rd===============
+          "out 5,r18\n\t" // set pin 6 OFF pin7 OFF//      "out 5,r19\n\t" // set pin 6 ON
+      "adiw r24,1\n\t""sts Flashes+1,r25\n\t""nop\n\t"
+//      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+"nop\n\t"
+      "sts Flashes,r24\n\t" //Flashes++; 
+       "in r22,6\n\t" // check pinA3: 0:LOW (is pressed) >0:HIGH (is not pressed)
+       "nop\n\t""nop\n\t"
+// 4th=============== absent here
+          "out 5,r18\n\t" // set pin 6 OFF pin7 OFF
+//      "out 5,r19\n\t" // set pin 6 ON
+      "sbrs r22,3\n\t" // следующая инструкция выполнится только если бит 3 в r22 сброшен (то есть кнопка нажата и лапка A3 притянута к земле)
+      "sts button_is_pressed,r20\n\t"  // надо сохранить что нибудь >0!!! r20 точно > 0
+      "nop\n\t"
+//      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+      "nop\n\t"//      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t"//"nop\n\t"
+           "sei \n\t"   //   "ldi r23,3\n\t"       "1:\n\t"      "dec r23\n\t"       "brne 1b\n\t" // wait with both OFF
+          "out 5,r18\n\t" // set pin 6 OFF pin7 OFF
+     "sbrs r25,7\n\t" // следующая инструкция выполнится только если бит 7 в r25 сброшен (Flashes<32768)// 1004ms - то что нужно
+//     "sbrs r25,6\n\t" // следующая инструкция выполнится только если бит 7 в r25 сброшен (Flashes<16384))// 1004ms - то что нужно
+//     "sbrs r25,4\n\t" // следующая инструкция выполнится только если бит 7 в r25 сброшен (Flashes<4096))// 1004ms - то что нужно
+  //     "sbrs r25,2\n\t" // следующая инструкция выполнится только если бит 7 в r25 сброшен (Flashes<102416384))// 1004ms - то что нужно
+    "rjmp 000b\n\t"
+      "wdr\n\t" // проведаем сторожевого пса
+      );
+  
+}
+
+void x1(void)
+{
+    __asm__ __volatile__(
+//"Start1:\n\t"
+      "in r18,3\n\t" // r18=PINB (6OFF 7OFF)
+      "mov r19,r18\n\t"
+      "mov r20,r18\n\t"
+      "ori r19, 0b01000000\n\t" // bit 6 is ON
+      "ori r20, 0b10000000\n\t" // bit 7 is ON
+"111:\n\t"    
+// 1st===============      
+      "cli\n\t"
+      "out 5,r19\n\t" // set pin 6 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+// 2nd===============
+          "out 5,r18\n\t" // set pin 6 OFF pin7 OFF
+//      "out 5,r19\n\t" // set pin 6 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+"nop\n\t"//      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "lds r24,Flashes\n\t" "lds r25,Flashes+1\n\t""nop\n\t"//      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+// 3rd===============
+          "out 5,r18\n\t" // set pin 6 OFF pin7 OFF//      "out 5,r19\n\t" // set pin 6 ON
+      "adiw r24,1\n\t""sts Flashes+1,r25\n\t""nop\n\t"
+//      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+"nop\n\t"
+      "sts Flashes,r24\n\t" //Flashes++; 
+       "in r22,6\n\t" // check pinA3: 0:LOW (is pressed) >0:HIGH (is not pressed)
+       "nop\n\t""nop\n\t"
+// 4th=============== absent here
+          "out 5,r18\n\t" // set pin 6 OFF pin7 OFF
+//      "out 5,r19\n\t" // set pin 6 ON
+      "sbrs r22,3\n\t" // следующая инструкция выполнится только если бит 3 в r22 сброшен (то есть кнопка нажата и лапка A3 притянута к земле)
+      "sts button_is_pressed,r20\n\t"  // надо сохранить что нибудь >0!!! r20 точно > 0
+      "nop\n\t"
+//      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+      "nop\n\t"//      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t"//"nop\n\t"
+           "sei \n\t"   //   "ldi r23,3\n\t"       "1:\n\t"      "dec r23\n\t"       "brne 1b\n\t" // wait with both OFF
+          "out 5,r18\n\t" // set pin 6 OFF pin7 OFF
+     "sbrs r25,7\n\t" // следующая инструкция выполнится только если бит 7 в r25 сброшен (Flashes<32768)// 1004ms - то что нужно
+      "rjmp 111b\n\t"
+  
+  
+    // 8000 bit 7 in r25
+          
+//"Check1:\n\t"
+      "wdr\n\t" // проведаем сторожевого пса
+      );
+  
+}
+
+void x2(void)
+{
+    __asm__ __volatile__(
+//"Start3:\n\t"
+      "in r18,3\n\t" // r18=PINB (6OFF 7OFF)
+      "mov r19,r18\n\t"
+      "mov r20,r18\n\t"
+      "ori r19, 0b01000000\n\t" // bit 6 is ON
+      "ori r20, 0b10000000\n\t" // bit 7 is ON
+"222:\n\t"    
+// 1st===============      
+      "cli\n\t"
+      "out 5,r19\n\t" // set pin 6 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+// 2nd===============
+          "out 5,r18\n\t" // set pin 6 OFF pin7 OFF
+//      "out 5,r19\n\t" // set pin 6 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+"nop\n\t"//      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "lds r24,Flashes\n\t" "lds r25,Flashes+1\n\t""nop\n\t"//      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+// 3rd===============
+      "out 5,r19\n\t" // set pin 6 ON
+      "adiw r24,1\n\t""sts Flashes+1,r25\n\t""nop\n\t"
+      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "sts Flashes,r24\n\t" //Flashes++; 
+       "in r22,6\n\t" // check pinA3: 0:LOW (is pressed) >0:HIGH (is not pressed)
+       "nop\n\t""nop\n\t"
+// 4th=============== absent here
+          "out 5,r18\n\t" // set pin 6 OFF pin7 OFF
+//      "out 5,r19\n\t" // set pin 6 ON
+      "sbrs r22,3\n\t" // следующая инструкция выполнится только если бит 3 в r22 сброшен (то есть кнопка нажата и лапка A3 притянута к земле)
+      "sts button_is_pressed,r20\n\t"  // надо сохранить что нибудь >0!!! r20 точно > 0
+      "nop\n\t"
+//      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+      "nop\n\t"//      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t"//"nop\n\t"
+           "sei \n\t"   //   "ldi r23,3\n\t"       "1:\n\t"      "dec r23\n\t"       "brne 1b\n\t" // wait with both OFF
+          "out 5,r18\n\t" // set pin 6 OFF pin7 OFF
+
+     "sbrs r25,7\n\t" // следующая инструкция выполнится только если бит 7 в r25 сброшен (Flashes<32768)// 1004ms - то что нужно
+      "rjmp 222b\n\t"
+  
+  
+    // 8000 bit 7 in r25
+          
+//"Check:\n\t"
+      "wdr\n\t" // проведаем сторожевого пса
+      );
+  
+}
+void x3(void)
+{
+    __asm__ __volatile__(
+//"Start3:\n\t"
+      "in r18,3\n\t" // r18=PINB (6OFF 7OFF)
+      "mov r19,r18\n\t"
+      "mov r20,r18\n\t"
+      "ori r19, 0b01000000\n\t" // bit 6 is ON
+      "ori r20, 0b10000000\n\t" // bit 7 is ON
+"333:\n\t"    
+// 1st===============      
+      "cli\n\t"
+      "out 5,r19\n\t" // set pin 6 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+// 2nd===============
+      "out 5,r19\n\t" // set pin 6 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "lds r24,Flashes\n\t" "lds r25,Flashes+1\n\t""nop\n\t"//      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+// 3rd===============
+      "out 5,r19\n\t" // set pin 6 ON
+      "adiw r24,1\n\t""sts Flashes+1,r25\n\t""nop\n\t"
+      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "sts Flashes,r24\n\t" //Flashes++; 
+       "in r22,6\n\t" // check pinA3: 0:LOW (is pressed) >0:HIGH (is not pressed)
+       "nop\n\t""nop\n\t"
+// 4th=============== absent here
+          "out 5,r18\n\t" // set pin 6 OFF pin7 OFF
+//      "out 5,r19\n\t" // set pin 6 ON
+      "sbrs r22,3\n\t" // следующая инструкция выполнится только если бит 3 в r22 сброшен (то есть кнопка нажата и лапка A3 притянута к земле)
+      "sts button_is_pressed,r20\n\t"  // надо сохранить что нибудь >0!!! r20 точно > 0
+      "nop\n\t"
+//      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+      "nop\n\t"//      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t"//"nop\n\t"
+           "sei \n\t"   //   "ldi r23,3\n\t"       "1:\n\t"      "dec r23\n\t"       "brne 1b\n\t" // wait with both OFF
+          "out 5,r18\n\t" // set pin 6 OFF pin7 OFF
+     "sbrs r25,7\n\t" // следующая инструкция выполнится только если бит 7 в r25 сброшен (Flashes<32768)// 1004ms - то что нужно
+      "rjmp 333b\n\t"
+  
+  
+    // 8000 bit 7 in r25
+          
+//"Check:\n\t"
+      "wdr\n\t" // проведаем сторожевого пса
+      );
+  
+}
+
+void x4(void)
+{
+    __asm__ __volatile__(
+//"Start4:\n\t"
+      "in r18,3\n\t" // r18=PINB (6OFF 7OFF)
+      "mov r19,r18\n\t"
+      "mov r20,r18\n\t"
+      "ori r19, 0b01000000\n\t" // bit 6 is ON
+      "ori r20, 0b10000000\n\t" // bit 7 is ON
+"444:\n\t"    
+// 1st===============      
+      "cli\n\t"
+      "out 5,r19\n\t" // set pin 6 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+// 2nd===============
+      "out 5,r19\n\t" // set pin 6 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "lds r24,Flashes\n\t" "lds r25,Flashes+1\n\t""nop\n\t"//      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+// 3rd===============
+      "out 5,r19\n\t" // set pin 6 ON
+      "adiw r24,1\n\t""sts Flashes+1,r25\n\t""nop\n\t"
+      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "sts Flashes,r24\n\t" //Flashes++; 
+       "in r22,6\n\t" // check pinA3: 0:LOW (is pressed) >0:HIGH (is not pressed)
+       "nop\n\t""nop\n\t"
+// 4th===============
+      "out 5,r19\n\t" // set pin 6 ON
+      "sbrs r22,3\n\t" // следующая инструкция выполнится только если бит 3 в r22 сброшен (то есть кнопка нажата и лапка A3 притянута к земле)
+      "sts button_is_pressed,r20\n\t"  // надо сохранить что нибудь >0!!! r20 точно > 0
+      "nop\n\t"
+//      "nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t"
+      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
+      "nop\n\t""nop\n\t""nop\n\t""nop\n\t"//"nop\n\t"
+           "sei \n\t"   //   "ldi r23,3\n\t"       "1:\n\t"      "dec r23\n\t"       "brne 1b\n\t" // wait with both OFF
+          "out 5,r18\n\t" // set pin 6 OFF pin7 OFF
+     "sbrs r25,7\n\t" // следующая инструкция выполнится только если бит 7 в r25 сброшен (Flashes<32768)// 1004ms - то что нужно
+      "rjmp 444b\n\t"
+  
+  
+    // 8000 bit 7 in r25
+          
+//"Check:\n\t"
+      "wdr\n\t" // проведаем сторожевого пса
+      );
+  
+}
+
 void loop() {
 //while(1){
 
@@ -2107,143 +2376,14 @@ R1
 The zero-register is implicity call-saved (implicit because R1 is a fixed register).*/
 //button_is_pressed=TCNT0;
 
+          __asm__ __volatile__("Start:\n\t");
 
-//Initial registers
-//NOP;
-//button_is_pressed=PINC&(1<<3);//port 6
-//r18: 6OFF 7OFF
-//r19: 6ON 7OFF
-//r20: 6OFF 7ON
-//r21: xxxx3210 control, Если бит установлен то включить соответствующий слот
-      __asm__ __volatile__(
-"Start:\n\t"
-      "in r18,3\n\t" // r18=PINB (6OFF 7OFF)
-      "mov r19,r18\n\t"
-      "mov r20,r18\n\t"
-      "ori r19, 0b01000000\n\t" // bit 6 is ON
-      "ori r20, 0b10000000\n\t" // bit 7 is ON
-      "lds r21,FlashIntensity\n\t"
- //     "ldi r21,0b00001111\n\t" // all 4 slots are ON
+      if (FlashIntensity==4){x4();}
+      else if (FlashIntensity==3){x3();}
+      else if (FlashIntensity==2){x2();}
+      else if (FlashIntensity==1){x1();}
+      else {x0();}
       
-"Next:\n\t"    
-//33382 без синхры  9-9 c прерываниями
-//32375 с синхрой 7-7 первая
-
-/*      "in r20,0x26\n\t" //TCNT0 sync
-      "3:\n\t"
-      "in r21,0x26\n\t" //TCNT0
-      "cp r21,r20\n\t"
-      "breq 3b\n\t"*/
-      
-      "cli\n\t"
-      
-      "sbrc r21,0\n\t" // out выполнится только если бит 0 в r21 установлен
-      "out 5,r19\n\t" // set pin 6 ON
-    
-      "ldi r23,9\n\t"
-      "1:\n\t"
-      "dec r23\n\t" // 1 clk
-      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
-
-      "sbrc r21,0\n\t" // out выполнится только если бит 0 в r21 установлен
-      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
-    
-      "ldi r23,9\n\t"
-      "1:\n\t"
-      "dec r23\n\t" // 1 clk
-      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
-
-      "sei\n\t"    //The instruction following SEI will be executed before any pending interrupts.
-      "out 5,r18\n\t" // set pin 6 OFF pin7 OFF - можно без sbrc здесь
-
-
-
-      "cli\n\t"
-
-      "sbrc r21,1\n\t" // out выполнится только если бит 1 в r21 установлен
-      "out 5,r19\n\t" // set pin 6 ON
-        
-    "ldi r23,9\n\t"
-      "1:\n\t"
-      "dec r23\n\t" // 1 clk
-      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
-
-      "sbrc r21,1\n\t" // out выполнится только если бит 1 в r21 установлен
-      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
-  
-   "ldi r23,9\n\t"
-      "1:\n\t"
-      "dec r23\n\t" // 1 clk
-      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
-
-       "sei\n\t"    //The instruction following SEI will be executed before any pending interrupts.
-       "out 5,r18\n\t" // set pin 6 OFF pin7 OFF - можно без sbrc здесь
-  
-  "cli\n\t"
-      "sbrc r21,2\n\t" // out выполнится только если бит 2 в r21 установлен
-      "out 5,r19\n\t" // set pin 6 ON
-          
-     "ldi r23,9\n\t"
-      "1:\n\t"
-      "dec r23\n\t" // 1 clk
-      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
-
-      "sbrc r21,2\n\t" // out выполнится только если бит 2 в r21 установлен
-      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
-
-    "ldi r23,9\n\t"
-      "1:\n\t"
-      "dec r23\n\t" // 1 clk
-      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
-
-      "sei\n\t"    //The instruction following SEI will be executed before any pending interrupts.
-      "out 5,r18\n\t" // set pin 6 OFF pin7 OFF - можно без sbrc здесь
-       
-"cli\n\t"
-      "sbrc r21,3\n\t" // out выполнится только если бит 3 в r21 установлен
-      "out 5,r19\n\t" // set pin 6 ON
-      
-    "ldi r23,9\n\t"
-      "1:\n\t"
-      "dec r23\n\t" // 1 clk
-      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24  7:21
-
-      "sbrc r21,3\n\t" // out выполнится только если бит 3 в r21 установлен
-      "out 5,r20\n\t" // set pin 6 OFF pin7 ON
-
-    "lds r24,Flashes\n\t" // занесли под пыху
-    "lds r25,Flashes+1\n\t"
-    "adiw r24,1\n\t"
-    "sts Flashes+1,r25\n\t"
-    "sts Flashes,r24\n\t" //Flashes++;
-    // 8000 bit 7 in r25
-    
-    "in r22,6\n\t" // check pinA3: 0:LOW (is pressed) >0:HIGH (is not pressed)
-    "sbrs r22,3\n\t" // следующая инструкция выполнится только если бит 3 в r22 сброшен (то есть кнопка нажата и лапка A3 притянута к земле)
-    "sts button_is_pressed,r20\n\t"  // надо сохранить >0!!!!!!!!!!!! r20 точно > 0
-
-      "ldi r23,3\n\t" // сокращение последней вспышки
-      "1:\n\t"
-      "dec r23\n\t" // 1 clk
-      "brne 1b\n\t"// 2 clk if true (1clk if false) so 5 gives us: ldi(1) 5*dec(1)+4*jump(2)+last(not jump)(1)===15clk   10: 1+10+18+1=30  9: 1+9+16+1=27  8:1+8+14+1=24
-  
-      "sei\n\t"    //The instruction following SEI will be executed before any pending interrupts.
-      "out 5,r18\n\t" // set pin 6 OFF pin7 OFF - можно без sbrc здесь
-    
- //     "or r24,r22\n\t" //  if ((timer0_oveflow_count&0x1FF)==0) && TCNT0==0 каждые 1024ms
-   //   "breq Check\n\t"
-
-      //"or r24,r24\n\t" //  if ((timer0_oveflow_count&0x1FF)==0) && TCNT0==0 каждые 1024ms
-      //"brne Check\n\t"
-
-     "sbrs r25,7\n\t" // следующая инструкция выполнится только если бит 7 в r25 сброшен (Flashes<32768)// 1004ms - то что нужно
-//     "sbrs r25,6\n\t" // следующая инструкция выполнится только если бит 6 в r25 сброшен (Flashes<16384)// 502 ms
-      "rjmp Next\n\t"
-      
-"Check:\n\t"
-      "wdr\n\t" // проведаем сторожевого пса
-      );
-
    if (InitialFreeRAM<freeRam()){reboot();}
 
     if(button_is_pressed) { button_is_pressed=0;AddMillis(MILS); } // плюс час если кнопка A3 нажата
@@ -2258,7 +2398,8 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
 
           prevHR=HR;
           whh=HR*MILS; // остаток секунд в часе
-          FlashIntensity=decode[Intensity[HR]]; // текущая интенсивность освещения
+//          FlashIntensity=decode[Intensity[HR]]; // текущая интенсивность освещения
+          FlashIntensity=Intensity[HR]; // текущая интенсивность освещения
           LcdSetPos(65,0);tn(10,HR);
           LcdSetPos(60,1);IntBar();
           LcdSetPos(55,1);tc(Intensity[HR]);
@@ -2317,6 +2458,64 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
 
 //word t1=TCNT1;   LcdSetPos(23,2);tn(10000,t1);       
 //       LcdSetPos(32,2);tn(100000000,timer0_millis);//ta("-");th((timer0_millis&0xff));
+
+/* useless still 1.1w
+      //else { // nothing to do/ sleep time
+if(      FlashIntensity==0)
+{
+  //    #define watchdogSleep(mode,timeout){setup_watchdog(timeout);system_sleep(mode,WDhappen);setup_watchdog(T2S);}
+
+  WDsleep=1;
+
+  // Setup the WDT 
+  cli();
+    __asm__ __volatile__("wdr\n\t");//  wdt_reset();
+  MCUSR &= ~(1<<WDRF);  // Clear the reset flag. 
+  WDTCSR |= (1<<WDCE) | (1<<WDE); //  In order to change WDE or the prescaler, we need to set WDCE (This will allow updates for 4 clock cycles).
+  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//15ms (16280us)
+  // WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//30ms
+  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (0<<WDP0);//60ms
+  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (0<<WDP2) | (1<<WDP1) | (1<<WDP0);//120ms
+  WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (0<<WDP0);//240ms
+//  WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (0<<WDP1) | (1<<WDP0);//480ms
+  //WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);//960ms
+//  WDTCSR = (1<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);//2s
+  // WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (0<<WDP0);//4s
+  //   WDTCSR = (1<<WDIE) | (1<<WDP3) | (0<<WDP2) | (0<<WDP1) | (1<<WDP0);//8s
+
+
+  sei();
+  set_sleep_mode (SLEEP_MODE_IDLE);
+  //  set_sleep_mode(SLEEP_MODE_PWR_DOWN);  
+  sleep_enable();
+  WDhappen=0;
+  sleeps=0;
+  ss=0;
+  //TCNT1=0;
+  do{
+    sleep_cpu();
+    sleeps++;
+    if (digitalRead(A3)){ss++;}
+   //   x0();
+    if(WDhappen||ss){break;}
+  }
+  while(1); // 9 times within 16ms
+  // wake up here
+  sleep_disable();
+//  wdt_disable();
+setup_watchdog(T2S); // если в течении 2s не сбросить сторожевого пса то перезагрузка. (защита от зависаний)
+//    watchdogSleep(SLEEP_MODE_IDLE,T500MS);
+//delay(470);
+
+//if(PINC&&(1<<3)){button_is_pressed++;}
+if(ss>1){button_is_pressed=1;}
+//if(digitalRead(A3)){button_is_pressed=1;}
+//    __asm__ __volatile__("wdr\n\t");
+  //  setup_watchdog(T2S);
+    
+//      for(uint8_t d=0;d<15;d++){delayMicroseconds(65000); }  //~1s
+      } 
+*/
     
     __asm__ __volatile__("rjmp Start\n\t");
 }
