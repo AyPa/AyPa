@@ -4,8 +4,11 @@
 
 //#define MILS 3640282 //  надо 20:55:13 показал 21:00:00 +47
 //#define MILS 3650000 //  надо 04:19:16 показал 04:19:00 -16
-//#define MILS 3648000 //  за 4 часа убежал на 25с
-#define MILS 3646000 //  надо 20:55:13 показал 21:00:00
+//#define MILS 3648000 //  за 4 часа убежал на 25с  
+//#define MILS 3650500 // за 2 часа убежал на 20с  
+//#define MILS 3655500 //  за 4 часа отстал на 16  c
+//#define MILS 3653000 //   за2:43 убежал на 3с
+#define MILS 3653300 //  
 
 // watts:  0: 1.1w  1: 8.5 w 2: 9.6w 3:  9.7w 4: 9.9 w  (running fan +0.5w)
 
@@ -1742,7 +1745,10 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
            LcdSetPos(32,0);tn(10,CHIPtemp); spiout(&degree[0],5);
            tf(10,11200/MCU_Vcc,1); ta("в");
     
+          if (FanIsON==0) // зачем включать уже включенный вентилятор
+          {
               if((MN==1)||(MN==21)||(MN==41)){ FanON(15); } // каждые 20 минут маленькое проветривание
+          }
 
       }// next minute
 
