@@ -35,8 +35,11 @@
 //#define MILS 3640330 // убег 17c за 25ч
 //#define MILS 3640250 //  отстали на 25с за 15ч
 //#define MILS 3640292 //  отстал 8c 30ч
-#define MILS 3640282 //  отстал 8c 30ч
+//#define MILS 3640282 //  надо 20:55:13 показал 21:00:00 +47
+//#define MILS 3650000 //  надо 04:19:16 показал 04:19:00 -16
+#define MILS 3648000 //  надо 20:55:13 показал 21:00:00
 
+// watts:  0: 1.1  1: 8.2  2: 8.6  3:  9.1  4: 9.2-9.3   fan 0.5w
 
 
 // примерное число миллисекунд в часе
@@ -426,7 +429,8 @@ uint8_t TempH[76]={0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0
 //uint8_t Intensity[24] = {0,0,0,0,0,0, 1,2,3,4,4,4, 4,4,4,4,4,4, 4,4,4,4,2,1}; // почасовая интенсивность  9 up
 //uint8_t Intensity[24] = {0,0,0,0,0,0, 1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,0}; // почасовая интенсивность  15 up
 //uint8_t Intensity[24] = {0,0,0,0,0,0, 1,2,2,2,2,2, 2,2,2,2,2,2, 2,2,2,2,1,0}; // почасовая интенсивность  01/05 (20) up
-uint8_t Intensity[24] = {0,1,1,1,2,2, 2,3,3,3,4,4, 4,4,4,4,4,4, 4,4,3,2,1,0}; // почасовая интенсивность  01/05 (20) up
+uint8_t Intensity[24] = {0,0,0,0,0,0, 1,2,2,2,2,2, 3,4,2,2,2,2, 2,2,2,2,2,1}; // почасовая интенсивность  01/05 (20) up
+//uint8_t Intensity[24] = {0,1,1,1,2,2, 2,3,3,3,4,4, 4,4,4,4,4,4, 4,4,3,2,1,0}; // почасовая интенсивность  01/05 (20) up
 //uint8_t decode[5]={0,0x8,0xA,0xE,0xF};
 // 0xF 1111 (4)
 // 0xE 1110 (3)
@@ -1152,9 +1156,6 @@ setup_watchdog(T2S); // если в течении 2s не сбросить ст
     InitialFreeRAM=freeRam();
 }
 
-uint8_t FanTimeout=0; // время отдыха вентилятора после выключения
-uint8_t RunningFan=0; // время действующего вентилятора
-//long LastTimeFan=0; //  время последнего включения вентилятора
 
 //ISR (PCINT1_vect){ if (PINC&(1<<3)==0){ HR++; HR&=0xF; FlashIntensity=Intensity[HR]; }}  // A3 user button handler
 
@@ -2041,8 +2042,6 @@ void FanIcon(uint8_t t)
 
 //word co1=0;
 
-void FanON(uint8_t d){Pin2Output(DDRB,0);Pin2HIGH(PORTB,0);RunningFan=d;FanIcon(1);}
-void FanOFF(uint8_t t){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);FanTimeout=t;FanIcon(0);}
 
 //  timer0_millis+=3651351L; //3600000L;
 //  timer0_millis+=3554700L; //3600000L;
@@ -2345,6 +2344,12 @@ void x4(void)
   
 }
 
+uint32_t NextFanTime=0; // время следующего включения. не раньше.
+uint32_t StopFanTime=0; // время выключения вентилятора
+uint8_t FanIsON=0;
+void FanON(uint8_t d){Pin2Output(DDRB,0);Pin2HIGH(PORTB,0);StopFanTime=milli+(d<<10);FanIsON=1;FanIcon(1);}
+void FanOFF(uint8_t t){Pin2LOW(PORTB,0);Pin2Input(DDRB,0);NextFanTime=milli+(t<<10);FanIsON=0;FanIcon(0);}
+
 void loop() {
 //while(1){
 
@@ -2406,7 +2411,6 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
 
           SoilMoisture();  LcdSetPos(30,2); SoilBar(); LcdSetPos(72,2); tn(100,moisture);
           
-          FanON(20); // каждый час чуток проветрим
       }
 
       MN=(milli-whh)/(MILS/60); 
@@ -2431,10 +2435,11 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
 
 //            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=29)||(DHThum>=50)||(milli-LastTimeFan)>1800000){if(DHTtmp>=31){delay(60000);}else if(HR>=0){FanON(55);}}}
   //          if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=29)||(DHThum>=50)||(milli-LastTimeFan)>3600000){if(DHTtmp>=32){for(uint8_t d=0;d<255;d++){delayMicroseconds(65000); } }else if(HR>=6){FanON(61);}}}
-            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=28)||(DHThum>60)){if(DHTtmp>=32){for(uint8_t d=0;d<255;d++){delayMicroseconds(65000); } }else if(HR>=6){FanON(61);}}}
+            if (milli>NextFanTime) { if ((DHTtmp>=28)||(DHThum>=65)){FanON(120);} }
+//            if ((!FanTimeout)&&(!RunningFan)){if ((DHTtmp>=28)||(DHThum>60)){FanON(90);}}
+            if(DHTtmp>=32){ FlashIntensity=0; } // если припекает то выключаем лампы до следующего начала часа. Пусть остывает.
       //16s
       //for(i=0;i<4;i++){  delayMicroseconds(65000); } //260ms
-
          }
 
       SetADC(1,8,500);  //  select inner temperature sensor 
@@ -2448,11 +2453,14 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
            LcdSetPos(32,0);tn(10,CHIPtemp); spiout(&degree[0],5);
            tf(10,11200/MCU_Vcc,1); ta("в");
     
+              if((MN==1)||(MN==21)||(MN==41)){ FanON(15); } // каждые 20 минут маленькое проветривание
+
       }// next minute
 
       LcdSetPos(74,0);c=0;if(milli&1024){c=0x36;}Pin2HIGH(PORTD,4);Pin2LOW(PORTD,1);spiwrite(c);spiwrite(c);Pin2HIGH(PORTD,1); // flip flop - анимация часов
 //      if(FanTimeout){FanTimeout--;} else if(RunningFan){if((--RunningFan)==0){FanOFF(32);LastTimeFan=milli;}}
-      if(FanTimeout){FanTimeout--;} else if(RunningFan){if((--RunningFan)==0){FanOFF(32);}}
+      if ((FanIsON)&&(milli>=StopFanTime)){FanOFF(30);}
+//      if(FanTimeout){FanTimeout--;} else if(RunningFan){if((--RunningFan)==0){FanOFF(32);}}
 
       Flashes=0;
 
