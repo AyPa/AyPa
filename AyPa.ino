@@ -1,54 +1,18 @@
 #include <avr/pgmspace.h>
-//#include <avr/sleep.h>
-//#include <avr/wdt.h>
-
-  //timer0_millis+=3638500L; //3600000L; +25s 2:38
-//  timer0_millis+=3636000L;  //  +10s 01:03
-//  timer0_millis+=3646000L; //  +3s 1:43
-//  timer0_millis+=3647000L;  +2s 1:48
-//  timer0_millis+=3648500L; //   -44s 10:09
-//  timer0_millis+=3647800L; // -5s 3:36
-//#define MILS 3647500 // -10s 3:56
-//#define MILS 3648200 // -4s 7:12
-//#define MILS 3648000 // отставание на 10с за 3:25
-//#define MILS 3647300 // опережение на 16с за 11:55
-//#define MILS 3647400 //отстали на 19с за 19:38
-//#define MILS 3647250 // убежал на 5с за 22:30
-//#define MILS 3647235 // отстали на 100с за 24 часа
-//#define MILS 3647248 // также
-//#define MILS 3647300 // отставание 8с за 11 часов 
-//#define MILS 3647400 //  убежал на 3с за 3:30
-//#define MILS 3647393 //  отставание 33с за 22 часа 
-//#define MILS 3647410 //  отставание 48c за 16ч
-//#define MILS 3647370 //  отставание 35c за 22.5ч
-//#define MILS 3647350 //  отставание 32c за 23ч
-//#define MILS 3647330 //  отставание 59c за 25ч
-//#define MILS 3647300 //  отставание 2.27c за 23ч
-//#define MILS 3647420 //  отставание 2.55c за 21ч
-//#define MILS 3647150 //  отставание 16c за 2:40ч
-//#define MILS 3646550 //  отставание 10c за 1:40ч
-//#define MILS 3648550 //  отставание 26c за 2:42ч
-//#define MILS 3650000 //  отставание 10c за 0:50ч
-//#define MILS 3640000 //  убег 7c за 07:44ч
-//#define MILS 3641000 //  отставание 26c за 12:39ч
-//#define MILS 3640300 //  убег 10c за 30ч
-//#define MILS 3640330 // убег 17c за 25ч
-//#define MILS 3640250 //  отстали на 25с за 15ч
-//#define MILS 3640292 //  отстал 8c 30ч
-//#define MILS 3640282 //  надо 20:55:13 показал 21:00:00 +47
-//#define MILS 3650000 //  надо 04:19:16 показал 04:19:00 -16
-#define MILS 3648000 //  надо 20:55:13 показал 21:00:00
-
-// watts:  0: 1.1  1: 8.2  2: 8.6  3:  9.1  4: 9.2-9.3   fan 0.5w
-
 
 // примерное число миллисекунд в часе
 
+//#define MILS 3640282 //  надо 20:55:13 показал 21:00:00 +47
+//#define MILS 3650000 //  надо 04:19:16 показал 04:19:00 -16
+//#define MILS 3648000 //  за 4 часа убежал на 25с
+#define MILS 3646000 //  надо 20:55:13 показал 21:00:00
+
+// watts:  0: 1.1w  1: 8.5 w 2: 9.6w 3:  9.7w 4: 9.9 w  (running fan +0.5w)
 
 
-#include "AyPa_m.h"
-#include "AyPa_fonts.h"
-#include "AyPa_n.h"
+#include "AyPa_m.h" // полезные макросы
+#include "AyPa_fonts.h" // шрифты
+#include "AyPa_n.h" // модуль для дисплея Nokia3110
 
 //#include "DHT.h"
 //#define DHTPIN A0     // what pin we're connected to
@@ -61,357 +25,12 @@
 
 void (* reboot) (void) = 0; //declare reset function @ address 0
 
-/*
-#include <Wire.h>
-//#include "TSL2561.h"
-//TSL2561 tsl(TSL2561_ADDR_LOW); 
-
-uint16_t read16(uint8_t reg,int addr)
-{
-  uint16_t x; uint16_t t;
-
-  Wire.beginTransmission(addr);
-  Wire.write(reg);
-  Wire.endTransmission();
-
-  Wire.requestFrom(addr, 2);
-  t = Wire.read();
-  x = Wire.read();
-  x <<= 8;
-  x |= t;
-  return x;
-}
-
-uint8_t read8(uint8_t reg,int addr)
-{
-  uint8_t x;
-
-  Wire.beginTransmission(addr);
-  Wire.write(reg);
-  Wire.endTransmission();
-
-  Wire.requestFrom(addr, 1);
-  x = Wire.read();
-  return x;
-}
-
-
-void write8 (uint8_t reg, uint8_t value,byte addr)
-{
-  Wire.beginTransmission(addr);
-  Wire.write(reg);
-  Wire.write(value);
-  Wire.endTransmission();
-}
-*/
-
-
-//#include <TFT.h> // Hardware-specific library
-
-//#define CS   0
-//#define DC   1
-//#define RESET  8  
-
-//TFT myScreen = TFT(CS, DC, RESET);
-//TFT myScreen = TFT(0, 1, 8);
-
-
-
-
-// set up variables using the SD utility library functions:
-//Sd2Card card;
-//SdVolume volume;
-//SdFile root;
-// change this to match your SD shield or module;
-// Arduino Ethernet shield: pin 4
-// Adafruit SD shields and modules: pin 10
-// Sparkfun SD shield: pin 8
-//const int chipSelect = 4;    
-
-
-word freeRam(void)
-{
-  extern unsigned int __heap_start;
-  extern void *__brkval;
-  int v;
-  return (int)&v-(__brkval==0?(int)&__heap_start:(int)__brkval);
-}
-
-
-
-/*
-//SPI.begin();
- //SPI.setDataMode(SPI_MODE0);
- //SPI.setBitOrder(MSBFIRST);
- //SPI.setClockDivider(SPI_CLOCK_DIV2);//max
- 
- digitalWrite (53, LOW);
- SPSR = (1 << SPI2X);
- SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
- // polarity and phase = 0
- // clock = fosc / 2
- SPDR = 0b10000001;// start transfer
- while(!(SPSR&(1<<SPIF)));// interrupt also can!
- SPDR = 0b11000001;// start transfer
- while(!(SPSR&(1<<SPIF)));// interrupt also can!
- */
-
-/*
-void InitSPI(void)
-{
-  //SPI.setDataMode(SPI_MODE0);//default
-  //SPI.setBitOrder(MSBFIRST);// maybe
-  //SPI.setClockDivider(SPI_CLOCK_DIV2);//max
-  SPSR = (1 << SPI2X);//2
-  //SPSR = (0 << SPI2X); //4
-  //SPCR = (1 << MSTR) | (1 << SPE) |(1<<SPR0);      // enable, master, msb first
-  SPCR = (1 << MSTR) | (1 << SPE);      // enable, master, msb first
-}
-*/
-
-//unsigned long resetTime = 0;
-//#define TIMEOUTPERIOD 100             // You can make this time as long as you want,
-// it's not limited to 8 seconds like the normal
-// watchdog
-//#define doggieTickle() resetTime = millis();  // This macro will reset the timer
-//void(* resetFunc) (void) = 0; //declare reset function @ address 0
-
-//#define SetupWD(timeout){cli();wdt_reset();MCUSR&=~(1<<WDRF);WDTCSR=(1<<WDCE)|(1<<WDE);WDTCSR=(1<<WDIE)|timeout;WDhappen;sei();}
-
-//byte odd=0;
-//long r1=0,r2;
-//word VccN[8][8];
-//word Vcc1;
-
-
-
-//volatile byte WDhappen;
-//volatile word  t1111; // vars updated in ISR should be declared as volatile and accessed with cli()/sei() ie atomic
-//volatile boolean WDsleep=false;
-
-
-//uint32_t ticks=0;
-//uint8_t seconds=0;
-//uint8_t minutes=0;
-//uint8_t hours=0;
-//uint8_t days=0;
-
-/*
-ISR (TIMER1_COMPA_vect){
- ticks++;
- if(ticks==500){
- ticks=0;
- seconds++;
- if(seconds==60){
- seconds=0;
- minutes++;
- if(minutes==60){
- minutes=0;
- hours++;
- if(hours==24){
- hours=0;
- days++;
- }
- }
- }
- }
- }*/
-
-//byte T1happen=0;
-
-/*
-ISR (TIMER1_COMPA_vect){
-//  ticks++;
-  T1happen=1;
-}*/
+//word freeRam(void){ extern unsigned int __heap_start; extern void *__brkval; int v; return (int)&v-(__brkval==0?(int)&__heap_start:(int)__brkval);}
 
 
 #define SetADC(bandgap,input,us){ ADCSRA|=(1<<ADEN);delayMicroseconds(2);ADMUX=(bandgap<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input;delayMicroseconds(us);} // input (0..7,8,14) (bg/vcc analogReference )
 #define ADCoff{ ADCSRA&=~(1<<ADEN); }
 #define mRawADC(v,p) ADCSRA=(1<<ADEN)|(1<<ADSC)|(0<<ADATE)|(0<<ADIE)|p;do{}while(bit_is_set(ADCSRA,ADSC));v=ADCW; 
-/*
-void SetADCinputChannel(boolean REFS1bit,uint8_t input,uint16_t us)
- {
- //  ADMUX = (0<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input; // input (0..7) (default VCC reference)
- ADMUX = (REFS1bit<<REFS1)|(1<<REFS0)|(0<<ADLAR)|input; // input (0..7) (1.1v analogReference reference)
- if(us)delayMicroseconds(us); // Wait for input channel to settle (300us)
- }*/
-
-/*
-#define tRST 8
-#define tCE 2 // don't go along with CErtc but works on PIN4!
-#define tDC 5
-#define tDIN 11
-#define tCLK 13
-*/
-//tpic6a595
-//#define DATAPIN 9
-//#define CLOCKPIN 8
-//#define LATCHPIN 6
-
-//
-//    Pin2Output(DDRD,1);Pin2LOW(PORTD,1); 
-//    Pin2LOW(PORTD,1); Pin2Input(DDRD,1); 
-/*
-#define ERR_WHERE_IS_THE_CLOCK    0x20;
-#define ERR_STRANGE_CLOCK_DATA   0x28;
-#define ERR_STOPPED_CLOCK            0b00000100;
-#define ERR_WHERE_IS_THE_TSL2561 0x10;
-#define ERR_BROKEN_SLEEP              0b00010000;
-#define ERR_NO_SQW                        0b00100000;  
-#define ERR_SET_CLOCK                    0x2F;
-#define ERR_I2C                                0x30;
-byte ERR=0; // ошибки (255)
-*/
-/*
-word TFT_IS_ON=0;
-
-void TFT_ON(byte duration){
-  Pin2Output(DDRB,0);Pin2HIGH(PORTB,0); 
-//    Pin2Output(DDRB,7);Pin2HIGH(PORTB,7);
-  
-    Pin2Output(DDRD,1);Pin2HIGH(PORTD,1); 
-    Pin2Output(DDRD,4);Pin2LOW(PORTD,4); 
-    Pin2Output(DDRB,2);Pin2LOW(PORTB,2); // SS(SPI) init will put it low  (reset)
-    Pin2Output(DDRB,3);Pin2LOW(PORTB,3); 
-    Pin2Output(DDRB,5);Pin2LOW(PORTB,5);
-    delay(10); // time for power pin to stabilize  
-    TFT_IS_ON=duration;
-    InitTFT();
-//    delay(120);
-    Pin2LOW(PORTD,1); 
-} // включаем питание  дисплея
-    
-void TFT_OFF(void){ writecommand(ST7735_SLPIN); 
-    Pin2LOW(PORTB,2); Pin2Input(DDRB,2); 
-    Pin2LOW(PORTB,3); Pin2Input(DDRB,3); 
-    Pin2LOW(PORTB,5); Pin2Input(DDRB,5); // need to close all  connected pins before sinking  remaining charge. otherwise it will be suck current from them :)
-    Pin2LOW(PORTB,0); // sink charge first  then to input
-    Pin2LOW(PORTB,7); // sink charge first  then to input
-//    delay(1);
-//    delayMicroseconds(1);
-    Pin2Input(DDRB,0);
-  //  Pin2Input(DDRB,7);
-    TFT_IS_ON=0; 
-}// вЫключаем питание  дисплея
-*/
-/*
-long LCD;
-
-void LCD_ON(void){
-    Pin2Output(DDRB,0);Pin2HIGH(PORTB,0); 
-//    Pin2Output(DDRB,0);Pin2LOW(PORTB,0); 
-  
-    Pin2Output(DDRD,1);Pin2HIGH(PORTD,1); 
-    Pin2Output(DDRD,4);Pin2LOW(PORTD,4); 
-    Pin2Output(DDRB,2);Pin2LOW(PORTB,2); // SS(SPI) init will put it low  (reset)
-    Pin2Output(DDRB,3);Pin2LOW(PORTB,3); 
-    Pin2Output(DDRB,5);Pin2LOW(PORTB,5);
-    delay(11); // time for power pin to stabilize  
-    InitTFT();//    delay(120);
-    Pin2LOW(PORTD,1); 
-} // включаем питание  дисплея
-    
-void LCD_OFF(void){ writecommand(ST7735_SLPIN); 
-    Pin2LOW(PORTB,0); // sink charge first  then to input
-    Pin2HIGH(PORTB,0); // sink charge first  then to input
-//    Pin2LOW(PORTD,4); 
-//    Pin2LOW(PORTD,1); 
-    Pin2LOW(PORTB,2); Pin2Input(DDRB,2); 
-    Pin2LOW(PORTB,3); Pin2Input(DDRB,3); 
-    Pin2LOW(PORTB,5); Pin2Input(DDRB,5); // need to close all  connected pins before sinking  remaining charge. otherwise it will be suck current from them :)
-
-    LCD=0; 
-
-//    delayMicroseconds(100);
-//     Pin2Input(DDRD,1); 
-//     Pin2Input(DDRD,4); 
-//    Pin2LOW(PORTB,0); // sink charge first  then to input
-     Pin2Input(DDRB,0); 
-  //  Pin2Input(DDRB,0); // continue to sink. D4 has only 0.7v then
-}// вЫключаем питание  дисплея
-*/
-//void RTC_ON(void){Pin2Output(DDRD,0);Pin2HIGH(PORTD,0);Pin2Output(DDRC,1);Pin2Output(DDRC,2);}
-//void RTC_OFF(void){Pin2LOW(PORTD,0);Pin2Input(DDRC,1);Pin2Input(DDRC,2);Pin2LOW(PORTC,1);Pin2LOW(PORTC,2); delayMicroseconds(1);Pin2Input(DDRD,0);}
-
-//#define TSL2561_ON {Pin2Output(DDRC,4);Pin2Output(DDRC,5);}
-//#define TSL2561_OFF {Pin2Input(DDRC,4);Pin2LOW(PORTC,4);Pin2Input(DDRC,5);Pin2LOW(PORTC,5);}
-
-
-
-
-// каждый раз перед обращением к часам проверяем их вменяемость
-
-//uint8_t pH; // предыдущий час
-//uint8_t cH; // текущий час
-//byte pM; // предыдущая минута
-//byte cM; // текущая минута
-//byte cS=0xff; // текущая секунда
-//byte pS;   // предыдущая секунда
-//word sS=0; // частота опроса часиков
-
-//byte CS; // текущая секунда
-//byte CM; // текущая минута
-//byte CH; // текущий час (0..23)
-
-      //void CPUSlowDown(void) {
-  // slow down processor by a factor of 8
-  //CLKPR = _BV(CLKPCE);
-//  CLKPR = _BV(CLKPS1) | _BV(CLKPS0);
-//}
-
-//byte grr,grr2;
-
-
-/*
-void __attribute__ ((noinline)) wait4int(void)
-{
-    byte n=0;
-    do{if(TWCR&(1<<TWINT)){  return; }}while(--n);  // linited wait for TWINT bit    
-    ERR=ERR_I2C;
-}
-
-byte TimeS[9]={0,0,0,0,0x05,0x01,0x03,0x22,0x10}; // 1 марта 7522 SQW 1s
-
-void SetTime(void)
-{
-    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send start condition
-    wait4int();//    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limiting waiting
-    TWDR=(0x68<<1); // SLA+W
-    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
-    wait4int();
-    for(byte v=0;v<9;v++) // burst write
-    {
-        TWDR=TimeS[v];
-        TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with data
-        wait4int();
-        if (TWSR!=0x28){ ERR=ERR_SET_CLOCK; break; } // got ack?
-    }
-}
-
-void RequestFrom(byte addr,byte reg)
-{    
-    TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWSTA);        // send start condition
-    wait4int();//    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limiting waiting
-
-    TWDR=addr; // SLA+W
-    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
-    wait4int();//    if (TWSR!=0x18){return false;} // got ack
-
-    TWDR=reg;
-    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with reg number
-    wait4int();//    if (TWSR!=0x28){return false;} // got ack
-    
-    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send repeated start condition
-    wait4int();//    if (TWSR!=0x10){return false;}
-    TWDR=addr|1; // SLA+R
-    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+R
-    wait4int();  //  if (TWSR!=0x40){return false;} // got ack
-
-}
-*/
-//#define FLASH_CYCLE 95 // microseconds (+~5)
-//#define FLASH_CYCLE 65 // microseconds (+~5)
 
 //byte Intensity[24] = {0,0,0,0,0,0, 1,2,3,3,3,3, 3,3,3,3,3,3, 3,3,3,3,2,1}; // почасовая интенсивность 
 //byte Intensity[24] = {3,0,0,0,0,0, 1,2,3,4,4,4, 4,4,4,4,4,4, 4,4,4,3,2,1}; // почасовая интенсивность 
@@ -419,12 +38,6 @@ void RequestFrom(byte addr,byte reg)
 
 uint8_t TempH[76]={0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0}; // архив температур
 
-// 3x4 3.2 out of 32us x4  40%  12.5% of day
-// 5x3                           x3 30%  20.8% of day
-// 5x2                           x2 20%  20.8% of day
-// 5x1                           x1 10%  20.8% od day
-// 6x0                                 ---    25% of day          
-// 24/42=0.57
 //uint8_t Intensity[24] = {0,0,0,0,0,0, 1,1,2,2,3,3, 4,4,4,3,3,3, 2,2,2,1,1,1}; // почасовая интенсивность  1-8
 //uint8_t Intensity[24] = {0,0,0,0,0,0, 1,2,3,4,4,4, 4,4,4,4,4,4, 4,4,4,4,2,1}; // почасовая интенсивность  9 up
 //uint8_t Intensity[24] = {0,0,0,0,0,0, 1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,0}; // почасовая интенсивность  15 up
@@ -443,196 +56,8 @@ uint8_t FlashIntensity=0;
 uint8_t HR=0;
 uint8_t prevHR=0xFF;
 
-/*
-byte __attribute__ ((noinline)) unBCD(byte bcd){return (((bcd>>4)*10)+(bcd&0xF)); }
 
-void RTC(void)
-{  
-    Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2HIGH(PORTC,4);Pin2HIGH(PORTC,5);   // activate internal pullups for twi.
-// delayMicroseconds(100);
-    RequestFrom((0x68<<1),7);
-grr=TWSR;
-    TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + send ack
-    wait4int();//    if (TWSR!=0x50){ ERR=ERR_I2C; return;} // ack sent
-grr2=TWSR;
-
-    if((TWSR==0x50)&&(TWDR==0x10))
-    {
-        RequestFrom((0x68<<1),0);
-        TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + ack
-        wait4int();//    if (TWSR!=0x50){return false;} // ack sent
-        TimeS[3]=TWDR;
-        TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + ack
-        wait4int();  //  if (TWSR!=0x50){return false;} // ack sent
-        TimeS[2]=TWDR;
-        TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + nack
-        wait4int();
-        if (TWSR!=0x58){ERR=ERR_WHERE_IS_THE_CLOCK; } // nack sent
-        TimeS[1]=TWDR;
-        
-        ticks=unBCD(TimeS[1])*7200L+unBCD(TimeS[2])*120L+unBCD(TimeS[3])*2;
-        HR=ticks/10800L;//90*120;
-        FlashIntensity=Intensity[HR];
-    }
-    else{ ERR=ERR_WHERE_IS_THE_CLOCK; SetTime(); }
-    if(!ERR) { TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO); }       // send stop and forget     // wait for stop condition to be exectued on bus  (TWINT is not set after a stop condition!)
-
-    Pin2LOW(PORTC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,4);Pin2Input(DDRC,5); // если STOP не успевает - поставь задержку
-}
-
-typedef union{byte B[4];word W[2];long L[1];} Data4;
-Data4 Light;
-Data4 LightMax0;
-Data4 LightMax1;
-
-void WriteByte(byte addr, byte reg, byte val)
-{
-    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTA);        // send start condition
-    wait4int();//    {}while(!(TWCR&(1<<TWINT)));  // wait for TWINT bit    // limiting waiting
-
-    TWDR=addr; // SLA+W
-    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with SLA+W
-    wait4int();    
-
-    TWDR=reg;
-    TWCR = (1<<TWEN) | (1<<TWINT);        // proceed with reg number
-    wait4int();   // if (TWSR!=0x28){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} 
-
-    TWDR=val;
-    TWCR = (1<<TWEN) | (1<<TWINT)|(1<<TWEA);         // proceed with reg number
-    wait4int();  //  if (TWSR!=0x28){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} 
-}
-
-#define TSL2561_READBIT           (0x01)
-#define TSL2561_COMMAND_BIT       (0x80)    // Must be 1
-#define TSL2561_CLEAR_BIT         (0x40)    // Clears any pending interrupt (write 1 to clear)
-#define TSL2561_WORD_BIT          (0x20)    // 1 = read/write word (rather than byte)
-#define TSL2561_BLOCK_BIT         (0x10)    // 1 = using block read/write
-#define TSL2561_CONTROL_POWERON   (0x03)
-#define TSL2561_CONTROL_POWEROFF  (0x00)
-
-enum
-{
-  TSL2561_REGISTER_CONTROL          = 0x00,
-  TSL2561_REGISTER_TIMING           = 0x01,
-  TSL2561_REGISTER_THRESHHOLDL_LOW  = 0x02,
-  TSL2561_REGISTER_THRESHHOLDL_HIGH = 0x03,
-  TSL2561_REGISTER_THRESHHOLDH_LOW  = 0x04,
-  TSL2561_REGISTER_THRESHHOLDH_HIGH = 0x05,
-  TSL2561_REGISTER_INTERRUPT        = 0x06,
-  TSL2561_REGISTER_CRC              = 0x08,
-  TSL2561_REGISTER_ID               = 0x0A,
-  TSL2561_REGISTER_CHAN0_LOW        = 0x0C,
-  TSL2561_REGISTER_CHAN0_HIGH       = 0x0D,
-  TSL2561_REGISTER_CHAN1_LOW        = 0x0E,
-  TSL2561_REGISTER_CHAN1_HIGH       = 0x0F
-};
-
-typedef enum
-{
-  TSL2561_INTEGRATIONTIME_13MS      = 0x00,    // 13.7ms
-  TSL2561_INTEGRATIONTIME_101MS     = 0x01,    // 101ms
-  TSL2561_INTEGRATIONTIME_402MS     = 0x02,    // 402ms
-  TSL2561_INTEGRATIONTIME_MANUAL  = 0x08     // manual bit
-}
-tsl2561IntegrationTime_t;
-
-typedef enum
-{
-  TSL2561_GAIN_0X                   = 0x00,    // No gain
-  TSL2561_GAIN_16X                  = 0x10,    // 16x gain
-}
-tsl2561Gain_t;
-
-void TSLstart(byte IntGain)
-{    
-  
-    Pin2Input(DDRC,4);Pin2Input(DDRC,5);Pin2HIGH(PORTC,4);Pin2HIGH(PORTC,5);   // activate internal pullups for twi.  
-    WriteByte((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING), IntGain );
-    WriteByte((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL), TSL2561_CONTROL_POWERON);
-    if (TWSR!=0x28){ ERR=ERR_WHERE_IS_THE_TSL2561; } 
-    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);   // send stop condition
-    
-//    Wire.begin();        write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWERON,0x29);  //  enable();
-//  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING,  IntGain ,0x29);    //  // Set default integration time and gain
-
-}
-*/
-//void TSLstop(void)
-//{
-/*
-  grr=read8(TSL2561_REGISTER_ID,0x29);
-       Light.W[1]= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW,0x29);
-     Light.W[0]= read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW,0x29);
-  write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL, TSL2561_CONTROL_POWEROFF,0x29);
-*/
-      
-
-//    RequestFrom((0x29<<1),(TSL2561_REGISTER_ID));
-    
-  //  TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + ack
-//    wait4int();//    if (TWSR!=0x50){return false;} // ack sent
-  //  if ((TWDR&0xF)!=0xA){ ERR=ERR_WHERE_IS_THE_TSL2561; } 
-
-/*
-   RequestFrom((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN1_LOW));
-
-   TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + ack
-   wait4int();//    if (TWSR!=0x50){return false;} // ack sent
-   grr2=TWDR;
-   Light.W[1]=TWDR;
-
-   RequestFrom((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN1_HIGH));
-
-   TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + ack
-   wait4int();//    if (TWSR!=0x50){return false;} // ack sent
-   grr=TWDR;
-   Light.W[1]|=(TWDR<<8);
-
-   RequestFrom((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN0_LOW));
-
-   TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + ack
-   wait4int();//    if (TWSR!=0x50){return false;} // ack sent
-  // grr2=TWDR;
-   Light.W[0]=TWDR;
-
-   RequestFrom((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CHAN0_HIGH));
-
-   TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + ack
-   wait4int();//    if (TWSR!=0x50){return false;} // ack sent
-//   grr=TWDR;
-   Light.W[0]|=(TWDR<<8);
-   */
-
-/*    RequestFrom((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW));
-
-    TWCR = (1<<TWEN) | (1<<TWINT) | (1<<TWEA);         // proceed with reading + ack
-    wait4int();//    if (TWSR!=0x50){return false;} // ack sent
-    Light.B[0]=TWDR;
-    TWCR = (1<<TWEN) | (1<<TWINT) | (0<<TWEA);         // proceed with reading + ack
-    wait4int();//    if (TWSR!=0x50){return false;} // ack sent
-    Light.B[1]=TWDR;
-    
-
-    RequestFrom((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW));
-    
-    TWCR = (1<<TWEN) | (1<<TWINT)|(1<<TWEA);         // proceed with reading + ack
-    wait4int();//    if (TWSR!=0x50){return false;} // ack sent
-    Light.B[2]=TWDR;
-    TWCR = (1<<TWEN) | (1<<TWINT) |(0<<TWEA);         // proceed with reading + ack
-    wait4int();//    if (TWSR!=0x50){return false;} // ack sent
-    Light.B[3]=TWDR;  if (TWSR!=0x58){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} 
-
-
-WriteByte((0x29<<1),(TSL2561_COMMAND_BIT | TSL2561_REGISTER_CONTROL), TSL2561_CONTROL_POWEROFF);  ///  глючит ну и ладно
-//  if (TWSR!=0x28){ ERR=ERR_WHERE_IS_THE_TSL2561; return;} 
-grr2=TWSR;
-  
-    TWCR = (1<<TWEN) |  (1<<TWINT) | (1<<TWSTO);   // send stop condition
-    Pin2LOW(PORTC,4);Pin2LOW(PORTC,5);Pin2Input(DDRC,4);Pin2Input(DDRC,5); // если STOP не успевает - поставь задержку
-
-}
-*/
+//byte __attribute__ ((noinline)) unBCD(byte bcd){return (((bcd>>4)*10)+(bcd&0xF)); }
 /*
 word TouchSensor(void) // 
 {
@@ -642,24 +67,17 @@ word TouchSensor(void) //
       delayMicroseconds(100);
       Pin2Input(DDRC,0);
       for(int i=0;i<cycles;i++){if (PINC&0b00000001){cycles=i;break;}}
-      Pin2Output(DDRC,0);Pin2LOW(PORTC,0); // discharge sensor  pintem_
+      Pin2Output(DDRC,0);Pin2LOW(PORTC,0); // discharge sensor  pin
       Pin2Input(DDRC,0);Pin2LOW(PORTC,0); // sensor pin
       return cycles;
-}
+}*/
 
-
-*/
-//#ifndef cbi
-//#define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
-//#endif
-//#ifndef sbi
-//#define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
-//#endif
 
 byte volatile WDsleep;
-byte volatile WDhappen;
+byte volatile WDflag;
 byte sleeps=0;
 
+// Watchdog timeout values
 #define T16MS 0
 #define T32MS 1
 #define T64MS 2
@@ -673,33 +91,13 @@ byte sleeps=0;
  
 //#define system_sleep(mode,flags) { set_sleep_mode(mode); sleeps=0;do{sleep_enable();sleep_cpu();sleep_disable();if(flags){break;}else{sleeps++;}}while(1);}
  
-// Watchdog timeout values
-// 0=16ms, 1=32ms, 2=64ms, 3=128ms, 4=250ms, 5=500ms, 6=1sec, 7=2sec, 8=4sec, 9=8sec
 #define setup_watchdog(timeout){cli(); __asm__ __volatile__("wdr\n\t"); MCUSR&=~(1<<WDRF);WDTCSR|=(1<<WDCE)|(1<<WDE);WDTCSR=((1<<WDIE)|timeout);sei();}
  
-// Turn off the Watchdog
-// Watchdog sleep function - combines all the above functions into one
-//#define watchdogSleep(mode,timeout){setup_watchdog(timeout);system_sleep(mode,WDhappen);}
- 
- //volatile word  cnt1; // vars updated in ISR should be declared as volatile and accessed with cli()/sei() ie atomic
-
-ISR(WDT_vect) // Watchdog timer interrupt.
-{ 
-  //reboot();  //reboot
-  //  r2=TCNT1;
-  if(WDsleep)
-{
-//  cnt1=TCNT1;
-  WDhappen=1;
-  WDsleep=0;
-  }
-  else{
-//  SaveUptime(); 
-  reboot(); }// This will call location zero and cause a reboot.
-}
+ISR(WDT_vect) { if(WDsleep){WDflag=1; WDsleep=0; } else{ reboot(); }} // Watchdog timer interrupt
 
 uint8_t DHTdata[5];
 
+/*
 uint8_t DHT_ReadData(void) 
 { 
    uint8_t i; 
@@ -708,19 +106,12 @@ uint8_t DHT_ReadData(void)
 
    for(i=0; i<8; i++) 
    { 
-//      d=0;while (!digitalRead(A0)){if(--d==0){return 0xBA;}}; 
       d=10000;while (!(PINB&(1<<1))) {if(--d==0){return 0xBA;}}; 
       delayMicroseconds(30);
-//      if (digitalRead(A0)) 
-      if (PINB&(1<<1)) 
-      { 
-          v = v |(1<<(7 - i)); 
-//          d=0;while (digitalRead(A0)){if(--d==0){return 0xBA;}}; 
-          d=10000;while (PINB&(1<<1)){if(--d==0){return 0xBA;}}; 
-      } 
+      if (PINB&(1<<1)) { v = v |(1<<(7 - i)); d=10000;while (PINB&(1<<1)){if(--d==0){return 0xBA;}}; } 
    } 
    return v;    
-} 
+} */
 
 //#define TIMEOUT (F_CPU/1600);
 #define TIMEOUT (8000000L/400);
@@ -731,25 +122,10 @@ uint8_t DHT_ReadData(void)
 #define DHTLIB_INVALID_VALUE	-999
 
 extern unsigned long timer0_millis;
-/*extern unsigned long timer0_overflow_count;
-unsigned long mmicros(void)
-{
-  unsigned long m;
-//  long m;
-  uint8_t t;
-  
-  m=timer0_overflow_count;
-  t=TCNT0;
-  
-  return ((m<<8)+t)*64/8; // 8 clocks per microsecond
-}*/
-
-// TCNT0 8bit 256values with 1/64 prescaler  1value is 8microseconds - 40us=5 TCNT0 steps
-
+//extern unsigned long timer0_overflow_count;
 
 int dhtread(void) //PB1 (9)
 {
-    // INIT BUFFERVAR TO RECEIVE DATA
     uint8_t mask = 128;
     uint8_t idx = 0;
 
@@ -866,83 +242,6 @@ int read22(void)
     return DHTLIB_OK;
 }
 
-/*
-boolean DHTread(void) {
-  uint8_t i;
-  uint16_t d;
-  boolean res=false;
-  
-  Pin2Input(DDRB,1);Pin2HIGH(PORTB,1);//  digitalWrite(A0, HIGH);  // internal pull up
-//  delay(500); //????????????
-for(i=0;i<8;i++){  delayMicroseconds(65000); } //520ms
-
-Pin2Output(DDRB,1);//  pinMode(A0, OUTPUT);
-Pin2LOW(PORTB,1);//  digitalWrite(A0, LOW);
-//  delay(25);
-    delayMicroseconds(25000);
-
-Pin2HIGH(PORTB,1);//  digitalWrite(A0, HIGH);
-  delayMicroseconds(30);
-Pin2Input(DDRB,1);//  pinMode(A0, INPUT);
-
-  
-
-//  d=0;while (!digitalRead(A0)){if(--d==0){return false;}}; // Here we wait while the DHT_IO pin remains low..... 
-//  d=0;while (digitalRead(A0)){if(--d==0){return false;}};    // Here we wait while the DHT_IO pin remains high..... 
-  d=10000;while (!(PINB&(1<<1))){if(--d==0){Pin2Input(DDRB,1);Pin2HIGH(PORTB,1);return false;}}; // Here we wait while the DHT_IO pin remains low..... 
-  d=60000;while (PINB&(1<<1)){if(--d==0){Pin2Input(DDRB,1);Pin2HIGH(PORTB,1);return false;}};    // Here we wait while the DHT_IO pin remains high..... 
-  
- // res=true;
-  for (i=0; i<5; i++){ DHTdata[i] = DHT_ReadData(); } 
-  if  (DHTdata[4] == ((DHTdata[0] + DHTdata[1] + DHTdata[2] + DHTdata[3]) & 0xFF)) {res=true;}  // checksum  check
-
-Pin2Input(DDRB,1);
-Pin2HIGH(PORTB,1);
-
-  return res;
-}
-
-
-word TouchD[4];
-//byte TouchPos=0;
-word Etouch;
-void TouchSample(void){for(byte i=0;i<4;i++){TouchD[i]=TouchSensor();} Etouch=TouchT(); } // calibrate touch sensor
-word TouchT(void)
-{
-  word res=0;
-  
-  for(byte i=0;i<4;i++){ res+= TouchD[i]; }
-  res=res+(res>>4); // среднее+ 1/16
-//  return res;
-  return (res>>2);
-}*/
-
-//#define DS1307_I2C_ADDRESS 0x68 // read and write address is different for DS1307 
-
-// use TSL2561_ADDR_LOW (0x29) or TSL2561_ADDR_HIGH (0x49) respectively TSL2561_ADDR_FLOAT)
-//TSL2561 tsl(TSL2561_ADDR_LOW); 
-
-// port B: 5 port C: 8 port D:11
-//byte cports[10]={PORTB1,PORTB2,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1,PORTB1};
-//  char tstr[7];// строка даты и времени
-
-
-//byte PS=0xFF; // предыдущая секунда
-//byte PH=0xFF; // предыдущий час
-//byte HR; // текущий час (0..23)
-//byte PM; // предыдущая минута
-//byte MN;
-//byte CHAS,LEFT;
-// интенсивность/продолжительность пыхи в микросекундах 0..255
-//byte mi=25; 
-//byte mi=0;// максимальная интенсивность или 16 если меньше 
-//byte Intensity[24] = {2,2,2,2,2,2, 3,5,7,9,12,14, 15,16,16,16,15,14, 12,9,7,5,3,0};
-//byte Intensity[16] = {0,0,0,1, 1,2,3,3, 4,4,5,4, 3,3,2,1};
-
-//word ADCresult;
-//byte volatile ADCready=0;
-//byte volatile ADCfree=1;
-
 // port C
 #define moisture_input 0
 #define divider_top 2
@@ -1013,33 +312,14 @@ for(i=0;i<4;i++){  delayMicroseconds(65000); } //260ms
 //  return reading;
 }
 
-//byte pp[10]={
-//  5,5,5,5,5,5,5,5,5,5}; //port
-//byte pb[10]={
-//  1,0,0,0,0,0,0,0,0,0}; // bit in port
-// the setup routine runs once when you press reset:
 uint8_t v;
-uint8_t   extreset;
+//uint8_t   extreset;
 
-//word uptimeS;
-//word bts=0; // timestamp
-
-//byte setupdone=0;
-//byte portbmask;
-//byte ist=0;
-
-//long ca,cb,cc;
-word InitialFreeRAM;
+//word InitialFreeRAM;
 
 void setup() {                
-//  byte pmask,idx;
 
-//  wdt_disable();
-
-//if (setupdone){  LcdInit();LcdClear();ta("2nd run of setup?"); delay(10000);}
-     // Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// start charging timeout capacitor (default state)
-
-  extreset=MCUSR;
+//  extreset=MCUSR;
   
     Pin2Input(DDRC,3);Pin2HIGH(PORTC,3); // pull up on A3 (user button)
   //delay(100);// pull up settle time
@@ -1153,7 +433,7 @@ setup_watchdog(T2S); // если в течении 2s не сбросить ст
 
     Pin2Output(DDRB,6);
     Pin2Output(DDRB,7);
-    InitialFreeRAM=freeRam();
+ //   InitialFreeRAM=freeRam();
 }
 
 
@@ -1178,6 +458,15 @@ ISR(TIMER1_OVF_vect)
  
 //uint16_t volatile ctr;
 //uint8_t volatile checktime=0;
+
+//IR: 1969 Full: 6750 Max (IR|Full):1978 6768   -- 4920LUX -рассеянный дневной свет 12:39    0.29
+
+//IR: 3327 Full: 11525 Max (IR|Full):3331 11590 у стеклопакета  12790 LUX     0.287
+
+//IR: 8609 Full: 33199 Max (IR|Full):8843 33936   у стеклопакета   36700 lux   солнце сквозь дымку облаков. 15:00     0.26    меньше красного
+
+
+
 
 /*
  ISR (TIMER1_COMPA_vect)
@@ -1549,7 +838,7 @@ void unap(byte timeout)
   WDTCSR = ((1<<WDIE) | timeout);
   sei();
 
-            WDhappen=0;
+            WDflag=0;
             WDsleep=1;// notify WD that we are sleeping (to avoid reboot)
         sleeps=0;
       do{
@@ -1558,7 +847,7 @@ void unap(byte timeout)
 //wake up here
 // check if it us or not
         sleep_disable();
-        if(WDhappen){break;}else{sleeps++;}
+        if(WDflag){break;}else{sleeps++;}
       }while(1);
 }
 
@@ -1569,7 +858,7 @@ void fastnap(void)
 Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// charge cap
 //delayMicroseconds(2);
 
-      WDhappen=0;
+      WDflag=0;
       sleeps=0;
       prev=TCNT1;
       TCNT1=0;
@@ -1586,7 +875,7 @@ Pin2Output(DDRD,2);Pin2HIGH(PORTD,2);// charge cap
             sleep_disable();
   //      if(pin3_interrupt_flag||WDhappen){break;}else{sleeps++;}
   // if wakeup by WD then reboot?
-            if(pin2_interrupt_flag||WDhappen){break;}else{sleeps++;} // WD is important in case  RC sleeper went off
+            if(pin2_interrupt_flag||WDflag){break;}else{sleeps++;} // WD is important in case  RC sleeper went off
           }while(1);
           TCNT1+=prev;
 //  cli();t1111=TCNT1;sei();//atomic read
@@ -1597,7 +886,7 @@ void longnap(void)
       
       Pin2Output(DDRD,3);Pin2HIGH(PORTD,3);// charge cap
 
-      WDhappen=0;
+      WDflag=0;
       sleeps=0;
       prev=TCNT1;
       TCNT1=0;
@@ -1613,7 +902,7 @@ void longnap(void)
 //wake up here
             sleep_disable();
   //      if(pin3_interrupt_flag||WDhappen){break;}else{sleeps++;}
-            if(pin3_interrupt_flag||WDhappen){break;}else{sleeps++;} // WD is important in case  RC sleeper went off
+            if(pin3_interrupt_flag||WDflag){break;}else{sleeps++;} // WD is important in case  RC sleeper went off
           }while(1);
           TCNT1+=prev;
 //  cli();t1111=TCNT1;sei();//atomic read
@@ -1852,7 +1141,7 @@ void UpdateScreen(void)
     
 //    ta(" sss=");tn(1000,sss);    
 //    ta(" bbb=");tn(1000,bbb);    
-    ta(" if=");th((pin0_interrupt_flag<<5)|(pin2_interrupt_flag<2)|(pin3_interrupt_flag<<1)|(WDhappen));
+    ta(" if=");th((pin0_interrupt_flag<<5)|(pin2_interrupt_flag<2)|(pin3_interrupt_flag<<1)|(WDflag));
     ta("Vcc");tn(100,VccN);ta(" L");tn(100,VccL);ta(" H");tn(100,VccH);
     
     
@@ -2389,7 +1678,7 @@ The zero-register is implicity call-saved (implicit because R1 is a fixed regist
       else if (FlashIntensity==1){x1();}
       else {x0();}
       
-   if (InitialFreeRAM<freeRam()){reboot();}
+  // if (InitialFreeRAM<freeRam()){reboot();}
 
     if(button_is_pressed) { button_is_pressed=0;AddMillis(MILS); } // плюс час если кнопка A3 нажата
    
